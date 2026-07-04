@@ -1,0 +1,14 @@
+﻿# Fichiers temporaires
+~$*
+*.tmp
+*.bak
+
+# Systeme
+.DS_Store
+Thumbs.db
+
+# Environnements et dependances futures
+node_modules/
+vendor/
+.env
+.env.local
