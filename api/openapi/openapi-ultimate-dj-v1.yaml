@@ -1,0 +1,639 @@
+openapi: 3.0.3
+info:
+  title: Ultimate DJ API
+  version: 1.0.0
+  description: API REST du projet Ultimate DJ - gestion des prestations DJ et animation événementielle.
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Serveur local de développement
+security:
+  - bearerAuth: []
+tags:
+  - name: Authentification
+  - name: Avis
+  - name: Catalogue
+  - name: Contrats
+  - name: DJ
+  - name: Devis
+  - name: Disponibilités
+  - name: Documentation
+  - name: Factures
+  - name: Open Data
+  - name: Paiements
+  - name: Playlist
+  - name: Rendez-vous
+  - name: Réservations
+paths:
+  /api/schema/:
+    get:
+      tags: [Documentation]
+      summary: "Schéma OpenAPI généré par drf-spectacular."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /api/docs/swagger/:
+    get:
+      tags: [Documentation]
+      summary: "Interface Swagger UI pour tester l'API."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /api/docs/redoc/:
+    get:
+      tags: [Documentation]
+      summary: "Documentation ReDoc plus lisible pour consultation."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /auth/token/:
+    post:
+      tags: [Authentification]
+      summary: "Connexion et génération des jetons JWT."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /auth/token/refresh/:
+    post:
+      tags: [Authentification]
+      summary: "Renouvellement du jeton d'accès."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /me/:
+    get:
+      tags: [Authentification]
+      summary: "Profil de l'utilisateur connecté."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /open-data/packages/:
+    get:
+      tags: [Open Data]
+      summary: "Liste publique des packages commerciaux actifs."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /open-data/event-types/:
+    get:
+      tags: [Open Data]
+      summary: "Types d'événements proposés."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /open-data/music-styles/:
+    get:
+      tags: [Open Data]
+      summary: "Styles musicaux disponibles."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /open-data/djs/:
+    get:
+      tags: [Open Data]
+      summary: "Présentation publique des DJ actifs, sans données privées."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /open-data/reviews/:
+    get:
+      tags: [Open Data]
+      summary: "Avis publiés et modérés."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /packages/:
+    get:
+      tags: [Catalogue]
+      summary: "Consultation des formules et prix de base."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /service-options/:
+    get:
+      tags: [Catalogue]
+      summary: "Options payantes disponibles."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /djs/:
+    get:
+      tags: [DJ]
+      summary: "Liste des DJ visibles côté client."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /djs/{id}/availability/:
+    get:
+      tags: [Disponibilités]
+      summary: "Créneaux disponibles d'un DJ."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /quotes/calculate/:
+    post:
+      tags: [Devis]
+      summary: "Simulation de devis informatif."
+      security: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /quotes/:
+    get:
+      tags: [Devis]
+      summary: "Liste des devis du client ou de l'administrateur."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /quotes/:
+    post:
+      tags: [Devis]
+      summary: "Création d'un devis lié à un client."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /quotes/{id}/:
+    get:
+      tags: [Devis]
+      summary: "Détail d'un devis."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /quotes/{id}/:
+    patch:
+      tags: [Devis]
+      summary: "Modification limitée du devis tant qu'il n'est pas accepté."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /quotes/{id}/accept/:
+    post:
+      tags: [Devis]
+      summary: "Acceptation du devis et préparation de la réservation."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /bookings/:
+    get:
+      tags: [Réservations]
+      summary: "Liste des réservations selon le rôle."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /bookings/:
+    post:
+      tags: [Réservations]
+      summary: "Création d'une réservation à partir d'un devis accepté."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /bookings/{id}/:
+    get:
+      tags: [Réservations]
+      summary: "Détail complet d'une réservation."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /bookings/{id}/status/:
+    patch:
+      tags: [Réservations]
+      summary: "Mise à jour du statut métier."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /bookings/{id}/cancel/:
+    post:
+      tags: [Réservations]
+      summary: "Annulation avec motif et règles de remboursement."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /appointments/:
+    get:
+      tags: [Rendez-vous]
+      summary: "Rendez-vous préparatoires."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /appointments/:
+    post:
+      tags: [Rendez-vous]
+      summary: "Prise de rendez-vous préparatoire."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /contracts/:
+    get:
+      tags: [Contrats]
+      summary: "Liste des contrats accessibles."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /contracts/:
+    post:
+      tags: [Contrats]
+      summary: "Création d'un contrat personnalisé."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /contracts/{id}/download/:
+    get:
+      tags: [Contrats]
+      summary: "Téléchargement du contrat PDF."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /invoices/:
+    get:
+      tags: [Factures]
+      summary: "Factures liées aux réservations."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /invoices/{id}/download/:
+    get:
+      tags: [Factures]
+      summary: "Téléchargement de la facture PDF."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /payments/checkout-session/:
+    post:
+      tags: [Paiements]
+      summary: "Création d'une session Stripe Checkout."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /payments/stripe-webhook/:
+    post:
+      tags: [Paiements]
+      summary: "Réception des événements Stripe."
+      security: []
+      description: Endpoint appelé par Stripe avec vérification de signature webhook côté serveur.
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /playlists/:
+    get:
+      tags: [Playlist]
+      summary: "Playlist liée aux événements du client."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /playlists/{id}/songs/:
+    post:
+      tags: [Playlist]
+      summary: "Ajout d'une chanson demandée."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /playlists/songs/{id}/:
+    patch:
+      tags: [Playlist]
+      summary: "Mise à jour d'une préférence musicale."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /reviews/:
+    post:
+      tags: [Avis]
+      summary: "Dépôt d'un avis après prestation."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+  /reviews/{id}/moderate/:
+    patch:
+      tags: [Avis]
+      summary: "Modération d'un avis."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Succès
+        '400':
+          description: Requête invalide
+        '401':
+          description: Authentification requise ou jeton invalide
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+    QuoteCalculationRequest:
+      type: object
+      properties:
+        event_type_id:
+          type: integer
+        package_id:
+          type: integer
+        duration_hours:
+          type: number
+        distance_km:
+          type: number
+        parking_available:
+          type: boolean
+    QuoteCalculationResponse:
+      type: object
+      properties:
+        subtotal:
+          type: string
+        travel_fee:
+          type: string
+        total_amount:
+          type: string
+        deposit_amount:
+          type: string

@@ -1,5 +1,6 @@
 ﻿# Fichiers temporaires
 ~$*
+.~lock*
 *.tmp
 *.bak
 
@@ -12,3 +13,12 @@ node_modules/
 vendor/
 .env
 .env.local
+# Python / Django
+__pycache__/
+*.py[cod]
+*.sqlite3
+backend/.venv/
+backend/staticfiles/
+# Frontend
+frontend/dist/
+frontend/.vite/
