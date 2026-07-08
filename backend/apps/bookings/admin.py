@@ -1,10 +1,80 @@
 from django.contrib import admin
 
-from .models import Booking, Playlist, PlaylistSong, Quote, Venue
+from .models import (
+    Booking,
+    BookingEquipment,
+    Contract,
+    Playlist,
+    PlaylistSong,
+    PreparatoryAppointment,
+    Quote,
+    QuoteOption,
+    Review,
+    Venue,
+)
 
 
-admin.site.register(Venue)
-admin.site.register(Quote)
-admin.site.register(Booking)
-admin.site.register(Playlist)
-admin.site.register(PlaylistSong)
+class QuoteOptionInline(admin.TabularInline):
+    model = QuoteOption
+    extra = 0
+
+
+class BookingEquipmentInline(admin.TabularInline):
+    model = BookingEquipment
+    extra = 0
+
+
+@admin.register(Venue)
+class VenueAdmin(admin.ModelAdmin):
+    list_display = ("name", "city", "postal_code", "has_parking", "distance_km_from_base")
+    search_fields = ("name", "city", "postal_code")
+    list_filter = ("has_parking", "city")
+
+
+@admin.register(Quote)
+class QuoteAdmin(admin.ModelAdmin):
+    list_display = ("id", "client", "event_type", "package", "event_date", "status", "total_amount", "deposit_amount")
+    list_filter = ("status", "event_type", "package")
+    search_fields = ("client__user__email", "venue__name")
+    inlines = [QuoteOptionInline]
+
+
+@admin.register(Booking)
+class BookingAdmin(admin.ModelAdmin):
+    list_display = ("id", "client", "dj", "event_date", "start_time", "status", "total_amount", "deposit_paid")
+    list_filter = ("status", "event_type", "deposit_paid")
+    search_fields = ("client__user__email", "dj__stage_name", "venue__name")
+    inlines = [BookingEquipmentInline]
+
+
+@admin.register(PreparatoryAppointment)
+class PreparatoryAppointmentAdmin(admin.ModelAdmin):
+    list_display = ("booking", "scheduled_at", "mode", "status")
+    list_filter = ("mode", "status")
+
+
+@admin.register(Contract)
+class ContractAdmin(admin.ModelAdmin):
+    list_display = ("contract_number", "booking", "status", "signed_by_client_at", "created_at")
+    search_fields = ("contract_number",)
+    list_filter = ("status",)
+
+
+@admin.register(Playlist)
+class PlaylistAdmin(admin.ModelAdmin):
+    list_display = ("booking", "main_style", "created_at")
+    search_fields = ("booking__client__user__email",)
+
+
+@admin.register(PlaylistSong)
+class PlaylistSongAdmin(admin.ModelAdmin):
+    list_display = ("title", "artist", "playlist", "preference_level", "status")
+    search_fields = ("title", "artist")
+    list_filter = ("preference_level", "status")
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ("booking", "client", "dj", "rating", "status", "created_at")
+    list_filter = ("rating", "status")
+    search_fields = ("comment", "client__user__email", "dj__stage_name")

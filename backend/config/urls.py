@@ -4,6 +4,11 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 
+admin.site.site_header = "Administration Ultimate DJ"
+admin.site.site_title = "Administration Ultimate DJ"
+admin.site.index_title = "Gestion des prestations DJ"
+
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

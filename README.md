@@ -35,6 +35,16 @@ database/    Dump SQL MySQL/MariaDB
 documents/   Livrables de conception et documents TFE
 ```
 
+## Journal de bord
+
+Le logbook du projet se trouve dans :
+
+```text
+documents/logbook/logbook-projet-ultimate-dj.md
+```
+
+Il retrace les principales décisions, productions et étapes de travail depuis la récupération des conversations de départ jusqu'au développement du backend.
+
 ## Démarrage backend
 
 ```bash
@@ -66,4 +76,4 @@ npm run dev
 
 ## État du projet
 
-Le starter kit Django/React est initialisé. Les prochaines étapes consistent à installer les dépendances, créer les migrations, charger des données de test et développer progressivement les fonctionnalités métier.
+Le starter kit Django/React est initialisé. La priorité actuelle est de terminer le backend Django avant de poursuivre le frontend React. Le mapping relationnel a été enrichi avec les entités métier principales : devis, réservations, contrats, factures, paiements, matériel, playlists, avis clients et rendez-vous préparatoires.

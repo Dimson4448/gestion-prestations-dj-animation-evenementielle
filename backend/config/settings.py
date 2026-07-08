@@ -124,7 +124,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Ultimate DJ API",
+    "TITLE": "API Ultimate DJ",
     "DESCRIPTION": "API REST pour la gestion des prestations DJ et animation événementielle.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
