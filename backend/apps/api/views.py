@@ -1,7 +1,9 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
+from rest_framework.reverse import reverse
 from drf_spectacular.utils import extend_schema
 
 from apps.accounts.models import DJProfile
@@ -19,6 +21,7 @@ from apps.bookings.models import (
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
 
+from .permissions import AdministrationOuProprietaire, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
 from .serializers import (
     BookingSerializer,
     ContractSerializer,
@@ -39,6 +42,7 @@ from .serializers import (
     ReviewSerializer,
     ServiceOptionSerializer,
     VenueSerializer,
+    calculate_quote_amounts,
 )
 
 
@@ -46,43 +50,76 @@ class PublicReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.AllowAny]
 
 
+class AdminWritePublicReadViewSet(viewsets.ModelViewSet):
+    permission_classes = [LecturePubliqueEcritureAdmin]
+
+
 class ProtectedModelViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [UtilisateurAuthentifie, AdministrationOuProprietaire]
 
 
-class PackageViewSet(PublicReadOnlyViewSet):
+def client_connecte(user):
+    return getattr(user, "client_profile", None)
+
+
+def dj_connecte(user):
+    return getattr(user, "dj_profile", None)
+
+
+def filtrer_par_reservation(queryset, user, prefix=""):
+    if user.is_staff:
+        return queryset
+
+    client = client_connecte(user)
+    dj = dj_connecte(user)
+    if client:
+        return queryset.filter(**{f"{prefix}booking__client": client})
+    if dj:
+        return queryset.filter(**{f"{prefix}booking__dj": dj})
+    return queryset.none()
+
+
+class PackageViewSet(AdminWritePublicReadViewSet):
     queryset = Package.objects.filter(is_active=True).order_by("base_price")
     serializer_class = PackageSerializer
     search_fields = ["name", "description"]
     ordering_fields = ["base_price", "included_hours", "name"]
 
 
-class ServiceOptionViewSet(PublicReadOnlyViewSet):
+class ServiceOptionViewSet(AdminWritePublicReadViewSet):
     queryset = ServiceOption.objects.filter(is_active=True).order_by("name")
     serializer_class = ServiceOptionSerializer
+    search_fields = ["name"]
+    ordering_fields = ["name", "unit_price"]
 
 
-class EquipmentViewSet(PublicReadOnlyViewSet):
+class EquipmentViewSet(AdminWritePublicReadViewSet):
     queryset = Equipment.objects.filter(status=Equipment.AVAILABLE).order_by("category", "name")
     serializer_class = EquipmentSerializer
     filterset_fields = ["category", "status"]
     search_fields = ["name", "serial_number", "category"]
+    ordering_fields = ["category", "name", "daily_cost"]
 
 
-class EventTypeViewSet(PublicReadOnlyViewSet):
+class EventTypeViewSet(AdminWritePublicReadViewSet):
     queryset = EventType.objects.order_by("name")
     serializer_class = EventTypeSerializer
+    search_fields = ["name"]
+    ordering_fields = ["name"]
 
 
-class MusicStyleViewSet(PublicReadOnlyViewSet):
+class MusicStyleViewSet(AdminWritePublicReadViewSet):
     queryset = MusicStyle.objects.order_by("name")
     serializer_class = MusicStyleSerializer
+    search_fields = ["name"]
+    ordering_fields = ["name"]
 
 
 class DJProfileViewSet(PublicReadOnlyViewSet):
     queryset = DJProfile.objects.filter(is_available=True).prefetch_related("music_styles").order_by("stage_name")
     serializer_class = DJProfileSerializer
-    search_fields = ["stage_name", "bio"]
+    search_fields = ["stage_name", "bio", "music_styles__name"]
+    ordering_fields = ["stage_name", "years_experience", "base_hourly_rate"]
 
 
 class AvailabilityListView(ListAPIView):
@@ -101,68 +138,163 @@ class AvailabilityListView(ListAPIView):
 
 
 class VenueViewSet(ProtectedModelViewSet):
-    queryset = Venue.objects.select_related("client").all()
     serializer_class = VenueSerializer
     search_fields = ["name", "city", "postal_code"]
+    ordering_fields = ["city", "name", "distance_km_from_base"]
+
+    def get_queryset(self):
+        queryset = Venue.objects.select_related("client").all()
+        if self.request.user.is_staff:
+            return queryset
+        client = client_connecte(self.request.user)
+        if client:
+            return queryset.filter(client=client)
+        return queryset.none()
+
+    def perform_create(self, serializer):
+        if self.request.user.is_staff:
+            serializer.save()
+        else:
+            serializer.save(client=client_connecte(self.request.user))
 
 
 class QuoteViewSet(ProtectedModelViewSet):
-    queryset = Quote.objects.select_related("client", "event_type", "package", "venue").all()
     serializer_class = QuoteSerializer
     filterset_fields = ["status", "event_type", "package"]
     search_fields = ["venue__name", "client__user__email"]
+    ordering_fields = ["event_date", "created_at", "total_amount"]
+
+    def get_queryset(self):
+        queryset = Quote.objects.select_related("client", "event_type", "package", "venue").all()
+        if self.request.user.is_staff:
+            return queryset
+        client = client_connecte(self.request.user)
+        if client:
+            return queryset.filter(client=client)
+        return queryset.none()
+
+    def perform_create(self, serializer):
+        package = serializer.validated_data["package"]
+        duration_hours = serializer.validated_data["duration_hours"]
+        distance_km = serializer.validated_data.get("distance_km", 0)
+        amounts = calculate_quote_amounts(package, duration_hours, distance_km)
+        client = serializer.validated_data.get("client")
+        if not self.request.user.is_staff:
+            client = client_connecte(self.request.user)
+        serializer.save(client=client, **amounts)
 
 
 class BookingViewSet(ProtectedModelViewSet):
-    queryset = Booking.objects.select_related("client", "dj", "event_type", "package", "venue").prefetch_related("equipment").all()
     serializer_class = BookingSerializer
     filterset_fields = ["status", "event_type", "package", "deposit_paid"]
     search_fields = ["client__user__email", "dj__stage_name", "venue__name"]
+    ordering_fields = ["event_date", "created_at", "total_amount"]
+
+    def get_queryset(self):
+        queryset = Booking.objects.select_related("client", "dj", "event_type", "package", "venue").prefetch_related("equipment")
+        if self.request.user.is_staff:
+            return queryset.all()
+        client = client_connecte(self.request.user)
+        if client:
+            return queryset.filter(client=client)
+        dj = dj_connecte(self.request.user)
+        if dj:
+            return queryset.filter(dj=dj)
+        return queryset.none()
+
+    def perform_create(self, serializer):
+        if self.request.user.is_staff:
+            serializer.save()
+        else:
+            serializer.save(client=client_connecte(self.request.user))
 
 
 class PreparatoryAppointmentViewSet(ProtectedModelViewSet):
-    queryset = PreparatoryAppointment.objects.select_related("booking").all()
     serializer_class = PreparatoryAppointmentSerializer
     filterset_fields = ["mode", "status"]
+    ordering_fields = ["scheduled_at", "status"]
+
+    def get_queryset(self):
+        queryset = PreparatoryAppointment.objects.select_related("booking", "booking__client", "booking__dj").all()
+        return filtrer_par_reservation(queryset, self.request.user)
 
 
 class ContractViewSet(ProtectedModelViewSet):
-    queryset = Contract.objects.select_related("booking").all()
     serializer_class = ContractSerializer
     filterset_fields = ["status"]
     search_fields = ["contract_number"]
+    ordering_fields = ["created_at", "contract_number"]
+
+    def get_queryset(self):
+        queryset = Contract.objects.select_related("booking", "booking__client", "booking__dj").all()
+        return filtrer_par_reservation(queryset, self.request.user)
 
 
 class InvoiceViewSet(ProtectedModelViewSet):
-    queryset = Invoice.objects.select_related("booking").all()
     serializer_class = InvoiceSerializer
     filterset_fields = ["invoice_type", "status"]
     search_fields = ["invoice_number"]
+    ordering_fields = ["issued_at", "due_at", "amount"]
+
+    def get_queryset(self):
+        queryset = Invoice.objects.select_related("booking", "booking__client", "booking__dj").all()
+        return filtrer_par_reservation(queryset, self.request.user)
 
 
 class PaymentViewSet(ProtectedModelViewSet):
-    queryset = Payment.objects.select_related("booking", "invoice").all()
     serializer_class = PaymentSerializer
     filterset_fields = ["status", "currency"]
+    ordering_fields = ["paid_at", "amount"]
+
+    def get_queryset(self):
+        queryset = Payment.objects.select_related("booking", "booking__client", "booking__dj", "invoice").all()
+        return filtrer_par_reservation(queryset, self.request.user)
 
 
 class PlaylistViewSet(ProtectedModelViewSet):
-    queryset = Playlist.objects.select_related("booking", "main_style").all()
     serializer_class = PlaylistSerializer
+    filterset_fields = ["main_style"]
+
+    def get_queryset(self):
+        queryset = Playlist.objects.select_related("booking", "booking__client", "booking__dj", "main_style").all()
+        return filtrer_par_reservation(queryset, self.request.user)
 
 
 class PlaylistSongViewSet(ProtectedModelViewSet):
-    queryset = PlaylistSong.objects.select_related("playlist").all()
     serializer_class = PlaylistSongSerializer
     filterset_fields = ["preference_level", "status"]
     search_fields = ["title", "artist"]
+    ordering_fields = ["title", "artist", "status"]
+
+    def get_queryset(self):
+        queryset = PlaylistSong.objects.select_related("playlist", "playlist__booking", "playlist__booking__client", "playlist__booking__dj").all()
+        return filtrer_par_reservation(queryset, self.request.user, prefix="playlist__")
 
 
 class ReviewViewSet(ProtectedModelViewSet):
-    queryset = Review.objects.select_related("booking", "client", "dj").all()
     serializer_class = ReviewSerializer
     filterset_fields = ["rating", "status"]
     search_fields = ["comment", "dj__stage_name"]
+    ordering_fields = ["created_at", "rating"]
+
+    def get_queryset(self):
+        queryset = Review.objects.select_related("booking", "client", "dj").all()
+        if self.request.user.is_staff:
+            return queryset
+        client = client_connecte(self.request.user)
+        if client:
+            return queryset.filter(client=client)
+        dj = dj_connecte(self.request.user)
+        if dj:
+            return queryset.filter(dj=dj)
+        return queryset.none()
+
+    def perform_create(self, serializer):
+        if self.request.user.is_staff:
+            serializer.save()
+        else:
+            booking = serializer.validated_data["booking"]
+            serializer.save(client=booking.client, dj=booking.dj)
 
 
 @extend_schema(
@@ -174,21 +306,21 @@ class ReviewViewSet(ProtectedModelViewSet):
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
 def calculate_quote(request):
-    package_id = request.data.get("package_id")
-    duration_hours = float(request.data.get("duration_hours", 0))
-    distance_km = float(request.data.get("distance_km", 0))
+    serializer = QuoteCalculationRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
 
-    package = Package.objects.get(pk=package_id)
-    extra_hours = max(duration_hours - float(package.included_hours), 0)
-    subtotal = float(package.base_price) + extra_hours * 95
-    travel_fee = distance_km * 0.65
-    total = subtotal + travel_fee
-
-    return Response(
-        {
-            "subtotal": round(subtotal, 2),
-            "travel_fee": round(travel_fee, 2),
-            "total_amount": round(total, 2),
-            "deposit_amount": round(total * 0.30, 2),
-        }
+    package = get_object_or_404(Package.objects.filter(is_active=True), pk=serializer.validated_data["package_id"])
+    amounts = calculate_quote_amounts(
+        package,
+        serializer.validated_data["duration_hours"],
+        serializer.validated_data["distance_km"],
     )
+    response = {
+        **amounts,
+        "currency": "EUR",
+        "liens": {
+            "packages": reverse("package-list", request=request),
+            "creer_devis": reverse("quote-list", request=request),
+        },
+    }
+    return Response(QuoteCalculationResponseSerializer(response).data)

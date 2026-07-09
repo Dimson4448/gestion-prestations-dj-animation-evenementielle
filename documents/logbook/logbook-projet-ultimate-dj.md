@@ -143,10 +143,35 @@ Ce logbook retrace les principales décisions, productions et étapes de travail
   - paiements.
 - Ajout des libellés français dans les modèles et l'administration Django.
 
+### 2026-07-08 - Stratégie de sécurité
+
+- Mise en pause temporaire du code pour produire le livrable documentaire demandé.
+- Rédaction du document `strategie-securite-ultimate-dj_TCHAMAKO.docx`.
+- Prise en compte de l'approche Security by Design.
+- Utilisation de l'OWASP Top 10 2025 comme grille de lecture des risques Web.
+- Adaptation de la stratégie au projet Ultimate DJ : authentification, autorisation, accès aux ressources, protection des données personnelles, IDS, plan de reprise d'activité, sauvegardes, déploiement et maintenance préventive.
+- Ajout d'une bibliographie au format ISO 690.
+
+### 2026-07-09 - Stratégie de référencement SEO / SEA
+
+- Mise en pause du code pour produire le livrable documentaire de référencement.
+- Rédaction du document `strategie-referencement-seo-sea-ultimate-dj_TCHAMAKO.docx`.
+- Prise en compte de la logique SEM = SEO + SEA + SMO.
+- Adaptation de la stratégie au projet Ultimate DJ : SEO technique, contenus, référencement local, multilingue français/anglais/néerlandais, données structurées, Google Ads, SMO, indicateurs de suivi et plan d'action.
+- Utilisation des recommandations Google Search Central et d'une bibliographie au format ISO 690.
+
+### 2026-07-09 - Évolution de l'API REST backend
+
+- Enrichissement des serializers Django REST Framework.
+- Ajout de liens hypermédia `liens` dans les réponses API pour faciliter la navigation entre les ressources.
+- Ajout de permissions API dédiées pour distinguer lecture publique, écriture administrateur et accès aux ressources personnelles.
+- Filtrage des ressources métier selon l'utilisateur connecté : client, DJ ou administrateur.
+- Amélioration de l'endpoint de calcul de devis informatif.
+- Ajout de tests automatisés pour le catalogue public, le calcul de devis, la protection des lieux et la création de lieu par un client connecté.
+- Validation de la documentation Swagger/OpenAPI.
+
 ## Prochaines étapes prévues
 
-- Générer et appliquer les nouvelles migrations Django.
-- Vérifier le backend avec `manage.py check`.
 - Enrichir les fixtures de test côté Django.
 - Compléter progressivement les endpoints REST.
 - Développer les parcours backend avant de reprendre le frontend.
