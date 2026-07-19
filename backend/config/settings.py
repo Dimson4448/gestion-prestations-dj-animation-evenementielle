@@ -1,12 +1,19 @@
 from pathlib import Path
 
-from decouple import Csv, config
+from decouple import AutoConfig, Config, Csv, RepositoryEnv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+ENV_FILE = BASE_DIR / ".env"
+env_repository = RepositoryEnv(ENV_FILE) if ENV_FILE.exists() else None
+config = Config(env_repository) if env_repository else AutoConfig(search_path=BASE_DIR)
+
 SECRET_KEY = config("SECRET_KEY", default="dev-secret-key")
-DEBUG = config("DEBUG", default=True, cast=bool)
+DEBUG_VALUE = str(
+    env_repository.data.get("DEBUG", "true") if env_repository else config("DEBUG", default="true")
+).strip().lower()
+DEBUG = DEBUG_VALUE in {"1", "true", "yes", "on", "debug", "development"}
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="127.0.0.1,localhost", cast=Csv())
 
 INSTALLED_APPS = [
@@ -98,11 +105,16 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "home"
+LOGOUT_REDIRECT_URL = "home"
 
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
-    default="http://localhost:5173",
+    default="http://localhost:5173,http://127.0.0.1:5173",
     cast=Csv(),
 )
 

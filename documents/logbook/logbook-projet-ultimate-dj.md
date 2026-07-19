@@ -170,6 +170,22 @@ Ce logbook retrace les principales décisions, productions et étapes de travail
 - Ajout de tests automatisés pour le catalogue public, le calcul de devis, la protection des lieux et la création de lieu par un client connecté.
 - Validation de la documentation Swagger/OpenAPI.
 
+### 2026-07-10 - Aspects juridiques et cadre légal
+
+- Mise en pause du code pour produire le livrable documentaire juridique.
+- Rédaction du document `aspects-juridiques-cadre-legal-ultimate-dj_TCHAMAKO.docx`.
+- Analyse des aspects liés au droit d'Internet, aux informations légales, à la protection des données personnelles, aux cookies, à l'e-commerce, au droit d'auteur, à la responsabilité, aux avis clients, à la vie privée et au droit à l'image.
+- Adaptation des obligations au projet Ultimate DJ : devis, contrats, acompte Stripe, facturation, playlists, photos/vidéos d'événements, avis clients et gestion des droits RGPD.
+- Ajout d'une bibliographie au format ISO 690.
+
+### 2026-07-11 - Préparation de la version alpha
+
+- Transformation du frontend React en MVP alpha avec navigation principale, catalogue, simulation de devis, connexion, inscription et profil client.
+- Ajout d'une demande de suppression du compte dans l'écran Profil.
+- Vérification des titres et libellés visibles en français avec accents corrects.
+- Ajout d'une note de release locale `RELEASE_ALPHA.md` avec le tag proposé `v0.1.0-alpha`.
+- Validation locale du backend Django, des tests API et du build frontend.
+
 ## Prochaines étapes prévues
 
 - Enrichir les fixtures de test côté Django.
