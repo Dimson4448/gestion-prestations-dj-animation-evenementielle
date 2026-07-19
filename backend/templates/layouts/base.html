@@ -1,0 +1,50 @@
+{% load static %}
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0B1020">
+    <title>{% block title %}Ultimate DJ{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'images/logo-ultimate-dj.png' %}">
+    <link rel="stylesheet" href="{% static 'css/backend.css' %}">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="{% url 'home' %}">
+        <img src="{% static 'images/logo-ultimate-dj.png' %}" alt="Ultimate DJ">
+      </a>
+      <nav aria-label="Navigation principale">
+        <a class="active" href="{% url 'home' %}">Accueil</a>
+        <a href="{% url 'package-list' %}">API Catalogue</a>
+        <a href="{% url 'swagger-ui' %}">Documentation API</a>
+        {% if not user.is_authenticated or user.is_staff %}
+          <a class="admin-link" href="{% url 'admin:index' %}">Administration</a>
+        {% endif %}
+        {% if user.is_authenticated %}
+          <span class="user-label">{{ user.get_username }}</span>
+          <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit">Se déconnecter</button>
+          </form>
+        {% else %}
+          <a href="{% url 'login' %}">Se connecter</a>
+        {% endif %}
+      </nav>
+    </header>
+
+    {% if messages %}
+      <div class="messages">
+        {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <main>{% block content %}{% endblock %}</main>
+
+    <footer>
+      <strong>Ultimate DJ</strong>
+      <span>Backend Django 5 · Réserver. Mixer. Célébrer.</span>
+      <a href="http://127.0.0.1:5173/">Ouvrir le frontend React</a>
+    </footer>
+  </body>
+</html>

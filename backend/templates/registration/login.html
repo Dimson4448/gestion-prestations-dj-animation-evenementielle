@@ -1,0 +1,17 @@
+{% extends "layouts/base.html" %}
+{% block title %}Connexion · Ultimate DJ{% endblock %}
+{% block content %}
+  <section class="auth-wrap">
+    <form method="post" class="login-card">
+      {% csrf_token %}
+      <p class="eyebrow dark">Espace sécurisé</p>
+      <h1>Connexion</h1>
+      {% if form.errors %}<p class="form-error">Identifiant ou mot de passe incorrect.</p>{% endif %}
+      <label>Nom d'utilisateur{{ form.username }}</label>
+      <label>Mot de passe{{ form.password }}</label>
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+      <button class="button primary" type="submit">Se connecter</button>
+      <a href="{% url 'password_reset' %}">Mot de passe oublié ?</a>
+    </form>
+  </section>
+{% endblock %}

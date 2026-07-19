@@ -1,0 +1,72 @@
+{% extends "layouts/base.html" %}
+{% block title %}Ultimate DJ · Backend Django{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Application backend · Django 5</p>
+      <h1>Gestion des prestations DJ</h1>
+      <p class="lead">
+        Interface serveur du projet Ultimate DJ : catalogue, disponibilités,
+        API REST et accès au back-office d'administration.
+      </p>
+      <div class="hero-actions">
+        <a class="button primary" href="{% url 'admin:index' %}">Ouvrir l'administration</a>
+        <a class="button secondary" href="{% url 'swagger-ui' %}">Explorer l'API</a>
+      </div>
+    </div>
+    <aside class="status-card">
+      <span class="status"><i></i> Backend opérationnel</span>
+      <dl>
+        <div><dt>Framework</dt><dd>Django 5</dd></div>
+        <div><dt>Base locale</dt><dd>SQLite</dd></div>
+        <div><dt>API</dt><dd>/api/v1/</dd></div>
+        <div><dt>Authentification</dt><dd>Session + JWT</dd></div>
+      </dl>
+    </aside>
+  </section>
+
+  <section class="content-wrap">
+    <div class="section-heading">
+      <p class="eyebrow dark">Vue d'ensemble</p>
+      <h2>Données métier disponibles</h2>
+    </div>
+    <div class="stats">
+      <article><strong>{{ package_count }}</strong><span>packages actifs</span></article>
+      <article><strong>{{ dj_count }}</strong><span>DJs disponibles</span></article>
+      <article><strong>{{ availability_count }}</strong><span>créneaux ouverts</span></article>
+      <article><strong>26</strong><span>ressources métier</span></article>
+    </div>
+
+    <div class="dashboard-grid">
+      <section class="panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow dark">Catalogue</p><h2>Packages actifs</h2></div>
+          <a href="{% url 'package-list' %}">Voir en API</a>
+        </div>
+        {% if packages %}
+          <div class="package-list">
+            {% for package in packages %}
+              <article>
+                <div><h3>{{ package.name }}</h3><p>{{ package.description|truncatechars:120 }}</p></div>
+                <strong>{{ package.base_price }} €</strong>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="empty-state">Aucun package actif. Ajoutez-en depuis l'administration.</p>
+        {% endif %}
+      </section>
+
+      <aside class="panel links-panel">
+        <p class="eyebrow dark">Navigation technique</p>
+        <h2>Accès rapides</h2>
+        <a href="{% url 'admin:index' %}"><strong>Administration Django</strong><span>Gérer toutes les données</span></a>
+        <a href="{% url 'swagger-ui' %}"><strong>Swagger UI</strong><span>Tester les endpoints REST</span></a>
+        <a href="{% url 'redoc' %}"><strong>ReDoc</strong><span>Lire la documentation API</span></a>
+        <a href="{% url 'api-root' %}"><strong>API navigable</strong><span>Parcourir les ressources</span></a>
+        <a href="http://127.0.0.1:5173/"><strong>Frontend React</strong><span>Voir l'application client</span></a>
+      </aside>
+    </div>
+  </section>
+{% endblock %}
