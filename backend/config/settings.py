@@ -144,3 +144,11 @@ SPECTACULAR_SETTINGS = {
 
 STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
+STRIPE_SUCCESS_URL = config(
+    "STRIPE_SUCCESS_URL",
+    default="http://localhost:5173/?payment=success&session_id={CHECKOUT_SESSION_ID}",
+)
+STRIPE_CANCEL_URL = config(
+    "STRIPE_CANCEL_URL",
+    default="http://localhost:5173/?payment=cancelled",
+)

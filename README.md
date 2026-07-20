@@ -104,6 +104,13 @@ RELEASE_ALPHA.md
 
 Le tag Git proposé pour la publication est `v0.1.0-alpha`. La release GitHub doit être créée uniquement après validation explicite.
 
+## Préparation beta
+
+La beta valide Stripe Checkout en mode test pour le paiement sécurisé d'un
+acompte. Le périmètre, les tâches et les critères de validation sont décrits
+dans [`BETA_PLAN.md`](BETA_PLAN.md). Chaque tâche beta terminée est vérifiée et
+enregistrée dans un commit distinct avant la création de la Release GitHub.
+
 ## État du projet
 
 Le starter kit Django/React est initialisé. La priorité actuelle est de terminer le backend Django avant de poursuivre le frontend React. Le mapping relationnel a été enrichi avec les entités métier principales : devis, réservations, contrats, factures, paiements, matériel, playlists, avis clients et rendez-vous préparatoires.
