@@ -100,6 +100,23 @@ export default function App() {
   const [invoiceStatus, setInvoiceStatus] = useState("");
   const [checkoutPendingId, setCheckoutPendingId] = useState(null);
   const [checkoutStatus, setCheckoutStatus] = useState("");
+  const [paymentReturnStatus, setPaymentReturnStatus] = useState("");
+
+  useEffect(() => {
+    const parameters = new URLSearchParams(window.location.search);
+    const paymentResult = parameters.get("payment");
+    if (!paymentResult) return;
+
+    setPage("compte");
+    if (paymentResult === "success") {
+      setPaymentReturnStatus(
+        "Paiement transmis à Stripe. La confirmation définitive apparaîtra après validation sécurisée du webhook.",
+      );
+    } else if (paymentResult === "cancelled") {
+      setPaymentReturnStatus("Paiement annulé : aucun acompte n’a été confirmé. Vous pourrez réessayer.");
+    }
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -339,6 +356,7 @@ export default function App() {
         {page === "compte" && (
           <section className="section-wrap account-page">
             <div className="page-heading"><p className="eyebrow dark">Espace client</p><h1>Retrouvez votre événement au même endroit</h1><p>Connectez-vous pour suivre vos devis, contrats, paiements et playlists.</p></div>
+            {paymentReturnStatus && <p className="payment-return-message" role="status"><ShieldCheck /> {paymentReturnStatus}</p>}
             <div className="account-grid">
               {!isAuthenticated ? (
                 <form className="account-card" onSubmit={handleLogin}>

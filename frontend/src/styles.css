@@ -199,6 +199,8 @@ svg { width: 20px; height: 20px; }
 .account-card h2 { margin: 0; }
 .account-card label { margin: 0; }
 .account-card button:disabled { cursor: wait; opacity: .65; }
+.payment-return-message { display: flex; align-items: center; gap: 10px; max-width: 850px; margin: 0 auto 22px; padding: 14px 16px; border: 1px solid #a9e9f7; border-radius: 10px; color: #15596b; background: #eafaff; font-weight: 700; }
+.payment-return-message svg { flex: 0 0 auto; color: var(--cyan-dark); }
 .form-message { margin: 0; padding: 10px 12px; border-radius: 8px; color: #9f2d3d; background: #fff0f2; font-size: .85rem; font-weight: 700; }
 .form-message.success { color: #17633f; background: #eaf8f1; }
 .connected-card p { margin: 0; line-height: 1.6; }
