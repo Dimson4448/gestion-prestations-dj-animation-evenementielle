@@ -18,6 +18,7 @@ from .models import Invoice, Payment
 
 @override_settings(
     STRIPE_SECRET_KEY="sk_test_beta",
+    STRIPE_WEBHOOK_SECRET="whsec_beta",
     STRIPE_SUCCESS_URL="http://localhost:5173/?payment=success&session_id={CHECKOUT_SESSION_ID}",
     STRIPE_CANCEL_URL="http://localhost:5173/?payment=cancelled",
 )
@@ -97,6 +98,15 @@ class DepositCheckoutTests(APITestCase):
         )
         self.client.force_authenticate(self.client_user)
 
+    def create_pending_payment(self):
+        return Payment.objects.create(
+            booking=self.booking,
+            invoice=self.invoice,
+            stripe_session_id="cs_test_webhook_001",
+            amount="180.00",
+            currency="EUR",
+        )
+
     @patch("apps.payments.services.stripe.checkout.Session.create")
     def test_cree_une_session_checkout_depuis_la_facture(self, create_session):
         create_session.return_value = SimpleNamespace(
@@ -141,3 +151,91 @@ class DepositCheckoutTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         create_session.assert_not_called()
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
+    def test_webhook_confirme_acompte_facture_et_reservation(self, construct_event):
+        payment = self.create_pending_payment()
+        construct_event.return_value = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": payment.stripe_session_id,
+                    "payment_status": "paid",
+                    "payment_intent": "pi_test_beta_001",
+                    "amount_total": 18000,
+                    "currency": "eur",
+                    "metadata": {"invoice_id": str(self.invoice.pk)},
+                }
+            },
+        }
+        self.client.force_authenticate(user=None)
+
+        first_response = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"payload brut Stripe",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+        second_response = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"payload brut Stripe",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        payment.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.booking.refresh_from_db()
+        self.assertEqual(payment.status, Payment.PAID)
+        self.assertEqual(payment.stripe_payment_intent_id, "pi_test_beta_001")
+        self.assertIsNotNone(payment.paid_at)
+        self.assertEqual(self.invoice.status, Invoice.PAID)
+        self.assertTrue(self.booking.deposit_paid)
+        self.assertEqual(self.booking.status, Booking.CONFIRMED)
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
+    def test_webhook_refuse_un_montant_incoherent(self, construct_event):
+        payment = self.create_pending_payment()
+        construct_event.return_value = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": payment.stripe_session_id,
+                    "payment_status": "paid",
+                    "payment_intent": "pi_test_beta_bad_amount",
+                    "amount_total": 100,
+                    "currency": "eur",
+                    "metadata": {"invoice_id": str(self.invoice.pk)},
+                }
+            },
+        }
+        self.client.force_authenticate(user=None)
+
+        response = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"payload brut Stripe",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.PENDING)
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
+    def test_webhook_refuse_une_signature_invalide(self, construct_event):
+        import stripe
+
+        construct_event.side_effect = stripe.SignatureVerificationError("Signature incorrecte", "signature_test")
+        self.client.force_authenticate(user=None)
+
+        response = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"payload falsifie",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

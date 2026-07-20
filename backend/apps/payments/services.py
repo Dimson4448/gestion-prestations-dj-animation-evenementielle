@@ -2,6 +2,8 @@ from decimal import Decimal, ROUND_HALF_UP
 
 import stripe
 from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
 
 from .models import Invoice, Payment
 
@@ -78,3 +80,56 @@ def create_deposit_checkout(invoice: Invoice) -> tuple[Payment, str]:
         },
     )
     return payment, session.url
+
+
+@transaction.atomic
+def confirm_checkout_payment(session) -> bool:
+    """Confirme un acompte une seule fois à partir d'une session Stripe vérifiée."""
+    payment = (
+        Payment.objects.select_for_update()
+        .select_related("invoice", "booking")
+        .get(stripe_session_id=session["id"])
+    )
+
+    if payment.status == Payment.PAID:
+        return False
+
+    expected_amount = amount_to_cents(payment.amount)
+    received_amount = session.get("amount_total")
+    received_currency = (session.get("currency") or "").upper()
+    if session.get("payment_status") != "paid":
+        raise ValueError("Stripe ne confirme pas le paiement de cette session.")
+    if received_amount != expected_amount or received_currency != payment.currency:
+        raise ValueError("Le montant ou la devise Stripe ne correspond pas au paiement attendu.")
+
+    metadata = session.get("metadata") or {}
+    if str(payment.invoice_id) != str(metadata.get("invoice_id")):
+        raise ValueError("La facture Stripe ne correspond pas au paiement attendu.")
+
+    payment.status = Payment.PAID
+    payment.stripe_payment_intent_id = session.get("payment_intent") or payment.stripe_payment_intent_id
+    payment.paid_at = timezone.now()
+    payment.save(update_fields=["status", "stripe_payment_intent_id", "paid_at"])
+
+    invoice = payment.invoice
+    invoice.status = Invoice.PAID
+    invoice.save(update_fields=["status"])
+
+    booking = payment.booking
+    booking.deposit_paid = True
+    if booking.status == booking.PREPARATORY_MEETING:
+        booking.status = booking.CONFIRMED
+        booking.save(update_fields=["deposit_paid", "status"])
+    else:
+        booking.save(update_fields=["deposit_paid"])
+    return True
+
+
+@transaction.atomic
+def fail_checkout_payment(session_id: str) -> bool:
+    payment = Payment.objects.select_for_update().filter(stripe_session_id=session_id).first()
+    if not payment or payment.status != Payment.PENDING:
+        return False
+    payment.status = Payment.FAILED
+    payment.save(update_fields=["status"])
+    return True
