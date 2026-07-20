@@ -96,6 +96,8 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getStoredAccessToken()));
   const [loginStatus, setLoginStatus] = useState("");
   const [loginPending, setLoginPending] = useState(false);
+  const [depositInvoices, setDepositInvoices] = useState([]);
+  const [invoiceStatus, setInvoiceStatus] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -113,6 +115,38 @@ export default function App() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setDepositInvoices([]);
+      return;
+    }
+
+    let mounted = true;
+    setInvoiceStatus("Chargement de vos factures…");
+    apiClient
+      .get("/invoices/", { params: { invoice_type: "deposit", ordering: "-issued_at" } })
+      .then((response) => {
+        if (!mounted) return;
+        const invoices = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        setDepositInvoices(Array.isArray(invoices) ? invoices : []);
+        setInvoiceStatus(invoices?.length ? "" : "Aucune facture d’acompte disponible.");
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        if (error.response?.status === 401) {
+          clearAuthentication();
+          setIsAuthenticated(false);
+          setInvoiceStatus("");
+          setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
+        } else {
+          setInvoiceStatus("Impossible de charger les factures pour le moment.");
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [isAuthenticated]);
 
   const selectedPackage = useMemo(
     () => packages.find((item) => String(item.id) === String(selectedPackageId)) || packages[0],
@@ -295,6 +329,16 @@ export default function App() {
                   <div className="confirmation-icon"><Check /></div><h2>Session client active</h2>
                   <p>Vous pouvez maintenant consulter vos factures et démarrer un paiement sécurisé.</p>
                   {loginStatus && <p className="form-message success" role="status">{loginStatus}</p>}
+                  <div className="invoice-list">
+                    <h3>Factures d’acompte</h3>
+                    {invoiceStatus && <p className="invoice-empty" role="status">{invoiceStatus}</p>}
+                    {depositInvoices.map((invoice) => (
+                      <article className="invoice-row" key={invoice.id}>
+                        <div><strong>{invoice.invoice_number}</strong><span>Échéance : {new Date(invoice.due_at).toLocaleDateString("fr-BE")}</span></div>
+                        <div><strong>{formatEuro(invoice.amount)}</strong><span className={`invoice-status ${invoice.status}`}>{invoice.status === "paid" ? "Payée" : invoice.status === "sent" ? "À payer" : invoice.status}</span></div>
+                      </article>
+                    ))}
+                  </div>
                   <button className="secondary-button" type="button" onClick={handleLogout}>Se déconnecter</button>
                 </div>
               )}
