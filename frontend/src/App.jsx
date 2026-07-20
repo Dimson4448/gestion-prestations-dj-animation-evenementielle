@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
 import {
   CalendarDays,
   Check,
@@ -21,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:8000/api/v1";
+import { apiClient } from "./api";
 
 const fallbackPackages = [
   {
@@ -95,8 +94,8 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
-    axios
-      .get(`${API_BASE_URL}/packages/`)
+    apiClient
+      .get("/packages/")
       .then((response) => {
         const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
         if (mounted && Array.isArray(data) && data.length) {
