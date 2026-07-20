@@ -162,6 +162,50 @@ class DepositCheckoutTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         create_session.assert_not_called()
 
+    @patch("apps.payments.services.stripe.checkout.Session.create")
+    def test_un_autre_client_ne_peut_pas_acceder_a_la_facture(self, create_session):
+        user_model = get_user_model()
+        other_user = user_model.objects.create_user(username="autre_client", password="MotDePasseTest2026!")
+        ClientProfile.objects.create(
+            user=other_user,
+            date_of_birth=date(1992, 2, 2),
+            phone="+32470000002",
+            billing_address="Rue Autre 3",
+            billing_city="Liège",
+            billing_postal_code="4000",
+        )
+        self.client.force_authenticate(other_user)
+
+        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        create_session.assert_not_called()
+
+    def test_interdit_la_creation_directe_d_un_paiement(self):
+        response = self.client.post(
+            "/api/v1/payments/",
+            {
+                "booking": self.booking.pk,
+                "invoice": self.invoice.pk,
+                "stripe_session_id": "cs_falsifie",
+                "amount": "1.00",
+                "currency": "EUR",
+                "status": Payment.PAID,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertFalse(Payment.objects.filter(stripe_session_id="cs_falsifie").exists())
+
+    @override_settings(STRIPE_SECRET_KEY="sk_live_interdite")
+    @patch("apps.payments.services.stripe.checkout.Session.create")
+    def test_refuse_une_cle_stripe_live_pendant_la_beta(self, create_session):
+        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        create_session.assert_not_called()
+
     @patch("apps.payments.views.stripe.Webhook.construct_event")
     def test_webhook_confirme_acompte_facture_et_reservation(self, construct_event):
         payment = self.create_pending_payment()
