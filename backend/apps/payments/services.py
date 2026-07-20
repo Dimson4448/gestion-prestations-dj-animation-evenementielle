@@ -26,10 +26,8 @@ def create_deposit_checkout(invoice: Invoice) -> tuple[Payment, str]:
 
     if invoice.invoice_type != Invoice.DEPOSIT:
         raise ValueError("Seule une facture d'acompte peut être payée avec ce parcours.")
-    if invoice.status == Invoice.PAID:
-        raise ValueError("Cette facture est déjà payée.")
-    if invoice.status == Invoice.CANCELLED:
-        raise ValueError("Cette facture est annulée.")
+    if invoice.status != Invoice.SENT:
+        raise ValueError("Seule une facture envoyée et non payée peut démarrer un paiement.")
     if invoice.amount <= 0:
         raise ValueError("Le montant de la facture doit être supérieur à zéro.")
 

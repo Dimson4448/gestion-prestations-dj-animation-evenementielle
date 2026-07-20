@@ -136,6 +136,16 @@ class DepositCheckoutTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         create_session.assert_not_called()
 
+    @patch("apps.payments.services.stripe.checkout.Session.create")
+    def test_refuse_une_facture_encore_en_brouillon(self, create_session):
+        self.invoice.status = Invoice.DRAFT
+        self.invoice.save(update_fields=["status"])
+
+        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        create_session.assert_not_called()
+
     def test_refuse_un_visiteur_non_connecte(self):
         self.client.force_authenticate(user=None)
 
