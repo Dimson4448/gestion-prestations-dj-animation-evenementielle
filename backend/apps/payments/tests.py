@@ -293,3 +293,94 @@ class DepositCheckoutTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @override_settings(STRIPE_WEBHOOK_SECRET="")
+    def test_webhook_refuse_de_fonctionner_sans_secret(self):
+        self.client.force_authenticate(user=None)
+
+        response = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"payload",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
+    def test_webhook_signale_une_session_inconnue(self, construct_event):
+        construct_event.return_value = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": "cs_test_inconnue",
+                    "payment_status": "paid",
+                    "amount_total": 18000,
+                    "currency": "eur",
+                    "metadata": {"invoice_id": str(self.invoice.pk)},
+                }
+            },
+        }
+        self.client.force_authenticate(user=None)
+
+        response = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"payload",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
+    def test_webhook_marque_une_session_expiree_comme_echouee(self, construct_event):
+        payment = self.create_pending_payment()
+        construct_event.return_value = {
+            "type": "checkout.session.expired",
+            "data": {"object": {"id": payment.stripe_session_id}},
+        }
+        self.client.force_authenticate(user=None)
+
+        response = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"payload",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.FAILED)
+        self.invoice.refresh_from_db()
+        self.booking.refresh_from_db()
+        self.assertNotEqual(self.invoice.status, Invoice.PAID)
+        self.assertFalse(self.booking.deposit_paid)
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
+    def test_webhook_refuse_des_metadonnees_de_facture_incorrectes(self, construct_event):
+        payment = self.create_pending_payment()
+        construct_event.return_value = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": payment.stripe_session_id,
+                    "payment_status": "paid",
+                    "payment_intent": "pi_test_metadata_fausse",
+                    "amount_total": 18000,
+                    "currency": "eur",
+                    "metadata": {"invoice_id": "999999"},
+                }
+            },
+        }
+        self.client.force_authenticate(user=None)
+
+        response = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"payload",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.PENDING)
