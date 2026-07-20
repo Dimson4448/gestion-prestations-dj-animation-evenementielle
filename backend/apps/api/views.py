@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import permissions, viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import permissions, status, viewsets
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
@@ -20,6 +20,7 @@ from apps.bookings.models import (
 )
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
+from apps.payments.services import StripeCheckoutError, StripeConfigurationError, create_deposit_checkout
 
 from .permissions import AdministrationOuProprietaire, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
 from .serializers import (
@@ -240,8 +241,33 @@ class InvoiceViewSet(ProtectedModelViewSet):
         queryset = Invoice.objects.select_related("booking", "booking__client", "booking__dj").all()
         return filtrer_par_reservation(queryset, self.request.user)
 
+    @action(detail=True, methods=["post"], url_path="checkout")
+    def checkout(self, request, pk=None):
+        invoice = self.get_object()
+        if not request.user.is_staff and client_connecte(request.user) != invoice.booking.client:
+            return Response(
+                {"detail": "Seul le client de la réservation peut démarrer ce paiement."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            payment, checkout_url = create_deposit_checkout(invoice)
+        except (ValueError, StripeConfigurationError) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except StripeCheckoutError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
 
-class PaymentViewSet(ProtectedModelViewSet):
+        return Response(
+            {
+                "payment_id": payment.pk,
+                "session_id": payment.stripe_session_id,
+                "checkout_url": checkout_url,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [UtilisateurAuthentifie, AdministrationOuProprietaire]
     serializer_class = PaymentSerializer
     filterset_fields = ["status", "currency"]
     ordering_fields = ["paid_at", "amount"]

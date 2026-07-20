@@ -62,7 +62,13 @@ class Payment(models.Model):
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name="payments", verbose_name="réservation")
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="payments", verbose_name="facture")
     stripe_session_id = models.CharField("identifiant de session Stripe", max_length=190, unique=True)
-    stripe_payment_intent_id = models.CharField("identifiant d'intention de paiement Stripe", max_length=190, unique=True)
+    stripe_payment_intent_id = models.CharField(
+        "identifiant d'intention de paiement Stripe",
+        max_length=190,
+        unique=True,
+        null=True,
+        blank=True,
+    )
     amount = models.DecimalField("montant", max_digits=10, decimal_places=2)
     currency = models.CharField("devise", max_length=3, default="EUR")
     status = models.CharField("statut", max_length=20, choices=STATUS_CHOICES, default=PENDING)

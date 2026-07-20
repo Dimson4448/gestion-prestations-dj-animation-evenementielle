@@ -256,6 +256,7 @@ class PaymentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             "paid_at",
             "liens",
         ]
+        read_only_fields = fields
 
 
 class PlaylistSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
