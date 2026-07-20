@@ -98,6 +98,8 @@ export default function App() {
   const [loginPending, setLoginPending] = useState(false);
   const [depositInvoices, setDepositInvoices] = useState([]);
   const [invoiceStatus, setInvoiceStatus] = useState("");
+  const [checkoutPendingId, setCheckoutPendingId] = useState(null);
+  const [checkoutStatus, setCheckoutStatus] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -200,6 +202,28 @@ export default function App() {
     clearAuthentication();
     setIsAuthenticated(false);
     setLoginStatus("Vous êtes déconnecté.");
+  };
+
+  const startDepositCheckout = async (invoice) => {
+    setCheckoutPendingId(invoice.id);
+    setCheckoutStatus("");
+    try {
+      const response = await apiClient.post(`/invoices/${invoice.id}/checkout/`);
+      const checkoutUrl = new URL(response.data.checkout_url);
+      if (checkoutUrl.protocol !== "https:" || checkoutUrl.hostname !== "checkout.stripe.com") {
+        throw new Error("URL Stripe inattendue");
+      }
+      window.location.assign(checkoutUrl.toString());
+    } catch (error) {
+      if (error.response?.status === 401) {
+        clearAuthentication();
+        setIsAuthenticated(false);
+        setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
+      } else {
+        setCheckoutStatus(error.response?.data?.detail || "Le paiement ne peut pas être démarré pour le moment.");
+      }
+      setCheckoutPendingId(null);
+    }
   };
 
   return (
@@ -332,10 +356,19 @@ export default function App() {
                   <div className="invoice-list">
                     <h3>Factures d’acompte</h3>
                     {invoiceStatus && <p className="invoice-empty" role="status">{invoiceStatus}</p>}
+                    {checkoutStatus && <p className="form-message" role="alert">{checkoutStatus}</p>}
                     {depositInvoices.map((invoice) => (
                       <article className="invoice-row" key={invoice.id}>
                         <div><strong>{invoice.invoice_number}</strong><span>Échéance : {new Date(invoice.due_at).toLocaleDateString("fr-BE")}</span></div>
-                        <div><strong>{formatEuro(invoice.amount)}</strong><span className={`invoice-status ${invoice.status}`}>{invoice.status === "paid" ? "Payée" : invoice.status === "sent" ? "À payer" : invoice.status}</span></div>
+                        <div className="invoice-actions">
+                          <strong>{formatEuro(invoice.amount)}</strong>
+                          <span className={`invoice-status ${invoice.status}`}>{invoice.status === "paid" ? "Payée" : invoice.status === "sent" ? "À payer" : invoice.status}</span>
+                          {invoice.status === "sent" && (
+                            <button className="primary-button payment-button" type="button" onClick={() => startDepositCheckout(invoice)} disabled={checkoutPendingId === invoice.id}>
+                              <CreditCard /> {checkoutPendingId === invoice.id ? "Redirection…" : "Payer l’acompte"}
+                            </button>
+                          )}
+                        </div>
                       </article>
                     ))}
                   </div>
