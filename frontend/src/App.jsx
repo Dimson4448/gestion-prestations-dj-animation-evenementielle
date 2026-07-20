@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient } from "./api";
+import { apiClient, authenticate, clearAuthentication, getStoredAccessToken } from "./api";
 
 const fallbackPackages = [
   {
@@ -91,6 +91,11 @@ export default function App() {
   const [parking, setParking] = useState("oui");
   const [musicPreferences, setMusicPreferences] = useState("Pop, disco et classiques des années 90");
   const [quoteSubmitted, setQuoteSubmitted] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getStoredAccessToken()));
+  const [loginStatus, setLoginStatus] = useState("");
+  const [loginPending, setLoginPending] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -136,6 +141,32 @@ export default function App() {
   };
 
   const startQuote = () => navigate("devis");
+
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    setLoginPending(true);
+    setLoginStatus("");
+    try {
+      await authenticate(username, password);
+      setIsAuthenticated(true);
+      setPassword("");
+      setLoginStatus("Connexion réussie. Votre espace client est maintenant accessible.");
+    } catch (error) {
+      setLoginStatus(
+        error.response?.status === 401
+          ? "Identifiant ou mot de passe incorrect."
+          : "Connexion impossible. Vérifiez que le backend Django est démarré.",
+      );
+    } finally {
+      setLoginPending(false);
+    }
+  };
+
+  const handleLogout = () => {
+    clearAuthentication();
+    setIsAuthenticated(false);
+    setLoginStatus("Vous êtes déconnecté.");
+  };
 
   return (
     <div className="site-shell">
@@ -248,7 +279,28 @@ export default function App() {
         )}
 
         {page === "compte" && (
-          <section className="section-wrap account-page"><div className="page-heading"><p className="eyebrow dark">Espace client</p><h1>Retrouvez votre événement au même endroit</h1><p>Connectez-vous pour suivre vos devis, contrats, paiements et playlists.</p></div><div className="account-grid"><form className="account-card"><CircleUserRound /><h2>Connexion</h2><label>Adresse e-mail<input type="email" defaultValue="client@example.com" /></label><label>Mot de passe<input type="password" defaultValue="motdepassealpha" /></label><button className="primary-button" type="button">Se connecter</button><button className="text-link" type="button">Mot de passe oublié ?</button></form><aside className="account-benefits"><p className="eyebrow">Votre suivi personnalisé</p><h2>Un parcours clair, étape par étape</h2>{[{ icon: FileText, text: "Consultez vos devis et contrats" }, { icon: CreditCard, text: "Suivez l’acompte et les factures" }, { icon: Music2, text: "Préparez votre playlist" }, { icon: Sparkles, text: "Laissez un avis après la prestation" }].map(({ icon: Icon, text }) => <div key={text}><Icon /><span>{text}</span></div>)}</aside></div></section>
+          <section className="section-wrap account-page">
+            <div className="page-heading"><p className="eyebrow dark">Espace client</p><h1>Retrouvez votre événement au même endroit</h1><p>Connectez-vous pour suivre vos devis, contrats, paiements et playlists.</p></div>
+            <div className="account-grid">
+              {!isAuthenticated ? (
+                <form className="account-card" onSubmit={handleLogin}>
+                  <CircleUserRound /><h2>Connexion</h2>
+                  <label>Identifiant Django<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
+                  <label>Mot de passe<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
+                  {loginStatus && <p className="form-message" role="status">{loginStatus}</p>}
+                  <button className="primary-button" type="submit" disabled={loginPending}>{loginPending ? "Connexion…" : "Se connecter"}</button>
+                </form>
+              ) : (
+                <div className="account-card connected-card">
+                  <div className="confirmation-icon"><Check /></div><h2>Session client active</h2>
+                  <p>Vous pouvez maintenant consulter vos factures et démarrer un paiement sécurisé.</p>
+                  {loginStatus && <p className="form-message success" role="status">{loginStatus}</p>}
+                  <button className="secondary-button" type="button" onClick={handleLogout}>Se déconnecter</button>
+                </div>
+              )}
+              <aside className="account-benefits"><p className="eyebrow">Votre suivi personnalisé</p><h2>Un parcours clair, étape par étape</h2>{[{ icon: FileText, text: "Consultez vos devis et contrats" }, { icon: CreditCard, text: "Suivez l’acompte et les factures" }, { icon: Music2, text: "Préparez votre playlist" }, { icon: Sparkles, text: "Laissez un avis après la prestation" }].map(({ icon: Icon, text }) => <div key={text}><Icon /><span>{text}</span></div>)}</aside>
+            </div>
+          </section>
         )}
       </main>
 

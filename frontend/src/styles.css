@@ -198,6 +198,10 @@ svg { width: 20px; height: 20px; }
 .account-card > svg { width: 40px; height: 40px; color: var(--cyan-dark); }
 .account-card h2 { margin: 0; }
 .account-card label { margin: 0; }
+.account-card button:disabled { cursor: wait; opacity: .65; }
+.form-message { margin: 0; padding: 10px 12px; border-radius: 8px; color: #9f2d3d; background: #fff0f2; font-size: .85rem; font-weight: 700; }
+.form-message.success { color: #17633f; background: #eaf8f1; }
+.connected-card p { margin: 0; line-height: 1.6; }
 .account-benefits { padding: 45px; border-radius: var(--radius); color: white; background: radial-gradient(circle at 90% 5%, rgba(255,46,136,.25), transparent 32%), var(--night); }
 .account-benefits h2 { color: white; }
 .account-benefits > div { display: flex; align-items: center; gap: 14px; padding: 15px 0; border-bottom: 1px solid #2b354f; font-weight: 700; }
