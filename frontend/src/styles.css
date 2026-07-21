@@ -198,6 +198,25 @@ svg { width: 20px; height: 20px; }
 .account-card > svg { width: 40px; height: 40px; color: var(--cyan-dark); }
 .account-card h2 { margin: 0; }
 .account-card label { margin: 0; }
+.account-card button:disabled { cursor: wait; opacity: .65; }
+.payment-return-message { display: flex; align-items: center; gap: 10px; max-width: 850px; margin: 0 auto 22px; padding: 14px 16px; border: 1px solid #a9e9f7; border-radius: 10px; color: #15596b; background: #eafaff; font-weight: 700; }
+.payment-return-message svg { flex: 0 0 auto; color: var(--cyan-dark); }
+.form-message { margin: 0; padding: 10px 12px; border-radius: 8px; color: #9f2d3d; background: #fff0f2; font-size: .85rem; font-weight: 700; }
+.form-message.success { color: #17633f; background: #eaf8f1; }
+.connected-card p { margin: 0; line-height: 1.6; }
+.invoice-list { display: grid; gap: 10px; margin: 8px 0; }
+.invoice-list h3 { margin: 0 0 2px; }
+.invoice-empty { padding: 12px; border-radius: 8px; color: #526079; background: #f3f6fa; font-size: .86rem; }
+.invoice-row { display: flex; justify-content: space-between; gap: 18px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: #f9fbfd; }
+.invoice-row > div { display: grid; gap: 4px; }
+.invoice-row > div:last-child { text-align: right; }
+.invoice-row span { color: #69758b; font-size: .76rem; }
+.invoice-actions { justify-items: end; }
+.payment-button { min-height: 38px; padding: 0 12px; font-size: .8rem; }
+.payment-button svg { width: 17px; height: 17px; }
+.invoice-status { font-weight: 800; text-transform: uppercase; }
+.invoice-status.paid { color: #17724a; }
+.invoice-status.sent { color: #9a6200; }
 .account-benefits { padding: 45px; border-radius: var(--radius); color: white; background: radial-gradient(circle at 90% 5%, rgba(255,46,136,.25), transparent 32%), var(--night); }
 .account-benefits h2 { color: white; }
 .account-benefits > div { display: flex; align-items: center; gap: 14px; padding: 15px 0; border-bottom: 1px solid #2b354f; font-weight: 700; }

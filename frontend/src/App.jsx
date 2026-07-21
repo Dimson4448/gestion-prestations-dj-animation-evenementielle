@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
 import {
   CalendarDays,
   Check,
@@ -21,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:8000/api/v1";
+import { apiClient, authenticate, clearAuthentication, getStoredAccessToken } from "./api";
 
 const fallbackPackages = [
   {
@@ -92,11 +91,37 @@ export default function App() {
   const [parking, setParking] = useState("oui");
   const [musicPreferences, setMusicPreferences] = useState("Pop, disco et classiques des années 90");
   const [quoteSubmitted, setQuoteSubmitted] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getStoredAccessToken()));
+  const [loginStatus, setLoginStatus] = useState("");
+  const [loginPending, setLoginPending] = useState(false);
+  const [depositInvoices, setDepositInvoices] = useState([]);
+  const [invoiceStatus, setInvoiceStatus] = useState("");
+  const [checkoutPendingId, setCheckoutPendingId] = useState(null);
+  const [checkoutStatus, setCheckoutStatus] = useState("");
+  const [paymentReturnStatus, setPaymentReturnStatus] = useState("");
+
+  useEffect(() => {
+    const parameters = new URLSearchParams(window.location.search);
+    const paymentResult = parameters.get("payment");
+    if (!paymentResult) return;
+
+    setPage("compte");
+    if (paymentResult === "success") {
+      setPaymentReturnStatus(
+        "Paiement transmis à Stripe. La confirmation définitive apparaîtra après validation sécurisée du webhook.",
+      );
+    } else if (paymentResult === "cancelled") {
+      setPaymentReturnStatus("Paiement annulé : aucun acompte n’a été confirmé. Vous pourrez réessayer.");
+    }
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
-    axios
-      .get(`${API_BASE_URL}/packages/`)
+    apiClient
+      .get("/packages/")
       .then((response) => {
         const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
         if (mounted && Array.isArray(data) && data.length) {
@@ -109,6 +134,38 @@ export default function App() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setDepositInvoices([]);
+      return;
+    }
+
+    let mounted = true;
+    setInvoiceStatus("Chargement de vos factures…");
+    apiClient
+      .get("/invoices/", { params: { invoice_type: "deposit", ordering: "-issued_at" } })
+      .then((response) => {
+        if (!mounted) return;
+        const invoices = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        setDepositInvoices(Array.isArray(invoices) ? invoices : []);
+        setInvoiceStatus(invoices?.length ? "" : "Aucune facture d’acompte disponible.");
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        if (error.response?.status === 401) {
+          clearAuthentication();
+          setIsAuthenticated(false);
+          setInvoiceStatus("");
+          setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
+        } else {
+          setInvoiceStatus("Impossible de charger les factures pour le moment.");
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [isAuthenticated]);
 
   const selectedPackage = useMemo(
     () => packages.find((item) => String(item.id) === String(selectedPackageId)) || packages[0],
@@ -137,6 +194,54 @@ export default function App() {
   };
 
   const startQuote = () => navigate("devis");
+
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    setLoginPending(true);
+    setLoginStatus("");
+    try {
+      await authenticate(username, password);
+      setIsAuthenticated(true);
+      setPassword("");
+      setLoginStatus("Connexion réussie. Votre espace client est maintenant accessible.");
+    } catch (error) {
+      setLoginStatus(
+        error.response?.status === 401
+          ? "Identifiant ou mot de passe incorrect."
+          : "Connexion impossible. Vérifiez que le backend Django est démarré.",
+      );
+    } finally {
+      setLoginPending(false);
+    }
+  };
+
+  const handleLogout = () => {
+    clearAuthentication();
+    setIsAuthenticated(false);
+    setLoginStatus("Vous êtes déconnecté.");
+  };
+
+  const startDepositCheckout = async (invoice) => {
+    setCheckoutPendingId(invoice.id);
+    setCheckoutStatus("");
+    try {
+      const response = await apiClient.post(`/invoices/${invoice.id}/checkout/`);
+      const checkoutUrl = new URL(response.data.checkout_url);
+      if (checkoutUrl.protocol !== "https:" || checkoutUrl.hostname !== "checkout.stripe.com") {
+        throw new Error("URL Stripe inattendue");
+      }
+      window.location.assign(checkoutUrl.toString());
+    } catch (error) {
+      if (error.response?.status === 401) {
+        clearAuthentication();
+        setIsAuthenticated(false);
+        setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
+      } else {
+        setCheckoutStatus(error.response?.data?.detail || "Le paiement ne peut pas être démarré pour le moment.");
+      }
+      setCheckoutPendingId(null);
+    }
+  };
 
   return (
     <div className="site-shell">
@@ -249,11 +354,52 @@ export default function App() {
         )}
 
         {page === "compte" && (
-          <section className="section-wrap account-page"><div className="page-heading"><p className="eyebrow dark">Espace client</p><h1>Retrouvez votre événement au même endroit</h1><p>Connectez-vous pour suivre vos devis, contrats, paiements et playlists.</p></div><div className="account-grid"><form className="account-card"><CircleUserRound /><h2>Connexion</h2><label>Adresse e-mail<input type="email" defaultValue="client@example.com" /></label><label>Mot de passe<input type="password" defaultValue="motdepassealpha" /></label><button className="primary-button" type="button">Se connecter</button><button className="text-link" type="button">Mot de passe oublié ?</button></form><aside className="account-benefits"><p className="eyebrow">Votre suivi personnalisé</p><h2>Un parcours clair, étape par étape</h2>{[{ icon: FileText, text: "Consultez vos devis et contrats" }, { icon: CreditCard, text: "Suivez l’acompte et les factures" }, { icon: Music2, text: "Préparez votre playlist" }, { icon: Sparkles, text: "Laissez un avis après la prestation" }].map(({ icon: Icon, text }) => <div key={text}><Icon /><span>{text}</span></div>)}</aside></div></section>
+          <section className="section-wrap account-page">
+            <div className="page-heading"><p className="eyebrow dark">Espace client</p><h1>Retrouvez votre événement au même endroit</h1><p>Connectez-vous pour suivre vos devis, contrats, paiements et playlists.</p></div>
+            {paymentReturnStatus && <p className="payment-return-message" role="status"><ShieldCheck /> {paymentReturnStatus}</p>}
+            <div className="account-grid">
+              {!isAuthenticated ? (
+                <form className="account-card" onSubmit={handleLogin}>
+                  <CircleUserRound /><h2>Connexion</h2>
+                  <label>Identifiant Django<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
+                  <label>Mot de passe<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
+                  {loginStatus && <p className="form-message" role="status">{loginStatus}</p>}
+                  <button className="primary-button" type="submit" disabled={loginPending}>{loginPending ? "Connexion…" : "Se connecter"}</button>
+                </form>
+              ) : (
+                <div className="account-card connected-card">
+                  <div className="confirmation-icon"><Check /></div><h2>Session client active</h2>
+                  <p>Vous pouvez maintenant consulter vos factures et démarrer un paiement sécurisé.</p>
+                  {loginStatus && <p className="form-message success" role="status">{loginStatus}</p>}
+                  <div className="invoice-list">
+                    <h3>Factures d’acompte</h3>
+                    {invoiceStatus && <p className="invoice-empty" role="status">{invoiceStatus}</p>}
+                    {checkoutStatus && <p className="form-message" role="alert">{checkoutStatus}</p>}
+                    {depositInvoices.map((invoice) => (
+                      <article className="invoice-row" key={invoice.id}>
+                        <div><strong>{invoice.invoice_number}</strong><span>Échéance : {new Date(invoice.due_at).toLocaleDateString("fr-BE")}</span></div>
+                        <div className="invoice-actions">
+                          <strong>{formatEuro(invoice.amount)}</strong>
+                          <span className={`invoice-status ${invoice.status}`}>{invoice.status === "paid" ? "Payée" : invoice.status === "sent" ? "À payer" : invoice.status}</span>
+                          {invoice.status === "sent" && (
+                            <button className="primary-button payment-button" type="button" onClick={() => startDepositCheckout(invoice)} disabled={checkoutPendingId === invoice.id}>
+                              <CreditCard /> {checkoutPendingId === invoice.id ? "Redirection…" : "Payer l’acompte"}
+                            </button>
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  <button className="secondary-button" type="button" onClick={handleLogout}>Se déconnecter</button>
+                </div>
+              )}
+              <aside className="account-benefits"><p className="eyebrow">Votre suivi personnalisé</p><h2>Un parcours clair, étape par étape</h2>{[{ icon: FileText, text: "Consultez vos devis et contrats" }, { icon: CreditCard, text: "Suivez l’acompte et les factures" }, { icon: Music2, text: "Préparez votre playlist" }, { icon: Sparkles, text: "Laissez un avis après la prestation" }].map(({ icon: Icon, text }) => <div key={text}><Icon /><span>{text}</span></div>)}</aside>
+            </div>
+          </section>
         )}
       </main>
 
-      <footer><img src="/logo-ultimate-dj.png" alt="Ultimate DJ" /><p>Réserver. Mixer. Célébrer.</p><nav aria-label="Navigation de pied de page"><button onClick={() => navigate("offres")}>Offres</button><button onClick={() => navigate("devis")}>Devis</button><button onClick={() => navigate("compte")}>Mon compte</button><a href="http://127.0.0.1:8000/admin/" target="_blank" rel="noreferrer">Administration</a></nav><small>© 2026 Ultimate DJ · Version alpha</small></footer>
+      <footer><img src="/logo-ultimate-dj.png" alt="Ultimate DJ" /><p>Réserver. Mixer. Célébrer.</p><nav aria-label="Navigation de pied de page"><button onClick={() => navigate("offres")}>Offres</button><button onClick={() => navigate("devis")}>Devis</button><button onClick={() => navigate("compte")}>Mon compte</button><a href="http://127.0.0.1:8000/admin/" target="_blank" rel="noreferrer">Administration</a></nav><small>© 2026 Ultimate DJ · Version beta 0.2.0</small></footer>
     </div>
   );
 }

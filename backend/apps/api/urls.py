@@ -1,6 +1,8 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from apps.payments.views import stripe_webhook
+
 from .views import (
     AvailabilityListView,
     BookingViewSet,
@@ -44,6 +46,7 @@ router.register("reviews", ReviewViewSet, basename="review")
 urlpatterns = [
     path("availability/", AvailabilityListView.as_view(), name="availability-list"),
     path("quotes/calculate/", calculate_quote, name="quote-calculate"),
+    path("payments/webhook/", stripe_webhook, name="stripe-webhook"),
 ]
 
 urlpatterns += router.urls
