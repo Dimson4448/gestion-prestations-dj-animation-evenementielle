@@ -5,7 +5,6 @@
 - Version : `0.2.0-beta.1`
 - Tag prévu : `v0.2.0-beta.1`
 - Branche de préparation : `beta/stripe-checkout`
-- Date de préparation : 21 juillet 2026
 
 ## Objectif de la remise
 
@@ -51,8 +50,6 @@ Framework, l'authentification JWT et le frontend React/Vite.
 
 ## Validation effectuée
 
-État vérifié le 21 juillet 2026 :
-
 - 19 tests Django réussis ;
 - `manage.py check` sans erreur ;
 - aucune migration Django manquante dans le code ;
@@ -96,15 +93,3 @@ Suivre [`STRIPE_TESTING.md`](STRIPE_TESTING.md), puis présenter :
 4. le paiement avec une carte Stripe de test ;
 5. la réception du webhook signé ;
 6. la facture et la réservation mises à jour dans Django.
-
-## Publication GitHub prévue
-
-Après validation finale :
-
-1. pousser les derniers commits de documentation ;
-2. ouvrir une Pull Request vers `main` ;
-3. vérifier le contenu et fusionner la Pull Request ;
-4. créer le tag `v0.2.0-beta.1` sur le commit fusionné ;
-5. créer une GitHub Release marquée comme préversion avec cette note.
-
-Aucun tag ni aucune Release ne doit être créé avant la validation finale.
