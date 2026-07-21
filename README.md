@@ -112,6 +112,9 @@ acompte. Le périmètre, les tâches et les critères de validation sont décrit
 dans [`BETA_PLAN.md`](BETA_PLAN.md). Chaque tâche beta terminée est vérifiée et
 enregistrée dans un commit distinct avant la création de la Release GitHub.
 
+Le protocole complet de configuration et de démonstration locale est disponible
+dans [`STRIPE_TESTING.md`](STRIPE_TESTING.md).
+
 ## État du projet
 
 Le starter kit Django/React est initialisé. La priorité actuelle est de terminer le backend Django avant de poursuivre le frontend React. Le mapping relationnel a été enrichi avec les entités métier principales : devis, réservations, contrats, factures, paiements, matériel, playlists, avis clients et rendez-vous préparatoires.
