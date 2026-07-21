@@ -115,6 +115,10 @@ enregistrée dans un commit distinct avant la création de la Release GitHub.
 Le protocole complet de configuration et de démonstration locale est disponible
 dans [`STRIPE_TESTING.md`](STRIPE_TESTING.md).
 
+La note destinée à la publication GitHub se trouve dans
+[`RELEASE_BETA.md`](RELEASE_BETA.md). Le tag prévu est `v0.2.0-beta.1` et ne
+sera créé qu'après fusion et validation finale.
+
 ## État du projet
 
 Le starter kit Django/React est initialisé. La priorité actuelle est de terminer le backend Django avant de poursuivre le frontend React. Le mapping relationnel a été enrichi avec les entités métier principales : devis, réservations, contrats, factures, paiements, matériel, playlists, avis clients et rendez-vous préparatoires.
