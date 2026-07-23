@@ -165,6 +165,11 @@ class QuoteViewSet(ProtectedModelViewSet):
     search_fields = ["venue__name", "client__user__email"]
     ordering_fields = ["event_date", "created_at", "total_amount"]
 
+    def get_permissions(self):
+        if self.action in {"update", "partial_update", "destroy"}:
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
+
     def get_queryset(self):
         queryset = Quote.objects.select_related("client", "event_type", "package", "venue").all()
         if self.request.user.is_staff:
@@ -182,7 +187,7 @@ class QuoteViewSet(ProtectedModelViewSet):
         client = serializer.validated_data.get("client")
         if not self.request.user.is_staff:
             client = client_connecte(self.request.user)
-        serializer.save(client=client, **amounts)
+        serializer.save(client=client, status=Quote.DRAFT, **amounts)
 
 
 class BookingViewSet(ProtectedModelViewSet):

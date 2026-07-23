@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from rest_framework import serializers
@@ -173,6 +174,43 @@ class QuoteSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         ]
         read_only_fields = ["subtotal", "travel_fee", "total_amount", "deposit_amount", "created_at"]
         extra_kwargs = {"client": {"required": False}}
+
+    def validate_event_date(self, value):
+        if value < date.today():
+            raise serializers.ValidationError("La date de l'événement ne peut pas être passée.")
+        return value
+
+    def validate_duration_hours(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("La durée doit être supérieure à 0 heure.")
+        return value
+
+    def validate_distance_km(self, value):
+        if value < 0:
+            raise serializers.ValidationError("La distance ne peut pas être négative.")
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        if not request or request.user.is_staff:
+            return attrs
+
+        client = getattr(request.user, "client_profile", None)
+        if not client:
+            raise serializers.ValidationError("Un profil client est requis pour demander un devis.")
+
+        venue = attrs.get("venue") or getattr(self.instance, "venue", None)
+        if venue and venue.client_id != client.id:
+            raise serializers.ValidationError({"venue": "Ce lieu n'appartient pas au client connecté."})
+
+        package = attrs.get("package") or getattr(self.instance, "package", None)
+        if package and not package.is_active:
+            raise serializers.ValidationError({"package": "Ce package n'est plus disponible."})
+
+        if "status" in self.initial_data:
+            raise serializers.ValidationError({"status": "Le statut du devis est géré par l'administration."})
+        return attrs
 
 
 class BookingSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
