@@ -121,4 +121,31 @@ sera créé qu'après fusion et validation finale.
 
 ## État du projet
 
-Le starter kit Django/React est initialisé. La priorité actuelle est de terminer le backend Django avant de poursuivre le frontend React. Le mapping relationnel a été enrichi avec les entités métier principales : devis, réservations, contrats, factures, paiements, matériel, playlists, avis clients et rendez-vous préparatoires.
+Le backend Django et le frontend React sont connectés progressivement aux
+fonctionnalités métier réelles. Le mapping relationnel comprend les devis,
+réservations, contrats, factures, paiements, matériel, playlists, avis clients
+et rendez-vous préparatoires.
+
+## Parcours réel de demande de devis
+
+Le formulaire React ne se limite plus à une simulation :
+
+1. le client se connecte avec son compte Django ;
+2. les types d'événements et les formules sont chargés depuis l'API ;
+3. le client sélectionne un lieu existant ou en enregistre un nouveau ;
+4. React transmet la demande à `POST /api/v1/quotes/` ;
+5. Django vérifie la propriété du lieu et calcule tous les montants ;
+6. le devis et les préférences musicales sont enregistrés en base ;
+7. le client retrouve le devis et son statut dans son espace ;
+8. l'administrateur peut faire évoluer le statut depuis Django ou l'API.
+
+Après récupération de cette version, appliquer les migrations :
+
+```powershell
+cd backend
+.venv\Scripts\python.exe manage.py migrate
+```
+
+Les données de démonstration du catalogue restent visibles uniquement lorsque
+l'API locale est indisponible. Elles ne peuvent pas être utilisées pour créer
+un devis réel.
