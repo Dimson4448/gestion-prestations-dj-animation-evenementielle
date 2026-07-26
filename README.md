@@ -79,6 +79,24 @@ La commande lit uniquement les paramètres `LEGACY_DB_*`, transforme le type
 historique `Anniversaire` en `Anniversaire adulte` et conserve également le
 type `Anniversaire enfant` créé par les migrations Django.
 
+Les utilisateurs et leurs profils peuvent ensuite être simulés puis importés :
+
+```powershell
+cd backend
+.venv\Scripts\python.exe manage.py import_legacy_accounts --dry-run
+.venv\Scripts\python.exe manage.py import_legacy_accounts
+```
+
+Cet import convertit les rôles historiques en droits Django, conserve les
+empreintes de mots de passe PBKDF2 compatibles et reconstruit les profils
+clients, les profils DJ et leurs associations de styles musicaux.
+
+Le dump versionné dans `database/dumps/` est volontairement anonymisé : il
+contient la structure complète, l'état des migrations et les données publiques
+du catalogue, mais aucune donnée d'utilisateur, de profil, de devis, de
+réservation, de facture ou de paiement. Les données complètes restent
+uniquement dans la base MariaDB locale et dans les sauvegardes privées.
+
 ## Démarrage frontend
 
 ```bash
