@@ -53,10 +53,19 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
-python manage.py makemigrations
 python manage.py migrate
 python manage.py runserver
 ```
+
+La configuration locale de référence utilise MariaDB 10.5 ou supérieur sur
+le port `3307`, avec la base `ultimate_dj_django` et un utilisateur applicatif
+dédié. Le mot de passe doit être renseigné uniquement dans `backend/.env`, qui
+est ignoré par Git. Le port peut être adapté si l'instance MariaDB compatible
+écoute ailleurs.
+
+L'ancienne base XAMPP sur le port `3306` constitue une source de migration et
+une sauvegarde historique. Elle ne doit pas être utilisée directement par
+Django 5.2 lorsqu'elle fonctionne encore sous MariaDB 10.4.
 
 ## Démarrage frontend
 
