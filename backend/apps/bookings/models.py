@@ -58,6 +58,7 @@ class Quote(models.Model):
     travel_fee = models.DecimalField("frais de déplacement", max_digits=10, decimal_places=2, default=0)
     total_amount = models.DecimalField("montant total", max_digits=10, decimal_places=2, default=0)
     deposit_amount = models.DecimalField("montant de l'acompte", max_digits=10, decimal_places=2, default=0)
+    music_preferences = models.TextField("préférences musicales", blank=True)
     created_at = models.DateTimeField("créé le", auto_now_add=True)
 
     class Meta:

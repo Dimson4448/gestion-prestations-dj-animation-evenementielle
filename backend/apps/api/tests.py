@@ -58,6 +58,7 @@ class ApiUltimateDJTests(APITestCase):
             "guest_count": 60,
             "distance_km": "20.00",
             "parking_available": True,
+            "music_preferences": "Disco, pop et chansons des années 90",
         }
         payload.update(overrides)
         return payload
@@ -126,6 +127,7 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(response.data["travel_fee"], "13.00")
         self.assertEqual(response.data["total_amount"], "558.00")
         self.assertEqual(response.data["deposit_amount"], "167.40")
+        self.assertEqual(quote.music_preferences, "Disco, pop et chansons des années 90")
 
     def test_client_ne_peut_pas_choisir_un_statut_de_devis(self):
         self.client.force_authenticate(user=self.client_user)

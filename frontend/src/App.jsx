@@ -69,6 +69,8 @@ const eventTypes = [
   "Événement d’entreprise",
 ];
 
+const todayIso = new Date().toISOString().slice(0, 10);
+
 const formatEuro = (value) =>
   new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(
     Number(value || 0),
@@ -80,10 +82,13 @@ export default function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [packages, setPackages] = useState(fallbackPackages);
   const [catalogueStatus, setCatalogueStatus] = useState("Catalogue de démonstration affiché");
+  const [catalogueReady, setCatalogueReady] = useState(false);
+  const [eventTypeRecords, setEventTypeRecords] = useState([]);
   const [selectedPackageId, setSelectedPackageId] = useState("mariage");
   const [selectedDj, setSelectedDj] = useState(djProfiles[0]);
   const [eventType, setEventType] = useState("Mariage");
   const [eventDate, setEventDate] = useState("2026-09-12");
+  const [startTime, setStartTime] = useState("18:00");
   const [location, setLocation] = useState("Bruxelles");
   const [venueName, setVenueName] = useState("Lieu de l’événement");
   const [venueStreet, setVenueStreet] = useState("");
@@ -99,6 +104,9 @@ export default function App() {
   const [parking, setParking] = useState("oui");
   const [musicPreferences, setMusicPreferences] = useState("Pop, disco et classiques des années 90");
   const [quoteSubmitted, setQuoteSubmitted] = useState(false);
+  const [quotePending, setQuotePending] = useState(false);
+  const [quoteStatus, setQuoteStatus] = useState("");
+  const [createdQuote, setCreatedQuote] = useState(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getStoredAccessToken()));
@@ -133,11 +141,37 @@ export default function App() {
       .then((response) => {
         const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
         if (mounted && Array.isArray(data) && data.length) {
-          setPackages(data.map((item, index) => ({ ...fallbackPackages[index % fallbackPackages.length], ...item })));
+          const mappedPackages = data.map((item, index) => ({ ...fallbackPackages[index % fallbackPackages.length], ...item }));
+          setPackages(mappedPackages);
+          setSelectedPackageId((current) => mappedPackages.some((item) => String(item.id) === String(current)) ? current : mappedPackages[0].id);
+          setCatalogueReady(true);
           setCatalogueStatus("Catalogue synchronisé avec l’API locale");
         }
       })
-      .catch(() => mounted && setCatalogueStatus("Catalogue de démonstration · API locale hors ligne"));
+      .catch(() => {
+        if (mounted) {
+          setCatalogueReady(false);
+          setCatalogueStatus("Catalogue de démonstration · API locale hors ligne");
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    apiClient
+      .get("/event-types/")
+      .then((response) => {
+        if (!mounted) return;
+        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        if (Array.isArray(data) && data.length) {
+          setEventTypeRecords(data);
+          setEventType((current) => data.some((item) => item.name === current) ? current : data[0].name);
+        }
+      })
+      .catch(() => mounted && setEventTypeRecords([]));
     return () => {
       mounted = false;
     };
@@ -202,6 +236,8 @@ export default function App() {
     () => packages.find((item) => String(item.id) === String(selectedPackageId)) || packages[0],
     [packages, selectedPackageId],
   );
+
+  const availableEventTypes = eventTypeRecords.length ? eventTypeRecords.map((item) => item.name) : eventTypes;
 
   const quote = useMemo(() => {
     const base = Number(selectedPackage?.base_price || 0);
@@ -278,6 +314,59 @@ export default function App() {
       }
     } finally {
       setVenuePending(false);
+    }
+  };
+
+  const submitQuote = async (event) => {
+    event.preventDefault();
+    setQuoteStatus("");
+    if (!isAuthenticated) {
+      setQuoteStatus("Connectez-vous dans Mon compte avant d’envoyer votre demande.");
+      return;
+    }
+    if (!catalogueReady || !eventTypeRecords.length) {
+      setQuoteStatus("Le catalogue Django doit être disponible pour enregistrer un devis réel.");
+      return;
+    }
+    if (selectedVenueId === "new") {
+      setQuoteStatus("Enregistrez d’abord le nouveau lieu ou sélectionnez un lieu existant.");
+      return;
+    }
+
+    const selectedEventType = eventTypeRecords.find((item) => item.name === eventType);
+    if (!selectedEventType || !selectedPackage?.id) {
+      setQuoteStatus("Le type d’événement ou la formule sélectionnée est indisponible.");
+      return;
+    }
+
+    setQuotePending(true);
+    try {
+      const response = await apiClient.post("/quotes/", {
+        event_type: selectedEventType.id,
+        package: selectedPackage.id,
+        venue: Number(selectedVenueId),
+        event_date: eventDate,
+        start_time: startTime,
+        duration_hours: Number(durationHours).toFixed(1),
+        guest_count: Number(guestCount),
+        distance_km: Number(distanceKm || 0).toFixed(2),
+        parking_available: parking === "oui",
+        music_preferences: musicPreferences.trim(),
+      });
+      setCreatedQuote(response.data);
+      setQuoteSubmitted(true);
+    } catch (error) {
+      if (error.response?.status === 401) {
+        clearAuthentication();
+        setIsAuthenticated(false);
+        setQuoteStatus("Votre session a expiré. Reconnectez-vous avant de continuer.");
+      } else {
+        const details = error.response?.data;
+        const firstError = details && Object.values(details).flat()[0];
+        setQuoteStatus(firstError || "La demande de devis n’a pas pu être enregistrée.");
+      }
+    } finally {
+      setQuotePending(false);
     }
   };
 
@@ -373,7 +462,7 @@ export default function App() {
                 <h1>Réservez le DJ parfait.</h1>
                 <p className="hero-lead">Devis, contrat, acompte et playlist réunis dans un parcours simple et sécurisé.</p>
                 <form className="quick-search" onSubmit={(event) => { event.preventDefault(); navigate("offres"); }}>
-                  <label><span>Événement</span><select value={eventType} onChange={(event) => setEventType(event.target.value)}>{eventTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
+                  <label><span>Événement</span><select value={eventType} onChange={(event) => setEventType(event.target.value)}>{availableEventTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
                   <label><span>Date</span><input type="date" value={eventDate} min="2026-07-19" onChange={(event) => setEventDate(event.target.value)} /></label>
                   <label><span>Lieu</span><input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
                   <button className="primary-button" type="submit"><Search aria-hidden="true" /> Trouver un DJ</button>
@@ -413,7 +502,7 @@ export default function App() {
             <div className="page-heading"><p className="eyebrow dark">Offres & DJs</p><h1>Trouvez la prestation qui vous ressemble</h1><p>{eventType} · {eventDate.split("-").reverse().join("/")} · {location}</p></div>
             <div className="catalogue-layout">
               <aside className="filters"><div className="filter-heading"><h2>Filtres</h2><button onClick={() => { setEventType("Mariage"); setLocation("Bruxelles"); }}>Réinitialiser</button></div>
-                <label>Type d’événement<select value={eventType} onChange={(event) => setEventType(event.target.value)}>{eventTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
+                <label>Type d’événement<select value={eventType} onChange={(event) => setEventType(event.target.value)}>{availableEventTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
                 <label>Date<input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} /></label>
                 <label>Lieu<input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
                 <label>Budget<select defaultValue="1500"><option value="700">Moins de 700 €</option><option value="1500">700 € – 1 500 €</option><option value="more">Plus de 1 500 €</option></select></label>
@@ -435,7 +524,7 @@ export default function App() {
 
         {page === "devis" && (
           <section className="section-wrap quote-page"><div className="page-heading"><p className="eyebrow dark">Demande de devis</p><h1>Parlez-nous de votre événement</h1><p>Les informations obligatoires suivent le scénario de demande validé dans les diagrammes.</p></div>
-            {!quoteSubmitted ? <div className="quote-layout"><form className="quote-form" onSubmit={(event) => { event.preventDefault(); setQuoteSubmitted(true); }}><fieldset><legend><span>1</span> Votre événement</legend><div className="form-grid"><label>Type d’événement<select value={eventType} onChange={(event) => setEventType(event.target.value)} required>{eventTypes.map((type) => <option key={type}>{type}</option>)}</select></label><label>Date<input type="date" value={eventDate} min="2026-07-19" onChange={(event) => setEventDate(event.target.value)} required /></label><label className="full-field">Lieu enregistré<select value={selectedVenueId} onChange={(event) => selectVenue(event.target.value)}><option value="new">Créer un nouveau lieu</option>{venues.map((venue) => <option value={venue.id} key={venue.id}>{venue.name} — {venue.city}</option>)}</select></label>{selectedVenueId === "new" && <><label>Nom du lieu<input value={venueName} onChange={(event) => setVenueName(event.target.value)} required /></label><label>Rue et numéro<input value={venueStreet} onChange={(event) => setVenueStreet(event.target.value)} required /></label><label>Code postal<input value={venuePostalCode} onChange={(event) => setVenuePostalCode(event.target.value)} required /></label><label>Ville<input value={location} onChange={(event) => setLocation(event.target.value)} required /></label><label>Pays<input value={venueCountry} onChange={(event) => setVenueCountry(event.target.value)} required /></label><div className="venue-actions"><button className="secondary-button" type="button" onClick={createVenue} disabled={venuePending}>{venuePending ? "Enregistrement…" : "Enregistrer ce lieu"}</button></div></>}{venueStatus && <p className={`venue-message full-field ${venueStatus.startsWith("Lieu enregistré") ? "success" : ""}`} role="status">{venueStatus}</p>}<label>Nombre d’invités<input type="number" min="1" value={guestCount} onChange={(event) => setGuestCount(event.target.value)} required /></label><label>Durée prévue (heures)<input type="number" min="1" step="0.5" value={durationHours} onChange={(event) => setDurationHours(event.target.value)} required /></label><label>Parking disponible ?<select value={parking} onChange={(event) => setParking(event.target.value)}><option value="oui">Oui</option><option value="non">Non</option><option value="inconnu">À vérifier</option></select></label></div></fieldset><fieldset><legend><span>2</span> Offre et préférences</legend><div className="form-grid"><label>Formule<select value={selectedPackageId} onChange={(event) => setSelectedPackageId(event.target.value)}>{packages.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><label>Distance estimée (km)<input type="number" min="0" value={distanceKm} onChange={(event) => setDistanceKm(event.target.value)} /></label><label className="full-field">Préférences musicales<textarea rows="4" value={musicPreferences} onChange={(event) => setMusicPreferences(event.target.value)} placeholder="Styles, chansons souhaitées ou à éviter…" /></label></div></fieldset><button className="primary-button submit-quote" type="submit">Soumettre la demande <ChevronRight /></button></form><aside className="quote-summary"><p className="eyebrow dark">Estimation</p><h2>{selectedPackage?.name}</h2><dl><div><dt>Prestation</dt><dd>{formatEuro(quote.subtotal)}</dd></div><div><dt>Déplacement estimé</dt><dd>{formatEuro(quote.travel)}</dd></div><div className="quote-total"><dt>Total indicatif</dt><dd>{formatEuro(quote.total)}</dd></div><div><dt>Acompte proposé (30 %)</dt><dd>{formatEuro(quote.deposit)}</dd></div></dl><p><ShieldCheck /> Cette estimation sera vérifiée par l’administrateur/DJ avant l’envoi du devis.</p></aside></div> : <div className="confirmation-card"><div className="confirmation-icon"><Check /></div><p className="eyebrow dark">Demande soumise</p><h2>Votre demande a bien été enregistrée.</h2><p>Statut : <strong>Soumise — disponibilité à vérifier</strong>. L’administrateur/DJ analysera les informations avant de générer le devis.</p><div className="confirmation-details"><span><CalendarDays /> {eventDate.split("-").reverse().join("/")}</span><span><MapPin /> {location}</span><span><UsersRound /> {guestCount} invités</span></div><button className="secondary-button" onClick={() => navigate("accueil")}>Revenir à l’accueil</button></div>}
+            {!quoteSubmitted ? <div className="quote-layout"><form className="quote-form" onSubmit={submitQuote}><fieldset><legend><span>1</span> Votre événement</legend><div className="form-grid"><label>Type d’événement<select value={eventType} onChange={(event) => setEventType(event.target.value)} required>{availableEventTypes.map((type) => <option key={type}>{type}</option>)}</select></label><label>Date<input type="date" value={eventDate} min={todayIso} onChange={(event) => setEventDate(event.target.value)} required /></label><label>Heure de début<input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} required /></label><label className="full-field">Lieu enregistré<select value={selectedVenueId} onChange={(event) => selectVenue(event.target.value)}><option value="new">Créer un nouveau lieu</option>{venues.map((venue) => <option value={venue.id} key={venue.id}>{venue.name} — {venue.city}</option>)}</select></label>{selectedVenueId === "new" && <><label>Nom du lieu<input value={venueName} onChange={(event) => setVenueName(event.target.value)} required /></label><label>Rue et numéro<input value={venueStreet} onChange={(event) => setVenueStreet(event.target.value)} required /></label><label>Code postal<input value={venuePostalCode} onChange={(event) => setVenuePostalCode(event.target.value)} required /></label><label>Ville<input value={location} onChange={(event) => setLocation(event.target.value)} required /></label><label>Pays<input value={venueCountry} onChange={(event) => setVenueCountry(event.target.value)} required /></label><div className="venue-actions"><button className="secondary-button" type="button" onClick={createVenue} disabled={venuePending}>{venuePending ? "Enregistrement…" : "Enregistrer ce lieu"}</button></div></>}{venueStatus && <p className={`venue-message full-field ${venueStatus.startsWith("Lieu enregistré") ? "success" : ""}`} role="status">{venueStatus}</p>}<label>Nombre d’invités<input type="number" min="1" value={guestCount} onChange={(event) => setGuestCount(event.target.value)} required /></label><label>Durée prévue (heures)<input type="number" min="1" step="0.5" value={durationHours} onChange={(event) => setDurationHours(event.target.value)} required /></label><label>Parking disponible ?<select value={parking} onChange={(event) => setParking(event.target.value)}><option value="oui">Oui</option><option value="non">Non</option><option value="inconnu">À vérifier</option></select></label></div></fieldset><fieldset><legend><span>2</span> Offre et préférences</legend><div className="form-grid"><label>Formule<select value={selectedPackageId} onChange={(event) => setSelectedPackageId(event.target.value)}>{packages.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><label>Distance estimée (km)<input type="number" min="0" value={distanceKm} onChange={(event) => setDistanceKm(event.target.value)} /></label><label className="full-field">Préférences musicales<textarea rows="4" value={musicPreferences} onChange={(event) => setMusicPreferences(event.target.value)} placeholder="Styles, chansons souhaitées ou à éviter…" /></label></div></fieldset>{quoteStatus && <p className="form-message" role="alert">{quoteStatus}</p>}<button className="primary-button submit-quote" type="submit" disabled={quotePending}>{quotePending ? "Enregistrement…" : "Soumettre la demande"} <ChevronRight /></button></form><aside className="quote-summary"><p className="eyebrow dark">Estimation</p><h2>{selectedPackage?.name}</h2><dl><div><dt>Prestation</dt><dd>{formatEuro(quote.subtotal)}</dd></div><div><dt>Déplacement estimé</dt><dd>{formatEuro(quote.travel)}</dd></div><div className="quote-total"><dt>Total indicatif</dt><dd>{formatEuro(quote.total)}</dd></div><div><dt>Acompte proposé (30 %)</dt><dd>{formatEuro(quote.deposit)}</dd></div></dl><p><ShieldCheck /> Cette estimation sera vérifiée par l’administrateur/DJ avant l’envoi du devis.</p></aside></div> : <div className="confirmation-card"><div className="confirmation-icon"><Check /></div><p className="eyebrow dark">Demande enregistrée</p><h2>Votre devis n°{createdQuote?.id} a bien été créé.</h2><p>Statut : <strong>Brouillon — vérification administrative en attente</strong>. Les montants ci-dessous ont été calculés et enregistrés par Django.</p><div className="confirmation-details"><span><CalendarDays /> {eventDate.split("-").reverse().join("/")}</span><span><MapPin /> {location}</span><span><UsersRound /> {guestCount} invités</span><span><FileText /> {formatEuro(createdQuote?.total_amount)}</span></div><button className="secondary-button" onClick={() => navigate("compte")}>Voir mon espace client</button></div>}
           </section>
         )}
 

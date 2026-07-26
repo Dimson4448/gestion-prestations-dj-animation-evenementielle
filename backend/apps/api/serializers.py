@@ -169,6 +169,7 @@ class QuoteSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             "travel_fee",
             "total_amount",
             "deposit_amount",
+            "music_preferences",
             "created_at",
             "liens",
         ]
