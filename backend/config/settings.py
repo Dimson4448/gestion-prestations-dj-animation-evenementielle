@@ -87,6 +87,15 @@ else:
         }
     }
 
+LEGACY_DB_NAME = config("LEGACY_DB_NAME", default="")
+LEGACY_DATABASE = {
+    "NAME": LEGACY_DB_NAME,
+    "USER": config("LEGACY_DB_USER", default="root"),
+    "PASSWORD": config("LEGACY_DB_PASSWORD", default=""),
+    "HOST": config("LEGACY_DB_HOST", default="127.0.0.1"),
+    "PORT": config("LEGACY_DB_PORT", default="3306", cast=int),
+}
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},

@@ -67,6 +67,18 @@ L'ancienne base XAMPP sur le port `3306` constitue une source de migration et
 une sauvegarde historique. Elle ne doit pas être utilisée directement par
 Django 5.2 lorsqu'elle fonctionne encore sous MariaDB 10.4.
 
+Le catalogue historique peut être vérifié puis importé de façon idempotente :
+
+```powershell
+cd backend
+.venv\Scripts\python.exe manage.py import_legacy_catalog --dry-run
+.venv\Scripts\python.exe manage.py import_legacy_catalog
+```
+
+La commande lit uniquement les paramètres `LEGACY_DB_*`, transforme le type
+historique `Anniversaire` en `Anniversaire adulte` et conserve également le
+type `Anniversaire enfant` créé par les migrations Django.
+
 ## Démarrage frontend
 
 ```bash
