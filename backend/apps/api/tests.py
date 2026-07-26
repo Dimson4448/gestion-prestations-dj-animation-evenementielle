@@ -194,3 +194,59 @@ class ApiUltimateDJTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("event_date", response.data)
+
+    def test_liste_devis_limitee_au_client_connecte(self):
+        self.client.force_authenticate(user=self.client_user)
+        own_quote = self.client.post("/api/v1/quotes/", self.quote_payload(), format="json")
+
+        user_model = get_user_model()
+        other_user = user_model.objects.create_user(username="client_devis_2", password="MotDePasseTest2026!")
+        other_profile = ClientProfile.objects.create(
+            user=other_user,
+            date_of_birth=date(1993, 3, 3),
+            phone="+32472222222",
+            billing_address="Rue du Second Client 1",
+            billing_city="Mons",
+            billing_postal_code="7000",
+        )
+        other_venue = Venue.objects.create(
+            client=other_profile,
+            name="Salle du second client",
+            street="Rue du Second Client 2",
+            postal_code="7000",
+            city="Mons",
+            distance_km_from_base="60.00",
+        )
+        self.client.force_authenticate(user=other_user)
+        other_quote = self.client.post(
+            "/api/v1/quotes/",
+            self.quote_payload(venue=other_venue.pk),
+            format="json",
+        )
+
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.get("/api/v1/quotes/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        quote_ids = {item["id"] for item in response.data["results"]}
+        self.assertIn(own_quote.data["id"], quote_ids)
+        self.assertNotIn(other_quote.data["id"], quote_ids)
+
+    def test_administrateur_peut_mettre_a_jour_le_statut_du_devis(self):
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post("/api/v1/quotes/", self.quote_payload(), format="json")
+        admin = get_user_model().objects.create_superuser(
+            username="admin_devis",
+            email="admin-devis@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.patch(
+            f"/api/v1/quotes/{created.data['id']}/",
+            {"status": Quote.SENT},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], Quote.SENT)

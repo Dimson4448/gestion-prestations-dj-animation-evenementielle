@@ -171,7 +171,7 @@ class QuoteViewSet(ProtectedModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        queryset = Quote.objects.select_related("client", "event_type", "package", "venue").all()
+        queryset = Quote.objects.select_related("client", "event_type", "package", "venue").order_by("-created_at")
         if self.request.user.is_staff:
             return queryset
         client = client_connecte(self.request.user)
