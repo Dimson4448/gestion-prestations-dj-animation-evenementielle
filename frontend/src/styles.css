@@ -175,6 +175,10 @@ svg { width: 20px; height: 20px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
 .quote-form label { margin: 0; }
 .full-field { grid-column: 1 / -1; }
+.venue-actions { display: flex; align-items: end; }
+.venue-actions .secondary-button { width: 100%; }
+.venue-message { margin: 0; padding: 11px 13px; border-radius: 8px; color: #9f2d3d; background: #fff0f2; font-size: .84rem; font-weight: 700; }
+.venue-message.success { color: #17633f; background: #eaf8f1; }
 .quote-form textarea { resize: vertical; }
 .submit-quote { justify-self: end; }
 .quote-summary { position: sticky; top: 110px; }

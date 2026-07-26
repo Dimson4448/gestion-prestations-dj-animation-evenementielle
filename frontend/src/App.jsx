@@ -85,6 +85,14 @@ export default function App() {
   const [eventType, setEventType] = useState("Mariage");
   const [eventDate, setEventDate] = useState("2026-09-12");
   const [location, setLocation] = useState("Bruxelles");
+  const [venueName, setVenueName] = useState("Lieu de l’événement");
+  const [venueStreet, setVenueStreet] = useState("");
+  const [venuePostalCode, setVenuePostalCode] = useState("");
+  const [venueCountry, setVenueCountry] = useState("Belgique");
+  const [venues, setVenues] = useState([]);
+  const [selectedVenueId, setSelectedVenueId] = useState("new");
+  const [venueStatus, setVenueStatus] = useState("");
+  const [venuePending, setVenuePending] = useState(false);
   const [durationHours, setDurationHours] = useState(8);
   const [distanceKm, setDistanceKm] = useState(20);
   const [guestCount, setGuestCount] = useState(80);
@@ -138,6 +146,8 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated) {
       setDepositInvoices([]);
+      setVenues([]);
+      setSelectedVenueId("new");
       return;
     }
 
@@ -160,6 +170,27 @@ export default function App() {
           setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
         } else {
           setInvoiceStatus("Impossible de charger les factures pour le moment.");
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let mounted = true;
+    apiClient
+      .get("/venues/", { params: { ordering: "city,name" } })
+      .then((response) => {
+        if (!mounted) return;
+        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        setVenues(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        if (mounted && error.response?.status !== 401) {
+          setVenueStatus("Impossible de charger vos lieux enregistrés.");
         }
       });
     return () => {
@@ -194,6 +225,61 @@ export default function App() {
   };
 
   const startQuote = () => navigate("devis");
+
+  const selectVenue = (venueId) => {
+    setSelectedVenueId(venueId);
+    setVenueStatus("");
+    if (venueId === "new") return;
+    const venue = venues.find((item) => String(item.id) === String(venueId));
+    if (!venue) return;
+    setVenueName(venue.name);
+    setVenueStreet(venue.street);
+    setVenuePostalCode(venue.postal_code);
+    setLocation(venue.city);
+    setVenueCountry(venue.country);
+    setParking(venue.has_parking ? "oui" : "non");
+    setDistanceKm(venue.distance_km_from_base);
+  };
+
+  const createVenue = async () => {
+    if (!isAuthenticated) {
+      setVenueStatus("Connectez-vous dans Mon compte avant d’enregistrer un lieu.");
+      return;
+    }
+    if (!venueName.trim() || !venueStreet.trim() || !venuePostalCode.trim() || !location.trim()) {
+      setVenueStatus("Complétez le nom, la rue, le code postal et la ville du lieu.");
+      return;
+    }
+
+    setVenuePending(true);
+    setVenueStatus("");
+    try {
+      const response = await apiClient.post("/venues/", {
+        name: venueName.trim(),
+        street: venueStreet.trim(),
+        postal_code: venuePostalCode.trim(),
+        city: location.trim(),
+        country: venueCountry.trim() || "Belgique",
+        has_parking: parking === "oui",
+        distance_km_from_base: Number(distanceKm || 0).toFixed(2),
+      });
+      setVenues((current) => [...current, response.data]);
+      setSelectedVenueId(String(response.data.id));
+      setVenueStatus("Lieu enregistré. Il sera utilisé pour cette demande de devis.");
+    } catch (error) {
+      if (error.response?.status === 401) {
+        clearAuthentication();
+        setIsAuthenticated(false);
+        setVenueStatus("Votre session a expiré. Reconnectez-vous avant de continuer.");
+      } else {
+        const details = error.response?.data;
+        const firstError = details && Object.values(details).flat()[0];
+        setVenueStatus(firstError || "Le lieu n’a pas pu être enregistré.");
+      }
+    } finally {
+      setVenuePending(false);
+    }
+  };
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -349,7 +435,7 @@ export default function App() {
 
         {page === "devis" && (
           <section className="section-wrap quote-page"><div className="page-heading"><p className="eyebrow dark">Demande de devis</p><h1>Parlez-nous de votre événement</h1><p>Les informations obligatoires suivent le scénario de demande validé dans les diagrammes.</p></div>
-            {!quoteSubmitted ? <div className="quote-layout"><form className="quote-form" onSubmit={(event) => { event.preventDefault(); setQuoteSubmitted(true); }}><fieldset><legend><span>1</span> Votre événement</legend><div className="form-grid"><label>Type d’événement<select value={eventType} onChange={(event) => setEventType(event.target.value)} required>{eventTypes.map((type) => <option key={type}>{type}</option>)}</select></label><label>Date<input type="date" value={eventDate} min="2026-07-19" onChange={(event) => setEventDate(event.target.value)} required /></label><label>Lieu<input value={location} onChange={(event) => setLocation(event.target.value)} required /></label><label>Nombre d’invités<input type="number" min="1" value={guestCount} onChange={(event) => setGuestCount(event.target.value)} required /></label><label>Durée prévue (heures)<input type="number" min="1" step="0.5" value={durationHours} onChange={(event) => setDurationHours(event.target.value)} required /></label><label>Parking disponible ?<select value={parking} onChange={(event) => setParking(event.target.value)}><option value="oui">Oui</option><option value="non">Non</option><option value="inconnu">À vérifier</option></select></label></div></fieldset><fieldset><legend><span>2</span> Offre et préférences</legend><div className="form-grid"><label>Formule<select value={selectedPackageId} onChange={(event) => setSelectedPackageId(event.target.value)}>{packages.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><label>Distance estimée (km)<input type="number" min="0" value={distanceKm} onChange={(event) => setDistanceKm(event.target.value)} /></label><label className="full-field">Préférences musicales<textarea rows="4" value={musicPreferences} onChange={(event) => setMusicPreferences(event.target.value)} placeholder="Styles, chansons souhaitées ou à éviter…" /></label></div></fieldset><button className="primary-button submit-quote" type="submit">Soumettre la demande <ChevronRight /></button></form><aside className="quote-summary"><p className="eyebrow dark">Estimation</p><h2>{selectedPackage?.name}</h2><dl><div><dt>Prestation</dt><dd>{formatEuro(quote.subtotal)}</dd></div><div><dt>Déplacement estimé</dt><dd>{formatEuro(quote.travel)}</dd></div><div className="quote-total"><dt>Total indicatif</dt><dd>{formatEuro(quote.total)}</dd></div><div><dt>Acompte proposé (30 %)</dt><dd>{formatEuro(quote.deposit)}</dd></div></dl><p><ShieldCheck /> Cette estimation sera vérifiée par l’administrateur/DJ avant l’envoi du devis.</p></aside></div> : <div className="confirmation-card"><div className="confirmation-icon"><Check /></div><p className="eyebrow dark">Demande soumise</p><h2>Votre demande a bien été enregistrée.</h2><p>Statut : <strong>Soumise — disponibilité à vérifier</strong>. L’administrateur/DJ analysera les informations avant de générer le devis.</p><div className="confirmation-details"><span><CalendarDays /> {eventDate.split("-").reverse().join("/")}</span><span><MapPin /> {location}</span><span><UsersRound /> {guestCount} invités</span></div><button className="secondary-button" onClick={() => navigate("accueil")}>Revenir à l’accueil</button></div>}
+            {!quoteSubmitted ? <div className="quote-layout"><form className="quote-form" onSubmit={(event) => { event.preventDefault(); setQuoteSubmitted(true); }}><fieldset><legend><span>1</span> Votre événement</legend><div className="form-grid"><label>Type d’événement<select value={eventType} onChange={(event) => setEventType(event.target.value)} required>{eventTypes.map((type) => <option key={type}>{type}</option>)}</select></label><label>Date<input type="date" value={eventDate} min="2026-07-19" onChange={(event) => setEventDate(event.target.value)} required /></label><label className="full-field">Lieu enregistré<select value={selectedVenueId} onChange={(event) => selectVenue(event.target.value)}><option value="new">Créer un nouveau lieu</option>{venues.map((venue) => <option value={venue.id} key={venue.id}>{venue.name} — {venue.city}</option>)}</select></label>{selectedVenueId === "new" && <><label>Nom du lieu<input value={venueName} onChange={(event) => setVenueName(event.target.value)} required /></label><label>Rue et numéro<input value={venueStreet} onChange={(event) => setVenueStreet(event.target.value)} required /></label><label>Code postal<input value={venuePostalCode} onChange={(event) => setVenuePostalCode(event.target.value)} required /></label><label>Ville<input value={location} onChange={(event) => setLocation(event.target.value)} required /></label><label>Pays<input value={venueCountry} onChange={(event) => setVenueCountry(event.target.value)} required /></label><div className="venue-actions"><button className="secondary-button" type="button" onClick={createVenue} disabled={venuePending}>{venuePending ? "Enregistrement…" : "Enregistrer ce lieu"}</button></div></>}{venueStatus && <p className={`venue-message full-field ${venueStatus.startsWith("Lieu enregistré") ? "success" : ""}`} role="status">{venueStatus}</p>}<label>Nombre d’invités<input type="number" min="1" value={guestCount} onChange={(event) => setGuestCount(event.target.value)} required /></label><label>Durée prévue (heures)<input type="number" min="1" step="0.5" value={durationHours} onChange={(event) => setDurationHours(event.target.value)} required /></label><label>Parking disponible ?<select value={parking} onChange={(event) => setParking(event.target.value)}><option value="oui">Oui</option><option value="non">Non</option><option value="inconnu">À vérifier</option></select></label></div></fieldset><fieldset><legend><span>2</span> Offre et préférences</legend><div className="form-grid"><label>Formule<select value={selectedPackageId} onChange={(event) => setSelectedPackageId(event.target.value)}>{packages.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><label>Distance estimée (km)<input type="number" min="0" value={distanceKm} onChange={(event) => setDistanceKm(event.target.value)} /></label><label className="full-field">Préférences musicales<textarea rows="4" value={musicPreferences} onChange={(event) => setMusicPreferences(event.target.value)} placeholder="Styles, chansons souhaitées ou à éviter…" /></label></div></fieldset><button className="primary-button submit-quote" type="submit">Soumettre la demande <ChevronRight /></button></form><aside className="quote-summary"><p className="eyebrow dark">Estimation</p><h2>{selectedPackage?.name}</h2><dl><div><dt>Prestation</dt><dd>{formatEuro(quote.subtotal)}</dd></div><div><dt>Déplacement estimé</dt><dd>{formatEuro(quote.travel)}</dd></div><div className="quote-total"><dt>Total indicatif</dt><dd>{formatEuro(quote.total)}</dd></div><div><dt>Acompte proposé (30 %)</dt><dd>{formatEuro(quote.deposit)}</dd></div></dl><p><ShieldCheck /> Cette estimation sera vérifiée par l’administrateur/DJ avant l’envoi du devis.</p></aside></div> : <div className="confirmation-card"><div className="confirmation-icon"><Check /></div><p className="eyebrow dark">Demande soumise</p><h2>Votre demande a bien été enregistrée.</h2><p>Statut : <strong>Soumise — disponibilité à vérifier</strong>. L’administrateur/DJ analysera les informations avant de générer le devis.</p><div className="confirmation-details"><span><CalendarDays /> {eventDate.split("-").reverse().join("/")}</span><span><MapPin /> {location}</span><span><UsersRound /> {guestCount} invités</span></div><button className="secondary-button" onClick={() => navigate("accueil")}>Revenir à l’accueil</button></div>}
           </section>
         )}
 
