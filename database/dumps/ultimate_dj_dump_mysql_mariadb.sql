@@ -4,6 +4,9 @@
 -- Projet : Gestion des prestations DJ et animation événementielle
 -- SGBD cible : MySQL 8 / MariaDB 10.5+
 -- Encodage : utf8mb4
+-- Schéma synchronisé avec les migrations Django jusqu'à :
+--   bookings.0003_quote_music_preferences
+--   payments.0003_alter_payment_stripe_payment_intent_id
 -- ============================================================
 
 SET NAMES utf8mb4;
@@ -193,6 +196,7 @@ CREATE TABLE `quotes` (
   `travel_fee` DECIMAL(10,2) NOT NULL,
   `total_amount` DECIMAL(10,2) NOT NULL,
   `deposit_amount` DECIMAL(10,2) NOT NULL,
+  `music_preferences` TEXT NOT NULL DEFAULT '',
   `created_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_quotes_client` (`client_profile_id`),
@@ -295,7 +299,7 @@ CREATE TABLE `payments` (
   `booking_id` INT UNSIGNED NOT NULL,
   `invoice_id` INT UNSIGNED NOT NULL,
   `stripe_session_id` VARCHAR(190) NOT NULL,
-  `stripe_payment_intent_id` VARCHAR(190) NOT NULL,
+  `stripe_payment_intent_id` VARCHAR(190) NULL,
   `amount` DECIMAL(10,2) NOT NULL,
   `currency` CHAR(3) NOT NULL DEFAULT 'EUR',
   `status` ENUM('pending','paid','failed','refunded') NOT NULL DEFAULT 'pending',
