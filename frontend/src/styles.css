@@ -208,6 +208,16 @@ svg { width: 20px; height: 20px; }
 .form-message { margin: 0; padding: 10px 12px; border-radius: 8px; color: #9f2d3d; background: #fff0f2; font-size: .85rem; font-weight: 700; }
 .form-message.success { color: #17633f; background: #eaf8f1; }
 .connected-card p { margin: 0; line-height: 1.6; }
+.quote-list { display: grid; gap: 10px; margin: 8px 0; }
+.quote-list h3 { margin: 0 0 2px; }
+.quote-row { display: grid; gap: 6px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: #f9fbfd; }
+.quote-row > span { color: #69758b; font-size: .78rem; }
+.quote-row-heading, .quote-row-amounts { display: flex; justify-content: space-between; gap: 12px; }
+.quote-row-amounts { margin-top: 4px; padding-top: 7px; border-top: 1px solid var(--line); color: #526079; font-size: .8rem; }
+.quote-status { padding: 4px 7px; border-radius: 99px; color: #526079; background: #e8edf4; font-size: .7rem; font-weight: 800; text-transform: uppercase; }
+.quote-status.sent { color: #075b70; background: #ddf7fc; }
+.quote-status.accepted { color: #17633f; background: #e0f5e9; }
+.quote-status.refused, .quote-status.expired { color: #9f2d3d; background: #fff0f2; }
 .invoice-list { display: grid; gap: 10px; margin: 8px 0; }
 .invoice-list h3 { margin: 0 0 2px; }
 .invoice-empty { padding: 12px; border-radius: 8px; color: #526079; background: #f3f6fa; font-size: .86rem; }

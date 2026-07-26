@@ -76,6 +76,14 @@ const formatEuro = (value) =>
     Number(value || 0),
   );
 
+const quoteStatusLabels = {
+  draft: "Brouillon",
+  sent: "Envoyé",
+  accepted: "Accepté",
+  refused: "Refusé",
+  expired: "Expiré",
+};
+
 export default function App() {
   const [page, setPage] = useState("accueil");
   const [language, setLanguage] = useState("FR");
@@ -114,6 +122,8 @@ export default function App() {
   const [loginPending, setLoginPending] = useState(false);
   const [depositInvoices, setDepositInvoices] = useState([]);
   const [invoiceStatus, setInvoiceStatus] = useState("");
+  const [clientQuotes, setClientQuotes] = useState([]);
+  const [quoteListStatus, setQuoteListStatus] = useState("");
   const [checkoutPendingId, setCheckoutPendingId] = useState(null);
   const [checkoutStatus, setCheckoutStatus] = useState("");
   const [paymentReturnStatus, setPaymentReturnStatus] = useState("");
@@ -180,6 +190,7 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated) {
       setDepositInvoices([]);
+      setClientQuotes([]);
       setVenues([]);
       setSelectedVenueId("new");
       return;
@@ -204,6 +215,36 @@ export default function App() {
           setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
         } else {
           setInvoiceStatus("Impossible de charger les factures pour le moment.");
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let mounted = true;
+    setQuoteListStatus("Chargement de vos devis…");
+    apiClient
+      .get("/quotes/", { params: { ordering: "-created_at" } })
+      .then((response) => {
+        if (!mounted) return;
+        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        const quotes = Array.isArray(data) ? data : [];
+        setClientQuotes(quotes);
+        setQuoteListStatus(quotes.length ? "" : "Aucun devis enregistré.");
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        if (error.response?.status === 401) {
+          clearAuthentication();
+          setIsAuthenticated(false);
+          setQuoteListStatus("");
+          setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
+        } else {
+          setQuoteListStatus("Impossible de charger vos devis pour le moment.");
         }
       });
     return () => {
@@ -354,6 +395,8 @@ export default function App() {
         music_preferences: musicPreferences.trim(),
       });
       setCreatedQuote(response.data);
+      setClientQuotes((current) => [response.data, ...current.filter((item) => item.id !== response.data.id)]);
+      setQuoteListStatus("");
       setQuoteSubmitted(true);
     } catch (error) {
       if (error.response?.status === 401) {
@@ -544,8 +587,25 @@ export default function App() {
               ) : (
                 <div className="account-card connected-card">
                   <div className="confirmation-icon"><Check /></div><h2>Session client active</h2>
-                  <p>Vous pouvez maintenant consulter vos factures et démarrer un paiement sécurisé.</p>
+                  <p>Vous pouvez maintenant suivre vos devis, vos factures et vos paiements sécurisés.</p>
                   {loginStatus && <p className="form-message success" role="status">{loginStatus}</p>}
+                  <div className="quote-list">
+                    <h3>Mes demandes de devis</h3>
+                    {quoteListStatus && <p className="invoice-empty" role="status">{quoteListStatus}</p>}
+                    {clientQuotes.map((item) => {
+                      const itemPackage = packages.find((entry) => String(entry.id) === String(item.package));
+                      const itemVenue = venues.find((entry) => String(entry.id) === String(item.venue));
+                      const itemEventType = eventTypeRecords.find((entry) => String(entry.id) === String(item.event_type));
+                      return (
+                        <article className="quote-row" key={item.id}>
+                          <div className="quote-row-heading"><strong>Devis n°{item.id}</strong><span className={`quote-status ${item.status}`}>{quoteStatusLabels[item.status] || item.status}</span></div>
+                          <span>{itemEventType?.name || "Événement"} · {new Date(`${item.event_date}T00:00:00`).toLocaleDateString("fr-BE")}</span>
+                          <span>{itemPackage?.name || `Formule n°${item.package}`} · {itemVenue ? `${itemVenue.name}, ${itemVenue.city}` : `Lieu n°${item.venue}`}</span>
+                          <div className="quote-row-amounts"><span>Total : <strong>{formatEuro(item.total_amount)}</strong></span><span>Acompte : <strong>{formatEuro(item.deposit_amount)}</strong></span></div>
+                        </article>
+                      );
+                    })}
+                  </div>
                   <div className="invoice-list">
                     <h3>Factures d’acompte</h3>
                     {invoiceStatus && <p className="invoice-empty" role="status">{invoiceStatus}</p>}
