@@ -6,6 +6,7 @@ import {
   CircleUserRound,
   Clock3,
   CreditCard,
+  Download,
   FileText,
   Headphones,
   MapPin,
@@ -132,6 +133,7 @@ export default function App() {
   const [contracts, setContracts] = useState([]);
   const [contractStatus, setContractStatus] = useState("");
   const [contractPendingId, setContractPendingId] = useState(null);
+  const [downloadPending, setDownloadPending] = useState("");
   const [invoiceStatus, setInvoiceStatus] = useState("");
   const [clientQuotes, setClientQuotes] = useState([]);
   const [quoteListStatus, setQuoteListStatus] = useState("");
@@ -565,6 +567,27 @@ export default function App() {
     }
   };
 
+  const downloadDocument = async (resource, id, filename) => {
+    const downloadKey = `${resource}-${id}`;
+    setDownloadPending(downloadKey);
+    try {
+      const response = await apiClient.get(`/${resource}/${id}/pdf/`, { responseType: "blob" });
+      const url = URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${filename}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      if (resource === "contracts") setContractStatus("Le contrat PDF n’a pas pu être téléchargé.");
+      else setCheckoutStatus("La facture PDF n’a pas pu être téléchargée.");
+    } finally {
+      setDownloadPending("");
+    }
+  };
+
   const startDepositCheckout = async (invoice) => {
     setCheckoutPendingId(invoice.id);
     setCheckoutStatus("");
@@ -778,6 +801,7 @@ export default function App() {
                         <div><strong>{contract.contract_number}</strong><span>Réservation n°{contract.booking}</span><span>{contract.refund_policy}</span></div>
                         <div className="contract-actions">
                           <span className={`contract-status ${contract.status}`}>{contractStatusLabels[contract.status] || contract.status}</span>
+                          <button className="document-button" type="button" onClick={() => downloadDocument("contracts", contract.id, contract.contract_number)} disabled={downloadPending === `contracts-${contract.id}`}><Download /> {downloadPending === `contracts-${contract.id}` ? "Préparation…" : "Télécharger le PDF"}</button>
                           {contract.status === "sent" && <button className="primary-button payment-button" type="button" onClick={() => signClientContract(contract.id)} disabled={contractPendingId === contract.id}><FileText /> {contractPendingId === contract.id ? "Signature…" : "Signer le contrat"}</button>}
                           {contract.signed_by_client_at && <small>Signé le {new Date(contract.signed_by_client_at).toLocaleString("fr-BE")}</small>}
                         </div>
@@ -794,6 +818,7 @@ export default function App() {
                         <div className="invoice-actions">
                           <strong>{formatEuro(invoice.amount)}</strong>
                           <span className={`invoice-status ${invoice.status}`}>{invoice.status === "paid" ? "Payée" : invoice.status === "sent" ? "À payer" : invoice.status}</span>
+                          <button className="document-button" type="button" onClick={() => downloadDocument("invoices", invoice.id, invoice.invoice_number)} disabled={downloadPending === `invoices-${invoice.id}`}><Download /> {downloadPending === `invoices-${invoice.id}` ? "Préparation…" : "Télécharger le PDF"}</button>
                           {invoice.status === "sent" && (
                             <button className="primary-button payment-button" type="button" onClick={() => startDepositCheckout(invoice)} disabled={checkoutPendingId === invoice.id}>
                               <CreditCard /> {checkoutPendingId === invoice.id ? "Redirection…" : "Payer l’acompte"}

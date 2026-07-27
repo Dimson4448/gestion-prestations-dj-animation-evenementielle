@@ -1,10 +1,12 @@
 from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 
 from apps.accounts.models import DJProfile
 from apps.availability.models import DJAvailability
@@ -19,6 +21,7 @@ from apps.bookings.models import (
     Venue,
 )
 from apps.bookings.services import ContractSigningError, QuoteAcceptanceError, accept_quote, sign_contract
+from apps.bookings.documents import build_contract_pdf, build_invoice_pdf
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
 from apps.payments.services import StripeCheckoutError, StripeConfigurationError, create_deposit_checkout
@@ -279,6 +282,17 @@ class ContractViewSet(ProtectedModelViewSet):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(ContractSerializer(contract, context={"request": request}).data)
 
+    @extend_schema(
+        responses={(200, "application/pdf"): OpenApiResponse(response=OpenApiTypes.BINARY, description="Contrat PDF")},
+        summary="Télécharger le contrat au format PDF",
+    )
+    @action(detail=True, methods=["get"], url_path="pdf")
+    def pdf(self, request, pk=None):
+        contract = self.get_object()
+        response = HttpResponse(build_contract_pdf(contract), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{contract.contract_number}.pdf"'
+        return response
+
 
 class InvoiceViewSet(ProtectedModelViewSet):
     serializer_class = InvoiceSerializer
@@ -289,6 +303,17 @@ class InvoiceViewSet(ProtectedModelViewSet):
     def get_queryset(self):
         queryset = Invoice.objects.select_related("booking", "booking__client", "booking__dj").all()
         return filtrer_par_reservation(queryset, self.request.user)
+
+    @extend_schema(
+        responses={(200, "application/pdf"): OpenApiResponse(response=OpenApiTypes.BINARY, description="Facture PDF")},
+        summary="Télécharger la facture au format PDF",
+    )
+    @action(detail=True, methods=["get"], url_path="pdf")
+    def pdf(self, request, pk=None):
+        invoice = self.get_object()
+        response = HttpResponse(build_invoice_pdf(invoice), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{invoice.invoice_number}.pdf"'
+        return response
 
     @action(detail=True, methods=["post"], url_path="checkout")
     def checkout(self, request, pk=None):

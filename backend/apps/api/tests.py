@@ -454,3 +454,22 @@ class ApiUltimateDJTests(APITestCase):
         contract.refresh_from_db()
         self.assertEqual(contract.status, Contract.SENT)
         self.assertIsNone(contract.signed_by_client_at)
+
+    def test_client_telecharge_son_contrat_et_sa_facture_en_pdf(self):
+        contract = self.create_contract_for_client()
+        invoice = contract.booking.invoices.get(invoice_type=Invoice.DEPOSIT)
+        self.client.force_authenticate(user=self.client_user)
+
+        contract_response = self.client.get(f"/api/v1/contracts/{contract.pk}/pdf/")
+        invoice_response = self.client.get(f"/api/v1/invoices/{invoice.pk}/pdf/")
+
+        self.assertEqual(contract_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(invoice_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(contract_response["Content-Type"], "application/pdf")
+        self.assertEqual(invoice_response["Content-Type"], "application/pdf")
+        self.assertTrue(contract_response.content.startswith(b"%PDF-"))
+        self.assertTrue(invoice_response.content.startswith(b"%PDF-"))
+        self.assertGreater(len(contract_response.content), 2000)
+        self.assertGreater(len(invoice_response.content), 2000)
+        self.assertIn(contract.contract_number, contract_response["Content-Disposition"])
+        self.assertIn(invoice.invoice_number, invoice_response["Content-Disposition"])

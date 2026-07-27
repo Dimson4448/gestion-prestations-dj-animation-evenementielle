@@ -237,6 +237,9 @@ svg { width: 20px; height: 20px; }
 .invoice-actions { justify-items: end; }
 .payment-button { min-height: 38px; padding: 0 12px; font-size: .8rem; }
 .payment-button svg { width: 17px; height: 17px; }
+.document-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 10px; border: 1px solid #b9c6d8; border-radius: 8px; color: #344054; background: white; font-size: .76rem; font-weight: 800; }
+.document-button svg { width: 15px; height: 15px; color: var(--cyan-dark); }
+.document-button:disabled { cursor: wait; opacity: .6; }
 .invoice-status { font-weight: 800; text-transform: uppercase; }
 .invoice-status.paid { color: #17724a; }
 .invoice-status.sent { color: #9a6200; }
