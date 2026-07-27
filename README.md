@@ -115,6 +115,17 @@ Les identifiants historiques des devis sont conservés pour les réservations
 associées. Les prix unitaires enregistrés sur les devis restent figés à leur
 valeur historique, même lorsque le tarif actuel du catalogue a changé.
 
+Les réservations et leur matériel sont ensuite transférés :
+
+```powershell
+cd backend
+.venv\Scripts\python.exe manage.py import_legacy_bookings --dry-run
+.venv\Scripts\python.exe manage.py import_legacy_bookings
+```
+
+Les identifiants des réservations sont conservés afin de maintenir les liens
+avec les contrats, playlists, avis, factures et paiements importés ensuite.
+
 Le dump versionné dans `database/dumps/` est volontairement anonymisé : il
 contient la structure complète, l'état des migrations et les données publiques
 du catalogue, mais aucune donnée d'utilisateur, de profil, de devis, de
