@@ -145,6 +145,19 @@ export default function App() {
   const [adminDjSelection, setAdminDjSelection] = useState({});
   const [adminStatus, setAdminStatus] = useState("");
   const [adminPendingId, setAdminPendingId] = useState(null);
+  const [clientBookings, setClientBookings] = useState([]);
+  const [playlists, setPlaylists] = useState([]);
+  const [playlistSongs, setPlaylistSongs] = useState([]);
+  const [musicStyles, setMusicStyles] = useState([]);
+  const [playlistStatus, setPlaylistStatus] = useState("");
+  const [playlistPending, setPlaylistPending] = useState(false);
+  const [playlistBookingId, setPlaylistBookingId] = useState("");
+  const [playlistStyleId, setPlaylistStyleId] = useState("");
+  const [playlistNotes, setPlaylistNotes] = useState("");
+  const [songPlaylistId, setSongPlaylistId] = useState("");
+  const [songTitle, setSongTitle] = useState("");
+  const [songArtist, setSongArtist] = useState("");
+  const [songPreference, setSongPreference] = useState("play_if_possible");
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -259,6 +272,42 @@ export default function App() {
 
   useEffect(() => {
     if (!isAuthenticated || !currentUser || currentUser.is_staff) {
+      setClientBookings([]);
+      setPlaylists([]);
+      setPlaylistSongs([]);
+      return;
+    }
+    let mounted = true;
+    setPlaylistStatus("Chargement de vos playlists…");
+    Promise.all([
+      apiClient.get("/bookings/", { params: { ordering: "-event_date" } }),
+      apiClient.get("/playlists/"),
+      apiClient.get("/playlist-songs/", { params: { ordering: "title" } }),
+      apiClient.get("/music-styles/", { params: { ordering: "name" } }),
+    ])
+      .then(([bookingsResponse, playlistsResponse, songsResponse, stylesResponse]) => {
+        if (!mounted) return;
+        const records = (response) => Array.isArray(response.data?.results) ? response.data.results : (Array.isArray(response.data) ? response.data : []);
+        const bookingRecords = records(bookingsResponse);
+        const playlistRecords = records(playlistsResponse);
+        const songRecords = records(songsResponse);
+        const styleRecords = records(stylesResponse);
+        setClientBookings(bookingRecords);
+        setPlaylists(playlistRecords);
+        setPlaylistSongs(songRecords);
+        setMusicStyles(styleRecords);
+        const eligible = bookingRecords.filter((item) => item.deposit_paid && ["confirmed", "performed", "paid"].includes(item.status) && !playlistRecords.some((playlist) => playlist.booking === item.id));
+        setPlaylistBookingId((current) => current || String(eligible[0]?.id || ""));
+        setPlaylistStyleId((current) => current || String(styleRecords[0]?.id || ""));
+        setSongPlaylistId((current) => current || String(playlistRecords[0]?.id || ""));
+        setPlaylistStatus(playlistRecords.length || eligible.length ? "" : "La playlist sera disponible après confirmation de l’acompte.");
+      })
+      .catch(() => mounted && setPlaylistStatus("Impossible de charger les playlists pour le moment."));
+    return () => { mounted = false; };
+  }, [isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser || currentUser.is_staff) {
       setContracts([]);
       return;
     }
@@ -357,6 +406,10 @@ export default function App() {
   );
 
   const availableEventTypes = eventTypeRecords.length ? eventTypeRecords.map((item) => item.name) : eventTypes;
+  const playlistBookingIds = new Set(playlists.map((item) => item.booking));
+  const eligiblePlaylistBookings = clientBookings.filter(
+    (item) => item.deposit_paid && ["confirmed", "performed", "paid"].includes(item.status) && !playlistBookingIds.has(item.id),
+  );
 
   const quote = useMemo(() => {
     const base = Number(selectedPackage?.base_price || 0);
@@ -585,6 +638,59 @@ export default function App() {
       else setCheckoutStatus("La facture PDF n’a pas pu être téléchargée.");
     } finally {
       setDownloadPending("");
+    }
+  };
+
+  const createClientPlaylist = async (event) => {
+    event.preventDefault();
+    if (!playlistBookingId || !playlistStyleId) {
+      setPlaylistStatus("Sélectionnez une réservation confirmée et un style musical.");
+      return;
+    }
+    setPlaylistPending(true);
+    setPlaylistStatus("");
+    try {
+      const response = await apiClient.post("/playlists/", {
+        booking: Number(playlistBookingId),
+        main_style: Number(playlistStyleId),
+        notes: playlistNotes.trim(),
+      });
+      setPlaylists((current) => [...current, response.data]);
+      setSongPlaylistId(String(response.data.id));
+      setPlaylistBookingId("");
+      setPlaylistNotes("");
+      setPlaylistStatus("Playlist créée. Vous pouvez maintenant ajouter vos chansons.");
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setPlaylistStatus(firstError || "La playlist n’a pas pu être créée.");
+    } finally {
+      setPlaylistPending(false);
+    }
+  };
+
+  const addPlaylistSong = async (event) => {
+    event.preventDefault();
+    if (!songPlaylistId || !songTitle.trim() || !songArtist.trim()) return;
+    setPlaylistPending(true);
+    setPlaylistStatus("");
+    try {
+      const response = await apiClient.post("/playlist-songs/", {
+        playlist: Number(songPlaylistId),
+        title: songTitle.trim(),
+        artist: songArtist.trim(),
+        preference_level: songPreference,
+      });
+      setPlaylistSongs((current) => [...current, response.data]);
+      setSongTitle("");
+      setSongArtist("");
+      setPlaylistStatus("Chanson ajoutée et transmise au DJ.");
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setPlaylistStatus(firstError || "La chanson n’a pas pu être ajoutée.");
+    } finally {
+      setPlaylistPending(false);
     }
   };
 
@@ -827,6 +933,32 @@ export default function App() {
                         </div>
                       </article>
                     ))}
+                  </div>
+                  <div className="playlist-panel">
+                    <div className="playlist-heading"><div><h3>Ma playlist</h3><p>Proposez vos morceaux au DJ et indiquez vos priorités.</p></div><Music2 /></div>
+                    {playlistStatus && <p className={playlistStatus.includes("créée") || playlistStatus.includes("ajoutée") ? "form-message success" : "invoice-empty"} role="status">{playlistStatus}</p>}
+                    {eligiblePlaylistBookings.length > 0 && (
+                      <form className="playlist-form" onSubmit={createClientPlaylist}>
+                        <h4>Créer une playlist</h4>
+                        <label>Réservation confirmée<select value={playlistBookingId} onChange={(event) => setPlaylistBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligiblePlaylistBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")}</option>)}</select></label>
+                        <label>Style principal<select value={playlistStyleId} onChange={(event) => setPlaylistStyleId(event.target.value)} required><option value="">Sélectionner</option>{musicStyles.map((style) => <option value={style.id} key={style.id}>{style.name}</option>)}</select></label>
+                        <label>Notes<textarea rows="2" value={playlistNotes} onChange={(event) => setPlaylistNotes(event.target.value)} placeholder="Ambiance souhaitée, moments importants…" /></label>
+                        <button className="primary-button" type="submit" disabled={playlistPending}>{playlistPending ? "Création…" : "Créer la playlist"}</button>
+                      </form>
+                    )}
+                    {playlists.length > 0 && <>
+                      <form className="playlist-form" onSubmit={addPlaylistSong}>
+                        <h4>Ajouter une chanson</h4>
+                        <label>Playlist<select value={songPlaylistId} onChange={(event) => setSongPlaylistId(event.target.value)} required>{playlists.map((playlist) => { const style = musicStyles.find((item) => item.id === playlist.main_style); return <option value={playlist.id} key={playlist.id}>Réservation n°{playlist.booking} · {style?.name || "Playlist"}</option>; })}</select></label>
+                        <div className="playlist-song-fields"><label>Titre<input value={songTitle} onChange={(event) => setSongTitle(event.target.value)} required /></label><label>Artiste<input value={songArtist} onChange={(event) => setSongArtist(event.target.value)} required /></label></div>
+                        <label>Préférence<select value={songPreference} onChange={(event) => setSongPreference(event.target.value)}><option value="must_play">À jouer absolument</option><option value="play_if_possible">À jouer si possible</option><option value="do_not_play">À ne pas jouer</option></select></label>
+                        <button className="primary-button" type="submit" disabled={playlistPending}>{playlistPending ? "Ajout…" : "Ajouter la chanson"}</button>
+                      </form>
+                      <div className="playlist-songs">
+                        {playlistSongs.map((song) => <article key={song.id}><div><strong>{song.title}</strong><span>{song.artist}</span></div><div><span>{song.preference_level === "must_play" ? "Incontournable" : song.preference_level === "do_not_play" ? "À éviter" : "Si possible"}</span><small className={`song-status ${song.status}`}>{song.status === "approved" ? "Approuvée" : song.status === "rejected" ? "Refusée" : "Demandée"}</small></div></article>)}
+                        {!playlistSongs.length && <p className="invoice-empty">Aucune chanson ajoutée.</p>}
+                      </div>
+                    </>}
                   </div>
                   </>}
                   <button className="secondary-button" type="button" onClick={handleLogout}>Se déconnecter</button>

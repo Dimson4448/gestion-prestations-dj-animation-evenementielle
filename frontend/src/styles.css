@@ -243,6 +243,23 @@ svg { width: 20px; height: 20px; }
 .invoice-status { font-weight: 800; text-transform: uppercase; }
 .invoice-status.paid { color: #17724a; }
 .invoice-status.sent { color: #9a6200; }
+.playlist-panel { display: grid; gap: 14px; margin: 8px 0; padding: 18px; border: 1px solid #bfeaf3; border-radius: 12px; background: #f4fcfe; }
+.playlist-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.playlist-heading h3, .playlist-heading p, .playlist-form h4 { margin: 0; }
+.playlist-heading p { color: #69758b; font-size: .82rem; }
+.playlist-heading svg { color: var(--magenta); }
+.playlist-form { display: grid; gap: 11px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: white; }
+.playlist-form label { display: grid; gap: 6px; color: #344054; font-size: .8rem; font-weight: 800; }
+.playlist-form input, .playlist-form select, .playlist-form textarea { width: 100%; min-height: 41px; padding: 9px 10px; border: 1px solid #cfd8e6; border-radius: 8px; color: var(--night); background: #f9fbfd; }
+.playlist-song-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.playlist-songs { display: grid; gap: 8px; }
+.playlist-songs article { display: flex; justify-content: space-between; gap: 16px; padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.playlist-songs article > div { display: grid; gap: 3px; }
+.playlist-songs article > div:last-child { justify-items: end; text-align: right; }
+.playlist-songs span, .playlist-songs small { color: #69758b; font-size: .74rem; }
+.song-status { font-weight: 800; text-transform: uppercase; }
+.song-status.approved { color: #17724a; }
+.song-status.rejected { color: #9f2d3d; }
 .account-benefits { padding: 45px; border-radius: var(--radius); color: white; background: radial-gradient(circle at 90% 5%, rgba(255,46,136,.25), transparent 32%), var(--night); }
 .account-benefits h2 { color: white; }
 .account-benefits > div { display: flex; align-items: center; gap: 14px; padding: 15px 0; border-bottom: 1px solid #2b354f; font-weight: 700; }
@@ -298,6 +315,7 @@ footer small { grid-column: 1 / -1; padding-top: 18px; border-top: 1px solid #22
   .section-wrap { width: min(100% - 28px, 1240px); padding: 60px 0; }
   .section-title, .results-heading { align-items: flex-start; flex-direction: column; }
   .package-grid, .detail-content, .form-grid, .account-grid, .admin-quote-grid { grid-template-columns: 1fr; }
+  .playlist-song-fields { grid-template-columns: 1fr; }
   .package-card:last-child, .full-field { grid-column: auto; }
   .journey-list { grid-template-columns: 1fr; gap: 20px; }
   .journey-list li { grid-template-columns: auto 1fr; align-items: center; }
