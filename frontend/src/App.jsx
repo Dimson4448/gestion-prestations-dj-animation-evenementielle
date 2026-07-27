@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, clearAuthentication, getStoredAccessToken } from "./api";
+import { apiClient, authenticate, clearAuthentication, getCurrentUser, getStoredAccessToken } from "./api";
 
 const fallbackPackages = [
   {
@@ -118,6 +118,7 @@ export default function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getStoredAccessToken()));
+  const [currentUser, setCurrentUser] = useState(null);
   const [loginStatus, setLoginStatus] = useState("");
   const [loginPending, setLoginPending] = useState(false);
   const [depositInvoices, setDepositInvoices] = useState([]);
@@ -127,6 +128,28 @@ export default function App() {
   const [checkoutPendingId, setCheckoutPendingId] = useState(null);
   const [checkoutStatus, setCheckoutStatus] = useState("");
   const [paymentReturnStatus, setPaymentReturnStatus] = useState("");
+  const [adminQuotes, setAdminQuotes] = useState([]);
+  const [adminDjs, setAdminDjs] = useState([]);
+  const [adminDjSelection, setAdminDjSelection] = useState({});
+  const [adminStatus, setAdminStatus] = useState("");
+  const [adminPendingId, setAdminPendingId] = useState(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setCurrentUser(null);
+      return;
+    }
+    let mounted = true;
+    getCurrentUser()
+      .then((profile) => mounted && setCurrentUser(profile))
+      .catch(() => {
+        if (!mounted) return;
+        clearAuthentication();
+        setIsAuthenticated(false);
+        setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
+      });
+    return () => { mounted = false; };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
@@ -188,7 +211,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !currentUser || currentUser.is_staff) {
       setDepositInvoices([]);
       setClientQuotes([]);
       setVenues([]);
@@ -220,10 +243,10 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !currentUser || currentUser.is_staff) return;
 
     let mounted = true;
     setQuoteListStatus("Chargement de vos devis…");
@@ -250,10 +273,10 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !currentUser || currentUser.is_staff) return;
 
     let mounted = true;
     apiClient
@@ -271,7 +294,28 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser]);
+
+  const loadAdminDashboard = async () => {
+    setAdminStatus("Chargement des devis et des DJs…");
+    try {
+      const [quotesResponse, djsResponse] = await Promise.all([
+        apiClient.get("/quotes/", { params: { ordering: "-created_at" } }),
+        apiClient.get("/djs/", { params: { ordering: "stage_name" } }),
+      ]);
+      const quotes = Array.isArray(quotesResponse.data?.results) ? quotesResponse.data.results : quotesResponse.data;
+      const djs = Array.isArray(djsResponse.data?.results) ? djsResponse.data.results : djsResponse.data;
+      setAdminQuotes((Array.isArray(quotes) ? quotes : []).filter((item) => ["draft", "sent"].includes(item.status)));
+      setAdminDjs(Array.isArray(djs) ? djs : []);
+      setAdminStatus("");
+    } catch (error) {
+      setAdminStatus(error.response?.status === 403 ? "Ce compte n’a pas les droits administrateur." : "Impossible de charger l’espace administrateur.");
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser?.is_staff) loadAdminDashboard();
+  }, [currentUser]);
 
   const selectedPackage = useMemo(
     () => packages.find((item) => String(item.id) === String(selectedPackageId)) || packages[0],
@@ -418,10 +462,11 @@ export default function App() {
     setLoginPending(true);
     setLoginStatus("");
     try {
-      await authenticate(username, password);
+      const profile = await authenticate(username, password);
       setIsAuthenticated(true);
+      setCurrentUser(profile);
       setPassword("");
-      setLoginStatus("Connexion réussie. Votre espace client est maintenant accessible.");
+      setLoginStatus(profile.is_staff ? "Connexion réussie. L’espace administrateur est accessible." : "Connexion réussie. Votre espace client est maintenant accessible.");
     } catch (error) {
       setLoginStatus(
         error.response?.status === 401
@@ -436,7 +481,42 @@ export default function App() {
   const handleLogout = () => {
     clearAuthentication();
     setIsAuthenticated(false);
+    setCurrentUser(null);
+    setAdminQuotes([]);
     setLoginStatus("Vous êtes déconnecté.");
+  };
+
+  const sendQuote = async (quoteId) => {
+    setAdminPendingId(quoteId);
+    setAdminStatus("");
+    try {
+      const response = await apiClient.patch(`/quotes/${quoteId}/`, { status: "sent" });
+      setAdminQuotes((current) => current.map((item) => item.id === quoteId ? response.data : item));
+      setAdminStatus(`Le devis n°${quoteId} est maintenant envoyé et prêt à être accepté.`);
+    } catch (error) {
+      setAdminStatus(error.response?.data?.detail || "Le devis n’a pas pu être envoyé.");
+    } finally {
+      setAdminPendingId(null);
+    }
+  };
+
+  const acceptAdminQuote = async (quoteId) => {
+    const djId = adminDjSelection[quoteId];
+    if (!djId) {
+      setAdminStatus("Sélectionnez un DJ avant d’accepter le devis.");
+      return;
+    }
+    setAdminPendingId(quoteId);
+    setAdminStatus("");
+    try {
+      const response = await apiClient.post(`/quotes/${quoteId}/accept/`, { dj: Number(djId) });
+      setAdminQuotes((current) => current.filter((item) => item.id !== quoteId));
+      setAdminStatus(`Devis n°${quoteId} accepté : réservation n°${response.data.booking.id}, contrat et facture d’acompte créés.`);
+    } catch (error) {
+      setAdminStatus(error.response?.data?.detail || "Le devis n’a pas pu être accepté.");
+    } finally {
+      setAdminPendingId(null);
+    }
   };
 
   const startDepositCheckout = async (invoice) => {
@@ -483,8 +563,13 @@ export default function App() {
           <button className={page === "compte" ? "active" : ""} onClick={() => navigate("compte")}>
             <CircleUserRound aria-hidden="true" /> Mon compte
           </button>
+          {currentUser?.is_staff && (
+            <button className={page === "administration" ? "active" : ""} onClick={() => navigate("administration")}>
+              <Settings aria-hidden="true" /> Espace administrateur
+            </button>
+          )}
           <a className="admin-link" href="http://127.0.0.1:8000/admin/" target="_blank" rel="noreferrer">
-            <Settings aria-hidden="true" /> Administration
+            Django Admin
           </a>
           <div className="language-switcher" aria-label="Choix de la langue">
             {["FR", "EN", "NL"].map((lang) => (
@@ -571,6 +656,37 @@ export default function App() {
           </section>
         )}
 
+        {page === "administration" && currentUser?.is_staff && (
+          <section className="section-wrap admin-page">
+            <div className="page-heading"><p className="eyebrow dark">Espace administrateur</p><h1>Traiter les demandes de devis</h1><p>Envoyez le devis au client, choisissez un DJ réellement disponible, puis créez automatiquement la réservation, le contrat et la facture d’acompte.</p></div>
+            <div className="admin-toolbar"><div><strong>{adminQuotes.length}</strong><span> devis à traiter</span></div><button className="secondary-button" type="button" onClick={loadAdminDashboard}>Actualiser</button></div>
+            {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
+            <div className="admin-quote-grid">
+              {adminQuotes.map((item) => {
+                const itemPackage = packages.find((entry) => String(entry.id) === String(item.package));
+                const itemEventType = eventTypeRecords.find((entry) => String(entry.id) === String(item.event_type));
+                return (
+                  <article className="admin-quote-card" key={item.id}>
+                    <div className="quote-row-heading"><h2>Devis n°{item.id}</h2><span className={`quote-status ${item.status}`}>{quoteStatusLabels[item.status]}</span></div>
+                    <p><CalendarDays /> {itemEventType?.name || "Événement"} · {new Date(`${item.event_date}T00:00:00`).toLocaleDateString("fr-BE")} à {String(item.start_time).slice(0, 5)}</p>
+                    <p><Clock3 /> {item.duration_hours} heures · {item.guest_count} invités</p>
+                    <p><FileText /> {itemPackage?.name || `Formule n°${item.package}`} · <strong>{formatEuro(item.total_amount)}</strong></p>
+                    {item.status === "draft" ? (
+                      <button className="primary-button" type="button" onClick={() => sendQuote(item.id)} disabled={adminPendingId === item.id}>{adminPendingId === item.id ? "Traitement…" : "Envoyer le devis"}</button>
+                    ) : (
+                      <div className="admin-acceptance">
+                        <label>DJ à affecter<select value={adminDjSelection[item.id] || ""} onChange={(event) => setAdminDjSelection((current) => ({ ...current, [item.id]: event.target.value }))}><option value="">Sélectionner un DJ</option>{adminDjs.map((dj) => <option value={dj.id} key={dj.id}>{dj.stage_name}</option>)}</select></label>
+                        <button className="primary-button" type="button" onClick={() => acceptAdminQuote(item.id)} disabled={adminPendingId === item.id}>{adminPendingId === item.id ? "Création…" : "Accepter et créer le dossier"}</button>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+              {!adminStatus && !adminQuotes.length && <p className="invoice-empty">Aucun devis en attente de traitement.</p>}
+            </div>
+          </section>
+        )}
+
         {page === "compte" && (
           <section className="section-wrap account-page">
             <div className="page-heading"><p className="eyebrow dark">Espace client</p><h1>Retrouvez votre événement au même endroit</h1><p>Connectez-vous pour suivre vos devis, contrats, paiements et playlists.</p></div>
@@ -587,8 +703,10 @@ export default function App() {
               ) : (
                 <div className="account-card connected-card">
                   <div className="confirmation-icon"><Check /></div><h2>Session client active</h2>
-                  <p>Vous pouvez maintenant suivre vos devis, vos factures et vos paiements sécurisés.</p>
+                  <p>{currentUser?.is_staff ? "Vous êtes connecté avec un compte administrateur." : "Vous pouvez maintenant suivre vos devis, vos factures et vos paiements sécurisés."}</p>
                   {loginStatus && <p className="form-message success" role="status">{loginStatus}</p>}
+                  {currentUser?.is_staff && <button className="primary-button" type="button" onClick={() => navigate("administration")}><Settings /> Ouvrir l’espace administrateur</button>}
+                  {!currentUser?.is_staff && <>
                   <div className="quote-list">
                     <h3>Mes demandes de devis</h3>
                     {quoteListStatus && <p className="invoice-empty" role="status">{quoteListStatus}</p>}
@@ -625,6 +743,7 @@ export default function App() {
                       </article>
                     ))}
                   </div>
+                  </>}
                   <button className="secondary-button" type="button" onClick={handleLogout}>Se déconnecter</button>
                 </div>
               )}

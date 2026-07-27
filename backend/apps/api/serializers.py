@@ -22,6 +22,26 @@ from apps.catalog.models import Equipment, EventType, MusicStyle, Package, Servi
 from apps.payments.models import Invoice, Payment
 
 
+class CurrentUserSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    username = serializers.CharField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    first_name = serializers.CharField(read_only=True)
+    last_name = serializers.CharField(read_only=True)
+    is_staff = serializers.BooleanField(read_only=True)
+    role = serializers.SerializerMethodField()
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_role(self, user):
+        if user.is_staff:
+            return "admin"
+        if hasattr(user, "dj_profile"):
+            return "dj"
+        if hasattr(user, "client_profile"):
+            return "client"
+        return "user"
+
+
 class LiensHypermediaMixin(serializers.Serializer):
     liens = serializers.SerializerMethodField(label="Liens")
     route_basename = None

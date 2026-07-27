@@ -117,6 +117,20 @@ class ApiUltimateDJTests(APITestCase):
 
         self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
+    def test_utilisateur_connecte_connait_son_role(self):
+        self.client.force_authenticate(user=self.client_user)
+
+        response = self.client.get("/api/v1/auth/me/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["role"], "client")
+        self.assertFalse(response.data["is_staff"])
+
+    def test_endpoint_utilisateur_refuse_un_visiteur(self):
+        response = self.client.get("/api/v1/auth/me/")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_creation_lieu_associe_au_client_connecte(self):
         self.client.force_authenticate(user=self.client_user)
 

@@ -22,6 +22,7 @@ from .views import (
     ServiceOptionViewSet,
     VenueViewSet,
     calculate_quote,
+    current_user,
 )
 
 
@@ -44,6 +45,7 @@ router.register("playlist-songs", PlaylistSongViewSet, basename="playlist-song")
 router.register("reviews", ReviewViewSet, basename="review")
 
 urlpatterns = [
+    path("auth/me/", current_user, name="current-user"),
     path("availability/", AvailabilityListView.as_view(), name="availability-list"),
     path("quotes/calculate/", calculate_quote, name="quote-calculate"),
     path("payments/webhook/", stripe_webhook, name="stripe-webhook"),

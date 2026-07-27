@@ -27,6 +27,7 @@ from .permissions import AdministrationOuProprietaire, LecturePubliqueEcritureAd
 from .serializers import (
     BookingSerializer,
     ContractSerializer,
+    CurrentUserSerializer,
     DJAvailabilitySerializer,
     DJProfileSerializer,
     EquipmentSerializer,
@@ -80,6 +81,13 @@ def filtrer_par_reservation(queryset, user, prefix=""):
     if dj:
         return queryset.filter(**{f"{prefix}booking__dj": dj})
     return queryset.none()
+
+
+@extend_schema(responses={200: CurrentUserSerializer}, summary="Afficher l'utilisateur connecté")
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def current_user(request):
+    return Response(CurrentUserSerializer(request.user).data)
 
 
 class PackageViewSet(AdminWritePublicReadViewSet):

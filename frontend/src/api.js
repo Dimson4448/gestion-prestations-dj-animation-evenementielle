@@ -21,8 +21,10 @@ export const authenticate = async (username, password) => {
   window.localStorage.setItem(accessTokenKey, response.data.access);
   window.localStorage.setItem(refreshTokenKey, response.data.refresh);
   apiClient.defaults.headers.common.Authorization = `Bearer ${response.data.access}`;
-  return response.data;
+  return getCurrentUser();
 };
+
+export const getCurrentUser = async () => (await apiClient.get("/auth/me/")).data;
 
 export const clearAuthentication = () => {
   window.localStorage.removeItem(accessTokenKey);
