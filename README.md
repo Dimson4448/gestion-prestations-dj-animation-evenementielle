@@ -103,6 +103,18 @@ cd backend
 Cette commande associe chaque lieu et créneau à son profil Django par le
 compte historique correspondant. Elle peut être rejouée sans créer de doublon.
 
+Les devis et leurs options sont transférés après les lieux :
+
+```powershell
+cd backend
+.venv\Scripts\python.exe manage.py import_legacy_quotes --dry-run
+.venv\Scripts\python.exe manage.py import_legacy_quotes
+```
+
+Les identifiants historiques des devis sont conservés pour les réservations
+associées. Les prix unitaires enregistrés sur les devis restent figés à leur
+valeur historique, même lorsque le tarif actuel du catalogue a changé.
+
 Le dump versionné dans `database/dumps/` est volontairement anonymisé : il
 contient la structure complète, l'état des migrations et les données publiques
 du catalogue, mais aucune donnée d'utilisateur, de profil, de devis, de
