@@ -84,6 +84,13 @@ const quoteStatusLabels = {
   expired: "Expiré",
 };
 
+const contractStatusLabels = {
+  draft: "Brouillon",
+  sent: "À signer",
+  signed: "Signé",
+  cancelled: "Annulé",
+};
+
 export default function App() {
   const [page, setPage] = useState("accueil");
   const [language, setLanguage] = useState("FR");
@@ -122,6 +129,9 @@ export default function App() {
   const [loginStatus, setLoginStatus] = useState("");
   const [loginPending, setLoginPending] = useState(false);
   const [depositInvoices, setDepositInvoices] = useState([]);
+  const [contracts, setContracts] = useState([]);
+  const [contractStatus, setContractStatus] = useState("");
+  const [contractPendingId, setContractPendingId] = useState(null);
   const [invoiceStatus, setInvoiceStatus] = useState("");
   const [clientQuotes, setClientQuotes] = useState([]);
   const [quoteListStatus, setQuoteListStatus] = useState("");
@@ -243,6 +253,28 @@ export default function App() {
     return () => {
       mounted = false;
     };
+  }, [isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser || currentUser.is_staff) {
+      setContracts([]);
+      return;
+    }
+    let mounted = true;
+    setContractStatus("Chargement de vos contrats…");
+    apiClient.get("/contracts/", { params: { ordering: "-created_at" } })
+      .then((response) => {
+        if (!mounted) return;
+        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        const records = Array.isArray(data) ? data : [];
+        setContracts(records);
+        setContractStatus(records.length ? "" : "Aucun contrat disponible.");
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        setContractStatus(error.response?.status === 401 ? "Votre session a expiré." : "Impossible de charger vos contrats.");
+      });
+    return () => { mounted = false; };
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
@@ -519,6 +551,20 @@ export default function App() {
     }
   };
 
+  const signClientContract = async (contractId) => {
+    setContractPendingId(contractId);
+    setContractStatus("");
+    try {
+      const response = await apiClient.post(`/contracts/${contractId}/sign/`);
+      setContracts((current) => current.map((item) => item.id === contractId ? response.data : item));
+      setContractStatus(`Le contrat ${response.data.contract_number} est signé et horodaté.`);
+    } catch (error) {
+      setContractStatus(error.response?.data?.detail || "Le contrat n’a pas pu être signé.");
+    } finally {
+      setContractPendingId(null);
+    }
+  };
+
   const startDepositCheckout = async (invoice) => {
     setCheckoutPendingId(invoice.id);
     setCheckoutStatus("");
@@ -723,6 +769,20 @@ export default function App() {
                         </article>
                       );
                     })}
+                  </div>
+                  <div className="contract-list">
+                    <h3>Mes contrats</h3>
+                    {contractStatus && <p className={contractStatus.includes("signé") ? "form-message success" : "invoice-empty"} role="status">{contractStatus}</p>}
+                    {contracts.map((contract) => (
+                      <article className="contract-row" key={contract.id}>
+                        <div><strong>{contract.contract_number}</strong><span>Réservation n°{contract.booking}</span><span>{contract.refund_policy}</span></div>
+                        <div className="contract-actions">
+                          <span className={`contract-status ${contract.status}`}>{contractStatusLabels[contract.status] || contract.status}</span>
+                          {contract.status === "sent" && <button className="primary-button payment-button" type="button" onClick={() => signClientContract(contract.id)} disabled={contractPendingId === contract.id}><FileText /> {contractPendingId === contract.id ? "Signature…" : "Signer le contrat"}</button>}
+                          {contract.signed_by_client_at && <small>Signé le {new Date(contract.signed_by_client_at).toLocaleString("fr-BE")}</small>}
+                        </div>
+                      </article>
+                    ))}
                   </div>
                   <div className="invoice-list">
                     <h3>Factures d’acompte</h3>

@@ -220,6 +220,15 @@ svg { width: 20px; height: 20px; }
 .quote-status.refused, .quote-status.expired { color: #9f2d3d; background: #fff0f2; }
 .invoice-list { display: grid; gap: 10px; margin: 8px 0; }
 .invoice-list h3 { margin: 0 0 2px; }
+.contract-list { display: grid; gap: 10px; margin: 8px 0; }
+.contract-list h3 { margin: 0 0 2px; }
+.contract-row { display: flex; justify-content: space-between; gap: 18px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: #f9fbfd; }
+.contract-row > div { display: grid; gap: 4px; }
+.contract-row span, .contract-row small { color: #69758b; font-size: .76rem; }
+.contract-actions { justify-items: end; text-align: right; }
+.contract-status { font-weight: 800; text-transform: uppercase; }
+.contract-status.sent { color: #9a6200; }
+.contract-status.signed { color: #17724a; }
 .invoice-empty { padding: 12px; border-radius: 8px; color: #526079; background: #f3f6fa; font-size: .86rem; }
 .invoice-row { display: flex; justify-content: space-between; gap: 18px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: #f9fbfd; }
 .invoice-row > div { display: grid; gap: 4px; }

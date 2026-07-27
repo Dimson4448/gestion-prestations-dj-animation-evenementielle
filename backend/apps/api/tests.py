@@ -9,6 +9,7 @@ from apps.availability.models import DJAvailability
 from apps.bookings.models import Booking, Contract, Quote, Venue
 from apps.catalog.models import EventType, Package
 from apps.payments.models import Invoice
+from apps.bookings.services import accept_quote
 
 
 class ApiUltimateDJTests(APITestCase):
@@ -87,6 +88,28 @@ class ApiUltimateDJTests(APITestCase):
             end_time="23:59:00",
         )
         return dj, availability
+
+    def create_contract_for_client(self):
+        quote = Quote.objects.create(
+            client=self.client_profile,
+            event_type=self.event_type,
+            package=self.package,
+            venue=self.venue,
+            event_date=date.today() + timedelta(days=30),
+            start_time="18:00:00",
+            duration_hours="5.0",
+            guest_count=60,
+            distance_km="20.00",
+            parking_available=True,
+            status=Quote.SENT,
+            subtotal="545.00",
+            travel_fee="13.00",
+            total_amount="558.00",
+            deposit_amount="167.40",
+        )
+        dj, _ = self.create_available_dj()
+        _, contract, _ = accept_quote(quote.pk, dj.pk)
+        return contract
 
     def test_liste_des_packages_publique_avec_liens(self):
         response = self.client.get("/api/v1/packages/")
@@ -314,7 +337,7 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(booking.dj, dj)
         self.assertEqual(booking.end_time.strftime("%H:%M:%S"), "23:00:00")
         self.assertEqual(availability.status, DJAvailability.RESERVED)
-        self.assertTrue(Contract.objects.filter(booking=booking, status=Contract.DRAFT).exists())
+        self.assertTrue(Contract.objects.filter(booking=booking, status=Contract.SENT).exists())
         self.assertTrue(
             Invoice.objects.filter(
                 booking=booking,
@@ -387,3 +410,47 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(Booking.objects.filter(quote=quote).count(), 1)
         self.assertEqual(Contract.objects.count(), 1)
         self.assertEqual(Invoice.objects.count(), 1)
+
+    def test_client_peut_signer_son_contrat_envoye(self):
+        contract = self.create_contract_for_client()
+        self.client.force_authenticate(user=self.client_user)
+
+        response = self.client.post(f"/api/v1/contracts/{contract.pk}/sign/", {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        contract.refresh_from_db()
+        self.assertEqual(contract.status, Contract.SIGNED)
+        self.assertIsNotNone(contract.signed_by_client_at)
+
+    def test_contrat_ne_peut_pas_etre_signe_deux_fois(self):
+        contract = self.create_contract_for_client()
+        self.client.force_authenticate(user=self.client_user)
+
+        first = self.client.post(f"/api/v1/contracts/{contract.pk}/sign/", {}, format="json")
+        second = self.client.post(f"/api/v1/contracts/{contract.pk}/sign/", {}, format="json")
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_autre_client_ne_peut_pas_signer_le_contrat(self):
+        contract = self.create_contract_for_client()
+        other_user = get_user_model().objects.create_user(
+            username="client_contrat_interdit",
+            password="MotDePasseTest2026!",
+        )
+        ClientProfile.objects.create(
+            user=other_user,
+            date_of_birth=date(1992, 2, 2),
+            phone="+32473333333",
+            billing_address="Rue Interdite 3",
+            billing_city="Liège",
+            billing_postal_code="4000",
+        )
+        self.client.force_authenticate(user=other_user)
+
+        response = self.client.post(f"/api/v1/contracts/{contract.pk}/sign/", {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        contract.refresh_from_db()
+        self.assertEqual(contract.status, Contract.SENT)
+        self.assertIsNone(contract.signed_by_client_at)

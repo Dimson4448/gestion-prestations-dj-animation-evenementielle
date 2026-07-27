@@ -14,6 +14,10 @@ class QuoteAcceptanceError(Exception):
     """Erreur fonctionnelle empêchant la conversion complète d'un devis."""
 
 
+class ContractSigningError(Exception):
+    """Erreur fonctionnelle empêchant la signature d'un contrat."""
+
+
 def _event_end_time(quote):
     start = datetime.combine(quote.event_date, quote.start_time)
     end = start + timedelta(seconds=int(quote.duration_hours * 3600))
@@ -85,7 +89,7 @@ def accept_quote(quote_id, dj_id):
     contract = Contract.objects.create(
         booking=booking,
         contract_number=f"UDJ-CON-{quote.event_date:%Y}-{booking.pk:06d}",
-        status=Contract.DRAFT,
+        status=Contract.SENT,
         refund_policy="Annulation et remboursement selon les conditions générales Ultimate DJ.",
     )
     invoice = Invoice.objects.create(
@@ -104,3 +108,18 @@ def accept_quote(quote_id, dj_id):
     quote.save(update_fields=["status"])
 
     return booking, contract, invoice
+
+
+@transaction.atomic
+def sign_contract(contract_id, client):
+    """Signe un contrat envoyé au nom de son unique client propriétaire."""
+    contract = Contract.objects.select_for_update().select_related("booking__client").get(pk=contract_id)
+    if client is None or contract.booking.client_id != client.pk:
+        raise ContractSigningError("Seul le client de la réservation peut signer ce contrat.")
+    if contract.status != Contract.SENT:
+        raise ContractSigningError("Seul un contrat envoyé et non encore signé peut être signé.")
+
+    contract.status = Contract.SIGNED
+    contract.signed_by_client_at = timezone.now()
+    contract.save(update_fields=["status", "signed_by_client_at"])
+    return contract

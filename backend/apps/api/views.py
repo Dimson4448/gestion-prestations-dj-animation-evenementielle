@@ -18,7 +18,7 @@ from apps.bookings.models import (
     Review,
     Venue,
 )
-from apps.bookings.services import QuoteAcceptanceError, accept_quote
+from apps.bookings.services import ContractSigningError, QuoteAcceptanceError, accept_quote, sign_contract
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
 from apps.payments.services import StripeCheckoutError, StripeConfigurationError, create_deposit_checkout
@@ -268,6 +268,16 @@ class ContractViewSet(ProtectedModelViewSet):
     def get_queryset(self):
         queryset = Contract.objects.select_related("booking", "booking__client", "booking__dj").all()
         return filtrer_par_reservation(queryset, self.request.user)
+
+    @extend_schema(responses={200: ContractSerializer}, summary="Signer le contrat en tant que client")
+    @action(detail=True, methods=["post"], url_path="sign")
+    def sign(self, request, pk=None):
+        contract = self.get_object()
+        try:
+            contract = sign_contract(contract.pk, client_connecte(request.user))
+        except ContractSigningError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(ContractSerializer(contract, context={"request": request}).data)
 
 
 class InvoiceViewSet(ProtectedModelViewSet):
