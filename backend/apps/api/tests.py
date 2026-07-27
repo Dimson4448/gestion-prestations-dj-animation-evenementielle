@@ -6,8 +6,8 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import ClientProfile, DJProfile
 from apps.availability.models import DJAvailability
-from apps.bookings.models import Booking, Contract, Quote, Venue
-from apps.catalog.models import EventType, Package
+from apps.bookings.models import Booking, Contract, Playlist, PlaylistSong, Quote, Venue
+from apps.catalog.models import EventType, MusicStyle, Package
 from apps.payments.models import Invoice
 from apps.bookings.services import accept_quote
 
@@ -504,3 +504,75 @@ class ApiUltimateDJTests(APITestCase):
         self.assertNotEqual(booking.status, Booking.PAID)
         self.assertEqual(contract.status, Contract.SENT)
         self.assertEqual(invoice.status, Invoice.SENT)
+
+    def test_playlist_exige_une_reservation_confirmee(self):
+        contract = self.create_contract_for_client()
+        style = MusicStyle.objects.create(name="Disco")
+        self.client.force_authenticate(user=self.client_user)
+
+        response = self.client.post(
+            "/api/v1/playlists/",
+            {"booking": contract.booking_id, "main_style": style.pk, "notes": "Ambiance festive"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("booking", response.data)
+        self.assertFalse(Playlist.objects.filter(booking=contract.booking).exists())
+
+    def test_client_cree_sa_playlist_et_le_dj_valide_une_chanson(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        booking.deposit_paid = True
+        booking.status = Booking.CONFIRMED
+        booking.save(update_fields=["deposit_paid", "status"])
+        style = MusicStyle.objects.create(name="Soul")
+        self.client.force_authenticate(user=self.client_user)
+        playlist_response = self.client.post(
+            "/api/v1/playlists/",
+            {"booking": booking.pk, "main_style": style.pk, "notes": "Entrée douce puis danse"},
+            format="json",
+        )
+
+        self.assertEqual(playlist_response.status_code, status.HTTP_201_CREATED)
+        playlist_id = playlist_response.data["id"]
+        forbidden_status = self.client.post(
+            "/api/v1/playlist-songs/",
+            {"playlist": playlist_id, "title": "September", "artist": "Earth Wind & Fire", "status": PlaylistSong.APPROVED},
+            format="json",
+        )
+        self.assertEqual(forbidden_status.status_code, status.HTTP_400_BAD_REQUEST)
+        song_response = self.client.post(
+            "/api/v1/playlist-songs/",
+            {"playlist": playlist_id, "title": "September", "artist": "Earth Wind & Fire", "preference_level": PlaylistSong.MUST_PLAY},
+            format="json",
+        )
+        self.assertEqual(song_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(song_response.data["status"], PlaylistSong.REQUESTED)
+
+        other_user = get_user_model().objects.create_user(username="client_playlist_interdit", password="MotDePasseTest2026!")
+        ClientProfile.objects.create(
+            user=other_user,
+            date_of_birth=date(1994, 4, 4),
+            phone="+32474444444",
+            billing_address="Rue Playlist 4",
+            billing_city="Namur",
+            billing_postal_code="5000",
+        )
+        self.client.force_authenticate(user=other_user)
+        intrusion = self.client.post(
+            "/api/v1/playlist-songs/",
+            {"playlist": playlist_id, "title": "Intrusion", "artist": "Inconnu"},
+            format="json",
+        )
+        self.assertEqual(intrusion.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(PlaylistSong.objects.filter(playlist_id=playlist_id).count(), 1)
+
+        self.client.force_authenticate(user=booking.dj.user)
+        approval = self.client.patch(
+            f"/api/v1/playlist-songs/{song_response.data['id']}/",
+            {"status": PlaylistSong.APPROVED},
+            format="json",
+        )
+        self.assertEqual(approval.status_code, status.HTTP_200_OK)
+        self.assertEqual(approval.data["status"], PlaylistSong.APPROVED)

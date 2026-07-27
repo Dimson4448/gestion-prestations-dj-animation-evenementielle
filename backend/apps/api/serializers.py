@@ -333,6 +333,23 @@ class PlaylistSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         fields = ["id", "booking", "main_style", "notes", "created_at", "liens"]
         read_only_fields = ["created_at"]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        booking = attrs.get("booking") or getattr(self.instance, "booking", None)
+        if not request or request.user.is_staff or booking is None:
+            return attrs
+
+        client = getattr(request.user, "client_profile", None)
+        dj = getattr(request.user, "dj_profile", None)
+        if not ((client and booking.client_id == client.pk) or (dj and booking.dj_id == dj.pk)):
+            raise serializers.ValidationError({"booking": "Cette réservation ne vous appartient pas."})
+        if not booking.deposit_paid or booking.status not in {Booking.CONFIRMED, Booking.PERFORMED, Booking.PAID}:
+            raise serializers.ValidationError({"booking": "La réservation doit être confirmée par le paiement de l'acompte."})
+        if self.instance and "booking" in attrs and attrs["booking"].pk != self.instance.booking_id:
+            raise serializers.ValidationError({"booking": "La réservation d'une playlist ne peut pas être modifiée."})
+        return attrs
+
 
 class PlaylistSongSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "playlist-song"
@@ -340,6 +357,30 @@ class PlaylistSongSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     class Meta:
         model = PlaylistSong
         fields = ["id", "playlist", "title", "artist", "preference_level", "status", "liens"]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        playlist = attrs.get("playlist") or getattr(self.instance, "playlist", None)
+        if not request or request.user.is_staff or playlist is None:
+            return attrs
+
+        booking = playlist.booking
+        client = getattr(request.user, "client_profile", None)
+        dj = getattr(request.user, "dj_profile", None)
+        if not ((client and booking.client_id == client.pk) or (dj and booking.dj_id == dj.pk)):
+            raise serializers.ValidationError({"playlist": "Cette playlist ne vous appartient pas."})
+        if self.instance and "playlist" in attrs and attrs["playlist"].pk != self.instance.playlist_id:
+            raise serializers.ValidationError({"playlist": "La playlist d'une chanson ne peut pas être modifiée."})
+        if client and "status" in self.initial_data:
+            raise serializers.ValidationError({"status": "Le statut d'une chanson est géré par le DJ ou l'administration."})
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        if request and getattr(request.user, "client_profile", None):
+            validated_data["status"] = PlaylistSong.REQUESTED
+        return super().create(validated_data)
 
 
 class ReviewSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
