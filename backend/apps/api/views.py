@@ -65,6 +65,17 @@ class ProtectedModelViewSet(viewsets.ModelViewSet):
     permission_classes = [UtilisateurAuthentifie, AdministrationOuProprietaire]
 
 
+class AdminManagedProtectedViewSet(ProtectedModelViewSet):
+    """Ressource consultable par son propriétaire, mais écrite via les parcours métier ou l'administration."""
+
+    admin_only_actions = {"create", "update", "partial_update", "destroy"}
+
+    def get_permissions(self):
+        if self.action in self.admin_only_actions:
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
+
+
 def client_connecte(user):
     return getattr(user, "client_profile", None)
 
@@ -227,7 +238,7 @@ class QuoteViewSet(ProtectedModelViewSet):
         )
 
 
-class BookingViewSet(ProtectedModelViewSet):
+class BookingViewSet(AdminManagedProtectedViewSet):
     serializer_class = BookingSerializer
     filterset_fields = ["status", "event_type", "package", "deposit_paid"]
     search_fields = ["client__user__email", "dj__stage_name", "venue__name"]
@@ -245,13 +256,6 @@ class BookingViewSet(ProtectedModelViewSet):
             return queryset.filter(dj=dj)
         return queryset.none()
 
-    def perform_create(self, serializer):
-        if self.request.user.is_staff:
-            serializer.save()
-        else:
-            serializer.save(client=client_connecte(self.request.user))
-
-
 class PreparatoryAppointmentViewSet(ProtectedModelViewSet):
     serializer_class = PreparatoryAppointmentSerializer
     filterset_fields = ["mode", "status"]
@@ -262,7 +266,7 @@ class PreparatoryAppointmentViewSet(ProtectedModelViewSet):
         return filtrer_par_reservation(queryset, self.request.user)
 
 
-class ContractViewSet(ProtectedModelViewSet):
+class ContractViewSet(AdminManagedProtectedViewSet):
     serializer_class = ContractSerializer
     filterset_fields = ["status"]
     search_fields = ["contract_number"]
@@ -294,7 +298,7 @@ class ContractViewSet(ProtectedModelViewSet):
         return response
 
 
-class InvoiceViewSet(ProtectedModelViewSet):
+class InvoiceViewSet(AdminManagedProtectedViewSet):
     serializer_class = InvoiceSerializer
     filterset_fields = ["invoice_type", "status"]
     search_fields = ["invoice_number"]

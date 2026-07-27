@@ -473,3 +473,34 @@ class ApiUltimateDJTests(APITestCase):
         self.assertGreater(len(invoice_response.content), 2000)
         self.assertIn(contract.contract_number, contract_response["Content-Disposition"])
         self.assertIn(invoice.invoice_number, invoice_response["Content-Disposition"])
+
+    def test_client_ne_peut_pas_fabriquer_reservation_contrat_ou_facture(self):
+        self.client.force_authenticate(user=self.client_user)
+
+        booking_response = self.client.post("/api/v1/bookings/", {}, format="json")
+        contract_response = self.client.post("/api/v1/contracts/", {}, format="json")
+        invoice_response = self.client.post("/api/v1/invoices/", {}, format="json")
+
+        self.assertEqual(booking_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(contract_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(invoice_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_client_ne_peut_pas_modifier_les_documents_generes(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        invoice = booking.invoices.get(invoice_type=Invoice.DEPOSIT)
+        self.client.force_authenticate(user=self.client_user)
+
+        booking_response = self.client.patch(f"/api/v1/bookings/{booking.pk}/", {"status": Booking.PAID}, format="json")
+        contract_response = self.client.patch(f"/api/v1/contracts/{contract.pk}/", {"status": Contract.SIGNED}, format="json")
+        invoice_response = self.client.patch(f"/api/v1/invoices/{invoice.pk}/", {"status": Invoice.PAID}, format="json")
+
+        self.assertEqual(booking_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(contract_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(invoice_response.status_code, status.HTTP_403_FORBIDDEN)
+        booking.refresh_from_db()
+        contract.refresh_from_db()
+        invoice.refresh_from_db()
+        self.assertNotEqual(booking.status, Booking.PAID)
+        self.assertEqual(contract.status, Contract.SENT)
+        self.assertEqual(invoice.status, Invoice.SENT)
