@@ -126,6 +126,17 @@ cd backend
 Les identifiants des réservations sont conservés afin de maintenir les liens
 avec les contrats, playlists, avis, factures et paiements importés ensuite.
 
+Les contrats, playlists, morceaux et avis sont importés après les réservations :
+
+```powershell
+cd backend
+.venv\Scripts\python.exe manage.py import_legacy_service_records --dry-run
+.venv\Scripts\python.exe manage.py import_legacy_service_records
+```
+
+La commande conserve les signatures et dates historiques, les préférences et
+statuts des morceaux ainsi que les notes et statuts de modération des avis.
+
 Le dump versionné dans `database/dumps/` est volontairement anonymisé : il
 contient la structure complète, l'état des migrations et les données publiques
 du catalogue, mais aucune donnée d'utilisateur, de profil, de devis, de
