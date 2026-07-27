@@ -137,6 +137,18 @@ cd backend
 La commande conserve les signatures et dates historiques, les préférences et
 statuts des morceaux ainsi que les notes et statuts de modération des avis.
 
+Les factures et paiements terminent le transfert historique :
+
+```powershell
+cd backend
+.venv\Scripts\python.exe manage.py import_legacy_finances --dry-run
+.venv\Scripts\python.exe manage.py import_legacy_finances
+```
+
+La commande conserve les numéros de facture, échéances, montants, statuts,
+dates de paiement et identifiants Stripe. Ces données financières restent
+exclusivement dans la base MariaDB locale.
+
 Le dump versionné dans `database/dumps/` est volontairement anonymisé : il
 contient la structure complète, l'état des migrations et les données publiques
 du catalogue, mais aucune donnée d'utilisateur, de profil, de devis, de
