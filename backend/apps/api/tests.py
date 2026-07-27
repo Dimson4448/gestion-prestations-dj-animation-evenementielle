@@ -1,12 +1,13 @@
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import ClientProfile, DJProfile
 from apps.availability.models import DJAvailability
-from apps.bookings.models import Booking, Contract, Playlist, PlaylistSong, Quote, Venue
+from apps.bookings.models import Booking, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Venue
 from apps.catalog.models import EventType, MusicStyle, Package
 from apps.payments.models import Invoice
 from apps.bookings.services import accept_quote
@@ -576,3 +577,67 @@ class ApiUltimateDJTests(APITestCase):
         )
         self.assertEqual(approval.status_code, status.HTTP_200_OK)
         self.assertEqual(approval.data["status"], PlaylistSong.APPROVED)
+
+    def test_rendez_vous_preparatoire_suit_la_reservation_confirmee(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        self.event_type.requires_preparatory_meeting = True
+        self.event_type.save(update_fields=["requires_preparatory_meeting"])
+        scheduled_at = (timezone.now() + timedelta(days=7)).isoformat()
+        self.client.force_authenticate(user=self.client_user)
+
+        past = self.client.post(
+            "/api/v1/appointments/",
+            {"booking": booking.pk, "scheduled_at": (timezone.now() - timedelta(days=1)).isoformat()},
+            format="json",
+        )
+        after_event = self.client.post(
+            "/api/v1/appointments/",
+            {"booking": booking.pk, "scheduled_at": (timezone.now() + timedelta(days=40)).isoformat()},
+            format="json",
+        )
+        self.assertEqual(past.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(after_event.status_code, status.HTTP_400_BAD_REQUEST)
+
+        before_payment = self.client.post(
+            "/api/v1/appointments/",
+            {"booking": booking.pk, "scheduled_at": scheduled_at, "mode": PreparatoryAppointment.ONLINE},
+            format="json",
+        )
+        self.assertEqual(before_payment.status_code, status.HTTP_400_BAD_REQUEST)
+
+        booking.deposit_paid = True
+        booking.status = Booking.CONFIRMED
+        booking.save(update_fields=["deposit_paid", "status"])
+        created = self.client.post(
+            "/api/v1/appointments/",
+            {"booking": booking.pk, "scheduled_at": scheduled_at, "mode": PreparatoryAppointment.ONLINE, "notes": "Préparer l'ouverture de bal"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["status"], PreparatoryAppointment.PLANNED)
+        deletion = self.client.delete(f"/api/v1/appointments/{created.data['id']}/")
+        self.assertEqual(deletion.status_code, status.HTTP_403_FORBIDDEN)
+
+        duplicate = self.client.post(
+            "/api/v1/appointments/",
+            {"booking": booking.pk, "scheduled_at": (timezone.now() + timedelta(days=8)).isoformat()},
+            format="json",
+        )
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+
+        forbidden_status = self.client.patch(
+            f"/api/v1/appointments/{created.data['id']}/",
+            {"status": PreparatoryAppointment.DONE},
+            format="json",
+        )
+        self.assertEqual(forbidden_status.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=booking.dj.user)
+        completed = self.client.patch(
+            f"/api/v1/appointments/{created.data['id']}/",
+            {"status": PreparatoryAppointment.DONE},
+            format="json",
+        )
+        self.assertEqual(completed.status_code, status.HTTP_200_OK)
+        self.assertEqual(completed.data["status"], PreparatoryAppointment.DONE)

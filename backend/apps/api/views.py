@@ -256,7 +256,8 @@ class BookingViewSet(AdminManagedProtectedViewSet):
             return queryset.filter(dj=dj)
         return queryset.none()
 
-class PreparatoryAppointmentViewSet(ProtectedModelViewSet):
+class PreparatoryAppointmentViewSet(AdminManagedProtectedViewSet):
+    admin_only_actions = {"destroy"}
     serializer_class = PreparatoryAppointmentSerializer
     filterset_fields = ["mode", "status"]
     ordering_fields = ["scheduled_at", "status"]

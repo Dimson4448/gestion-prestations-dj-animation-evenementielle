@@ -1,8 +1,9 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from rest_framework import serializers
 from rest_framework.reverse import reverse
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 
@@ -276,6 +277,48 @@ class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSe
     class Meta:
         model = PreparatoryAppointment
         fields = ["id", "booking", "scheduled_at", "mode", "status", "notes", "liens"]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        booking = attrs.get("booking") or getattr(self.instance, "booking", None)
+        scheduled_at = attrs.get("scheduled_at") or getattr(self.instance, "scheduled_at", None)
+        if booking is None or scheduled_at is None:
+            return attrs
+
+        if scheduled_at <= timezone.now():
+            raise serializers.ValidationError({"scheduled_at": "Le rendez-vous doit être planifié dans le futur."})
+        event_start = timezone.make_aware(datetime.combine(booking.event_date, booking.start_time))
+        if scheduled_at >= event_start:
+            raise serializers.ValidationError({"scheduled_at": "Le rendez-vous doit avoir lieu avant l'événement."})
+        if not booking.event_type.requires_preparatory_meeting:
+            raise serializers.ValidationError({"booking": "Ce type d'événement ne nécessite pas de rendez-vous préparatoire."})
+        if not booking.deposit_paid or booking.status not in {Booking.CONFIRMED, Booking.PERFORMED, Booking.PAID}:
+            raise serializers.ValidationError({"booking": "La réservation doit être confirmée par le paiement de l'acompte."})
+
+        duplicate = PreparatoryAppointment.objects.filter(booking=booking, status=PreparatoryAppointment.PLANNED)
+        if self.instance:
+            duplicate = duplicate.exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise serializers.ValidationError({"booking": "Un rendez-vous préparatoire est déjà planifié pour cette réservation."})
+
+        if not request or request.user.is_staff:
+            return attrs
+        client = getattr(request.user, "client_profile", None)
+        dj = getattr(request.user, "dj_profile", None)
+        if not ((client and booking.client_id == client.pk) or (dj and booking.dj_id == dj.pk)):
+            raise serializers.ValidationError({"booking": "Cette réservation ne vous appartient pas."})
+        if self.instance and "booking" in attrs and attrs["booking"].pk != self.instance.booking_id:
+            raise serializers.ValidationError({"booking": "La réservation du rendez-vous ne peut pas être modifiée."})
+        if client and "status" in self.initial_data:
+            raise serializers.ValidationError({"status": "Le statut du rendez-vous est géré par le DJ ou l'administration."})
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        if request and getattr(request.user, "client_profile", None):
+            validated_data["status"] = PreparatoryAppointment.PLANNED
+        return super().create(validated_data)
 
 
 class ContractSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
