@@ -158,6 +158,13 @@ export default function App() {
   const [songTitle, setSongTitle] = useState("");
   const [songArtist, setSongArtist] = useState("");
   const [songPreference, setSongPreference] = useState("play_if_possible");
+  const [appointments, setAppointments] = useState([]);
+  const [appointmentStatus, setAppointmentStatus] = useState("");
+  const [appointmentPending, setAppointmentPending] = useState(false);
+  const [appointmentBookingId, setAppointmentBookingId] = useState("");
+  const [appointmentDateTime, setAppointmentDateTime] = useState("");
+  const [appointmentMode, setAppointmentMode] = useState("online");
+  const [appointmentNotes, setAppointmentNotes] = useState("");
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -268,6 +275,25 @@ export default function App() {
     return () => {
       mounted = false;
     };
+  }, [isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser || currentUser.is_staff) {
+      setAppointments([]);
+      return;
+    }
+    let mounted = true;
+    setAppointmentStatus("Chargement de vos rendez-vous…");
+    apiClient.get("/appointments/", { params: { ordering: "scheduled_at" } })
+      .then((response) => {
+        if (!mounted) return;
+        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        const records = Array.isArray(data) ? data : [];
+        setAppointments(records);
+        setAppointmentStatus(records.length ? "" : "Aucun rendez-vous préparatoire planifié.");
+      })
+      .catch(() => mounted && setAppointmentStatus("Impossible de charger les rendez-vous."));
+    return () => { mounted = false; };
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
@@ -410,6 +436,16 @@ export default function App() {
   const eligiblePlaylistBookings = clientBookings.filter(
     (item) => item.deposit_paid && ["confirmed", "performed", "paid"].includes(item.status) && !playlistBookingIds.has(item.id),
   );
+  const plannedAppointmentBookingIds = new Set(
+    appointments.filter((item) => item.status === "planned").map((item) => item.booking),
+  );
+  const eligibleAppointmentBookings = clientBookings.filter((item) => {
+    const type = eventTypeRecords.find((record) => record.id === item.event_type);
+    return item.deposit_paid
+      && ["confirmed", "performed", "paid"].includes(item.status)
+      && type?.requires_preparatory_meeting
+      && !plannedAppointmentBookingIds.has(item.id);
+  });
 
   const quote = useMemo(() => {
     const base = Number(selectedPackage?.base_price || 0);
@@ -694,6 +730,35 @@ export default function App() {
     }
   };
 
+  const createPreparatoryAppointment = async (event) => {
+    event.preventDefault();
+    if (!appointmentBookingId || !appointmentDateTime) {
+      setAppointmentStatus("Sélectionnez une réservation et une date de rendez-vous.");
+      return;
+    }
+    setAppointmentPending(true);
+    setAppointmentStatus("");
+    try {
+      const response = await apiClient.post("/appointments/", {
+        booking: Number(appointmentBookingId),
+        scheduled_at: new Date(appointmentDateTime).toISOString(),
+        mode: appointmentMode,
+        notes: appointmentNotes.trim(),
+      });
+      setAppointments((current) => [...current, response.data]);
+      setAppointmentBookingId("");
+      setAppointmentDateTime("");
+      setAppointmentNotes("");
+      setAppointmentStatus("Rendez-vous préparatoire planifié et transmis au DJ.");
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setAppointmentStatus(firstError || "Le rendez-vous n’a pas pu être planifié.");
+    } finally {
+      setAppointmentPending(false);
+    }
+  };
+
   const startDepositCheckout = async (invoice) => {
     setCheckoutPendingId(invoice.id);
     setCheckoutStatus("");
@@ -933,6 +998,22 @@ export default function App() {
                         </div>
                       </article>
                     ))}
+                  </div>
+                  <div className="appointment-panel">
+                    <div className="playlist-heading"><div><h3>Rendez-vous préparatoire</h3><p>Planifiez la préparation avec votre DJ avant le jour de l’événement.</p></div><CalendarDays /></div>
+                    {appointmentStatus && <p className={appointmentStatus.includes("planifié") ? "form-message success" : "invoice-empty"} role="status">{appointmentStatus}</p>}
+                    {eligibleAppointmentBookings.length > 0 && (
+                      <form className="playlist-form" onSubmit={createPreparatoryAppointment}>
+                        <label>Réservation<select value={appointmentBookingId} onChange={(event) => setAppointmentBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligibleAppointmentBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")}</option>)}</select></label>
+                        <label>Date et heure<input type="datetime-local" value={appointmentDateTime} onChange={(event) => setAppointmentDateTime(event.target.value)} required /></label>
+                        <label>Mode<select value={appointmentMode} onChange={(event) => setAppointmentMode(event.target.value)}><option value="online">En ligne</option><option value="in_person">En présentiel</option></select></label>
+                        <label>Notes<textarea rows="2" value={appointmentNotes} onChange={(event) => setAppointmentNotes(event.target.value)} placeholder="Sujets à préparer, disponibilité particulière…" /></label>
+                        <button className="primary-button" type="submit" disabled={appointmentPending}>{appointmentPending ? "Planification…" : "Planifier le rendez-vous"}</button>
+                      </form>
+                    )}
+                    <div className="appointment-list">
+                      {appointments.map((appointment) => <article key={appointment.id}><div><strong>{new Date(appointment.scheduled_at).toLocaleString("fr-BE")}</strong><span>Réservation n°{appointment.booking} · {appointment.mode === "online" ? "En ligne" : "En présentiel"}</span>{appointment.notes && <small>{appointment.notes}</small>}</div><span className={`appointment-status ${appointment.status}`}>{appointment.status === "done" ? "Réalisé" : appointment.status === "cancelled" ? "Annulé" : "Planifié"}</span></article>)}
+                    </div>
                   </div>
                   <div className="playlist-panel">
                     <div className="playlist-heading"><div><h3>Ma playlist</h3><p>Proposez vos morceaux au DJ et indiquez vos priorités.</p></div><Music2 /></div>

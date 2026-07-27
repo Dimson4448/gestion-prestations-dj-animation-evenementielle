@@ -244,6 +244,14 @@ svg { width: 20px; height: 20px; }
 .invoice-status.paid { color: #17724a; }
 .invoice-status.sent { color: #9a6200; }
 .playlist-panel { display: grid; gap: 14px; margin: 8px 0; padding: 18px; border: 1px solid #bfeaf3; border-radius: 12px; background: #f4fcfe; }
+.appointment-panel { display: grid; gap: 14px; margin: 8px 0; padding: 18px; border: 1px solid #ead8fa; border-radius: 12px; background: #fbf7ff; }
+.appointment-list { display: grid; gap: 8px; }
+.appointment-list article { display: flex; justify-content: space-between; gap: 16px; padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.appointment-list article > div { display: grid; gap: 3px; }
+.appointment-list span, .appointment-list small { color: #69758b; font-size: .75rem; }
+.appointment-status { align-self: start; font-weight: 800; text-transform: uppercase; }
+.appointment-status.done { color: #17724a; }
+.appointment-status.cancelled { color: #9f2d3d; }
 .playlist-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .playlist-heading h3, .playlist-heading p, .playlist-form h4 { margin: 0; }
 .playlist-heading p { color: #69758b; font-size: .82rem; }
