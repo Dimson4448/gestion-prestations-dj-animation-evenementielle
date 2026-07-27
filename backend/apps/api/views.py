@@ -18,6 +18,7 @@ from apps.bookings.models import (
     Review,
     Venue,
 )
+from apps.bookings.services import QuoteAcceptanceError, accept_quote
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
 from apps.payments.services import StripeCheckoutError, StripeConfigurationError, create_deposit_checkout
@@ -39,6 +40,7 @@ from .serializers import (
     PreparatoryAppointmentSerializer,
     QuoteCalculationRequestSerializer,
     QuoteCalculationResponseSerializer,
+    QuoteAcceptanceSerializer,
     QuoteSerializer,
     ReviewSerializer,
     ServiceOptionSerializer,
@@ -166,7 +168,7 @@ class QuoteViewSet(ProtectedModelViewSet):
     ordering_fields = ["event_date", "created_at", "total_amount"]
 
     def get_permissions(self):
-        if self.action in {"update", "partial_update", "destroy"}:
+        if self.action in {"update", "partial_update", "destroy", "accept"}:
             return [permissions.IsAdminUser()]
         return super().get_permissions()
 
@@ -188,6 +190,30 @@ class QuoteViewSet(ProtectedModelViewSet):
         if not self.request.user.is_staff:
             client = client_connecte(self.request.user)
         serializer.save(client=client, status=Quote.DRAFT, **amounts)
+
+    @extend_schema(
+        request=QuoteAcceptanceSerializer,
+        responses={201: BookingSerializer},
+        summary="Accepter un devis et créer le dossier de réservation",
+    )
+    @action(detail=True, methods=["post"], url_path="accept")
+    def accept(self, request, pk=None):
+        quote = self.get_object()
+        serializer = QuoteAcceptanceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            booking, contract, invoice = accept_quote(quote.pk, serializer.validated_data["dj"].pk)
+        except QuoteAcceptanceError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "booking": BookingSerializer(booking, context={"request": request}).data,
+                "contract": ContractSerializer(contract, context={"request": request}).data,
+                "deposit_invoice": InvoiceSerializer(invoice, context={"request": request}).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class BookingViewSet(ProtectedModelViewSet):

@@ -214,6 +214,13 @@ class QuoteSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         return attrs
 
 
+class QuoteAcceptanceSerializer(serializers.Serializer):
+    dj = serializers.PrimaryKeyRelatedField(
+        queryset=DJProfile.objects.filter(is_available=True),
+        label="DJ sélectionné",
+    )
+
+
 class BookingSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "booking"
 

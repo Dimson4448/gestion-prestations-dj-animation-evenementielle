@@ -4,9 +4,11 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.accounts.models import ClientProfile
-from apps.bookings.models import Quote, Venue
+from apps.accounts.models import ClientProfile, DJProfile
+from apps.availability.models import DJAvailability
+from apps.bookings.models import Booking, Contract, Quote, Venue
 from apps.catalog.models import EventType, Package
+from apps.payments.models import Invoice
 
 
 class ApiUltimateDJTests(APITestCase):
@@ -62,6 +64,29 @@ class ApiUltimateDJTests(APITestCase):
         }
         payload.update(overrides)
         return payload
+
+    def create_available_dj(self):
+        dj_user = get_user_model().objects.create_user(
+            username="dj_acceptation",
+            email="dj-acceptation@example.com",
+            password="MotDePasseDJ2026!",
+        )
+        dj = DJProfile.objects.create(
+            user=dj_user,
+            stage_name="DJ Acceptation",
+            bio="DJ disponible pour les tests du parcours devis.",
+            base_hourly_rate="95.00",
+            travel_rate_per_km="0.65",
+            years_experience=8,
+            is_available=True,
+        )
+        availability = DJAvailability.objects.create(
+            dj=dj,
+            available_date=date.today() + timedelta(days=30),
+            start_time="17:00:00",
+            end_time="23:59:00",
+        )
+        return dj, availability
 
     def test_liste_des_packages_publique_avec_liens(self):
         response = self.client.get("/api/v1/packages/")
@@ -250,3 +275,101 @@ class ApiUltimateDJTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["status"], Quote.SENT)
+
+    def test_administrateur_accepte_un_devis_et_cree_le_dossier_complet(self):
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post("/api/v1/quotes/", self.quote_payload(), format="json")
+        quote = Quote.objects.get(pk=created.data["id"])
+        quote.status = Quote.SENT
+        quote.save(update_fields=["status"])
+        dj, availability = self.create_available_dj()
+        admin = get_user_model().objects.create_superuser(
+            username="admin_acceptation",
+            email="admin-acceptation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.post(f"/api/v1/quotes/{quote.pk}/accept/", {"dj": dj.pk}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        quote.refresh_from_db()
+        availability.refresh_from_db()
+        booking = Booking.objects.get(quote=quote)
+        self.assertEqual(quote.status, Quote.ACCEPTED)
+        self.assertEqual(booking.dj, dj)
+        self.assertEqual(booking.end_time.strftime("%H:%M:%S"), "23:00:00")
+        self.assertEqual(availability.status, DJAvailability.RESERVED)
+        self.assertTrue(Contract.objects.filter(booking=booking, status=Contract.DRAFT).exists())
+        self.assertTrue(
+            Invoice.objects.filter(
+                booking=booking,
+                invoice_type=Invoice.DEPOSIT,
+                status=Invoice.SENT,
+                amount=quote.deposit_amount,
+            ).exists()
+        )
+        self.assertIn("booking", response.data)
+        self.assertIn("contract", response.data)
+        self.assertIn("deposit_invoice", response.data)
+
+    def test_client_ne_peut_pas_accepter_lui_meme_un_devis(self):
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post("/api/v1/quotes/", self.quote_payload(), format="json")
+        quote = Quote.objects.get(pk=created.data["id"])
+        quote.status = Quote.SENT
+        quote.save(update_fields=["status"])
+        dj, _ = self.create_available_dj()
+
+        response = self.client.post(f"/api/v1/quotes/{quote.pk}/accept/", {"dj": dj.pk}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(Booking.objects.filter(quote=quote).exists())
+
+    def test_acceptation_refusee_sans_creneau_ne_cree_aucune_donnee(self):
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post("/api/v1/quotes/", self.quote_payload(), format="json")
+        quote = Quote.objects.get(pk=created.data["id"])
+        quote.status = Quote.SENT
+        quote.save(update_fields=["status"])
+        dj, availability = self.create_available_dj()
+        availability.end_time = "20:00:00"
+        availability.save(update_fields=["end_time"])
+        admin = get_user_model().objects.create_superuser(
+            username="admin_sans_creneau",
+            email="admin-sans-creneau@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.post(f"/api/v1/quotes/{quote.pk}/accept/", {"dj": dj.pk}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        quote.refresh_from_db()
+        self.assertEqual(quote.status, Quote.SENT)
+        self.assertFalse(Booking.objects.filter(quote=quote).exists())
+        self.assertEqual(Contract.objects.count(), 0)
+        self.assertEqual(Invoice.objects.count(), 0)
+
+    def test_un_devis_accepte_ne_peut_pas_etre_converti_deux_fois(self):
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post("/api/v1/quotes/", self.quote_payload(), format="json")
+        quote = Quote.objects.get(pk=created.data["id"])
+        quote.status = Quote.SENT
+        quote.save(update_fields=["status"])
+        dj, _ = self.create_available_dj()
+        admin = get_user_model().objects.create_superuser(
+            username="admin_doublon",
+            email="admin-doublon@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+
+        first = self.client.post(f"/api/v1/quotes/{quote.pk}/accept/", {"dj": dj.pk}, format="json")
+        second = self.client.post(f"/api/v1/quotes/{quote.pk}/accept/", {"dj": dj.pk}, format="json")
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Booking.objects.filter(quote=quote).count(), 1)
+        self.assertEqual(Contract.objects.count(), 1)
+        self.assertEqual(Invoice.objects.count(), 1)
