@@ -432,8 +432,34 @@ class ReviewSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = ["id", "booking", "client", "dj", "rating", "comment", "status", "created_at", "liens"]
-        read_only_fields = ["created_at"]
-        extra_kwargs = {"client": {"required": False}, "dj": {"required": False}}
+        read_only_fields = ["client", "dj", "created_at"]
+
+    def validate_rating(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError("La note doit être comprise entre 1 et 5.")
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        booking = attrs.get("booking") or getattr(self.instance, "booking", None)
+        if booking is None:
+            return attrs
+        if self.instance and "booking" in attrs and attrs["booking"].pk != self.instance.booking_id:
+            raise serializers.ValidationError({"booking": "La réservation d'un avis ne peut pas être modifiée."})
+        if booking.status not in {Booking.PERFORMED, Booking.PAID}:
+            raise serializers.ValidationError({"booking": "Un avis peut être déposé uniquement après la prestation."})
+        if not request or request.user.is_staff:
+            return attrs
+
+        client = getattr(request.user, "client_profile", None)
+        if not client or booking.client_id != client.pk:
+            raise serializers.ValidationError({"booking": "Seul le client de cette réservation peut déposer un avis."})
+        if "status" in self.initial_data:
+            raise serializers.ValidationError({"status": "Le statut de l'avis est géré par l'administration."})
+        if self.instance and self.instance.status != Review.PENDING:
+            raise serializers.ValidationError("Un avis déjà modéré ne peut plus être modifié par le client.")
+        return attrs
 
 
 class QuoteCalculationRequestSerializer(serializers.Serializer):

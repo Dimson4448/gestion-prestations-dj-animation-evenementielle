@@ -376,7 +376,8 @@ class PlaylistSongViewSet(ProtectedModelViewSet):
         return filtrer_par_reservation(queryset, self.request.user, prefix="playlist__")
 
 
-class ReviewViewSet(ProtectedModelViewSet):
+class ReviewViewSet(AdminManagedProtectedViewSet):
+    admin_only_actions = {"destroy"}
     serializer_class = ReviewSerializer
     filterset_fields = ["rating", "status"]
     search_fields = ["comment", "dj__stage_name"]
@@ -395,11 +396,11 @@ class ReviewViewSet(ProtectedModelViewSet):
         return queryset.none()
 
     def perform_create(self, serializer):
+        booking = serializer.validated_data["booking"]
         if self.request.user.is_staff:
-            serializer.save()
-        else:
-            booking = serializer.validated_data["booking"]
             serializer.save(client=booking.client, dj=booking.dj)
+        else:
+            serializer.save(client=booking.client, dj=booking.dj, status=Review.PENDING)
 
 
 @extend_schema(

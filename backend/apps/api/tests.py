@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import ClientProfile, DJProfile
 from apps.availability.models import DJAvailability
-from apps.bookings.models import Booking, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Venue
+from apps.bookings.models import Booking, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Review, Venue
 from apps.catalog.models import EventType, MusicStyle, Package
 from apps.payments.models import Invoice
 from apps.bookings.services import accept_quote
@@ -641,3 +641,86 @@ class ApiUltimateDJTests(APITestCase):
         )
         self.assertEqual(completed.status_code, status.HTTP_200_OK)
         self.assertEqual(completed.data["status"], PreparatoryAppointment.DONE)
+
+    def test_avis_client_est_depose_apres_prestation_et_modere_par_admin(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        self.client.force_authenticate(user=self.client_user)
+
+        too_early = self.client.post(
+            "/api/v1/reviews/",
+            {"booking": booking.pk, "rating": 5, "comment": "Trop tôt"},
+            format="json",
+        )
+        self.assertEqual(too_early.status_code, status.HTTP_400_BAD_REQUEST)
+
+        booking.status = Booking.PERFORMED
+        booking.save(update_fields=["status"])
+        self.client.force_authenticate(user=booking.dj.user)
+        dj_attempt = self.client.post(
+            "/api/v1/reviews/",
+            {"booking": booking.pk, "rating": 5, "comment": "Avis créé par le DJ"},
+            format="json",
+        )
+        self.assertEqual(dj_attempt.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=self.client_user)
+        invalid_rating = self.client.post(
+            "/api/v1/reviews/",
+            {"booking": booking.pk, "rating": 6, "comment": "Note impossible"},
+            format="json",
+        )
+        forbidden_status = self.client.post(
+            "/api/v1/reviews/",
+            {"booking": booking.pk, "rating": 5, "comment": "Excellente soirée", "status": Review.PUBLISHED},
+            format="json",
+        )
+        self.assertEqual(invalid_rating.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(forbidden_status.status_code, status.HTTP_400_BAD_REQUEST)
+
+        created = self.client.post(
+            "/api/v1/reviews/",
+            {"booking": booking.pk, "rating": 5, "comment": "Excellente soirée et DJ très professionnel"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["status"], Review.PENDING)
+        self.assertEqual(created.data["client"], self.client_profile.pk)
+        self.assertEqual(created.data["dj"], booking.dj_id)
+        duplicate = self.client.post(
+            "/api/v1/reviews/",
+            {"booking": booking.pk, "rating": 4, "comment": "Deuxième avis interdit"},
+            format="json",
+        )
+        deletion = self.client.delete(f"/api/v1/reviews/{created.data['id']}/")
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(deletion.status_code, status.HTTP_403_FORBIDDEN)
+
+        edited = self.client.patch(
+            f"/api/v1/reviews/{created.data['id']}/",
+            {"comment": "Excellente soirée, DJ ponctuel et très professionnel"},
+            format="json",
+        )
+        self.assertEqual(edited.status_code, status.HTTP_200_OK)
+
+        admin = get_user_model().objects.create_superuser(
+            username="admin_avis",
+            email="admin-avis@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+        published = self.client.patch(
+            f"/api/v1/reviews/{created.data['id']}/",
+            {"status": Review.PUBLISHED},
+            format="json",
+        )
+        self.assertEqual(published.status_code, status.HTTP_200_OK)
+        self.assertEqual(published.data["status"], Review.PUBLISHED)
+
+        self.client.force_authenticate(user=self.client_user)
+        locked = self.client.patch(
+            f"/api/v1/reviews/{created.data['id']}/",
+            {"rating": 1},
+            format="json",
+        )
+        self.assertEqual(locked.status_code, status.HTTP_400_BAD_REQUEST)
