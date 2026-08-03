@@ -20,11 +20,11 @@ from apps.bookings.models import (
     Review,
     Venue,
 )
-from apps.bookings.services import ContractSigningError, QuoteAcceptanceError, accept_quote, sign_contract
+from apps.bookings.services import BookingCompletionError, ContractSigningError, QuoteAcceptanceError, accept_quote, complete_booking, sign_contract
 from apps.bookings.documents import build_contract_pdf, build_invoice_pdf
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
-from apps.payments.services import StripeCheckoutError, StripeConfigurationError, create_deposit_checkout
+from apps.payments.services import StripeCheckoutError, StripeConfigurationError, create_invoice_checkout
 
 from .permissions import AdministrationOuProprietaire, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
 from .serializers import (
@@ -256,6 +256,27 @@ class BookingViewSet(AdminManagedProtectedViewSet):
             return queryset.filter(dj=dj)
         return queryset.none()
 
+    @extend_schema(responses={201: InvoiceSerializer}, summary="Clôturer la prestation et émettre la facture de solde")
+    @action(detail=True, methods=["post"], url_path="complete")
+    def complete(self, request, pk=None):
+        booking = self.get_object()
+        if not request.user.is_staff and dj_connecte(request.user) != booking.dj:
+            return Response(
+                {"detail": "Seul le DJ affecté ou l'administration peut clôturer cette prestation."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            booking, invoice = complete_booking(booking.pk, request.user)
+        except BookingCompletionError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "booking": BookingSerializer(booking, context={"request": request}).data,
+                "balance_invoice": InvoiceSerializer(invoice, context={"request": request}).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
 class PreparatoryAppointmentViewSet(AdminManagedProtectedViewSet):
     admin_only_actions = {"destroy"}
     serializer_class = PreparatoryAppointmentSerializer
@@ -329,7 +350,7 @@ class InvoiceViewSet(AdminManagedProtectedViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         try:
-            payment, checkout_url = create_deposit_checkout(invoice)
+            payment, checkout_url = create_invoice_checkout(invoice)
         except (ValueError, StripeConfigurationError) as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except StripeCheckoutError as exc:

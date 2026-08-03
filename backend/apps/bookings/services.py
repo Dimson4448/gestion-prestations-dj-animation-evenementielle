@@ -18,6 +18,10 @@ class ContractSigningError(Exception):
     """Erreur fonctionnelle empêchant la signature d'un contrat."""
 
 
+class BookingCompletionError(Exception):
+    """Erreur fonctionnelle empêchant la clôture d'une prestation."""
+
+
 def _event_end_time(quote):
     start = datetime.combine(quote.event_date, quote.start_time)
     end = start + timedelta(seconds=int(quote.duration_hours * 3600))
@@ -123,3 +127,44 @@ def sign_contract(contract_id, client):
     contract.signed_by_client_at = timezone.now()
     contract.save(update_fields=["status", "signed_by_client_at"])
     return contract
+
+
+@transaction.atomic
+def complete_booking(booking_id, actor):
+    """Marque une prestation réalisée et émet une unique facture de solde."""
+    booking = (
+        Booking.objects.select_for_update()
+        .select_related("dj", "client", "event_type", "package")
+        .get(pk=booking_id)
+    )
+    actor_dj = getattr(actor, "dj_profile", None)
+    if not actor.is_staff and (actor_dj is None or actor_dj.pk != booking.dj_id):
+        raise BookingCompletionError("Seul le DJ affecté ou l'administration peut clôturer cette prestation.")
+    if booking.status != Booking.CONFIRMED or not booking.deposit_paid:
+        raise BookingCompletionError("La réservation doit être confirmée et son acompte payé.")
+
+    event_end = timezone.make_aware(datetime.combine(booking.event_date, booking.end_time))
+    if event_end > timezone.now():
+        raise BookingCompletionError("La prestation ne peut pas être clôturée avant sa date de fin.")
+    if Invoice.objects.select_for_update().filter(booking=booking, invoice_type=Invoice.BALANCE).exists():
+        raise BookingCompletionError("Une facture de solde existe déjà pour cette réservation.")
+
+    paid_amount = sum(
+        (invoice.amount for invoice in Invoice.objects.select_for_update().filter(booking=booking, status=Invoice.PAID)),
+        start=0,
+    )
+    balance_amount = booking.total_amount - paid_amount
+    if balance_amount <= 0:
+        raise BookingCompletionError("Aucun solde positif ne reste à facturer.")
+
+    invoice = Invoice.objects.create(
+        booking=booking,
+        invoice_number=f"UDJ-SOL-{booking.event_date:%Y}-{booking.pk:06d}",
+        invoice_type=Invoice.BALANCE,
+        amount=balance_amount,
+        status=Invoice.SENT,
+        due_at=timezone.now() + timedelta(days=7),
+    )
+    booking.status = Booking.PERFORMED
+    booking.save(update_fields=["status"])
+    return booking, invoice

@@ -146,6 +146,25 @@ class DepositCheckoutTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         create_session.assert_not_called()
 
+    @patch("apps.payments.services.stripe.checkout.Session.create")
+    def test_cree_une_session_checkout_pour_une_facture_de_solde(self, create_session):
+        self.invoice.invoice_type = Invoice.BALANCE
+        self.invoice.invoice_number = "SOLDE-BETA-001"
+        self.invoice.amount = "420.00"
+        self.invoice.save(update_fields=["invoice_type", "invoice_number", "amount"])
+        create_session.return_value = SimpleNamespace(
+            id="cs_test_solde_001",
+            payment_intent=None,
+            url="https://checkout.stripe.com/c/pay/cs_test_solde_001",
+        )
+
+        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        stripe_parameters = create_session.call_args.kwargs
+        self.assertEqual(stripe_parameters["metadata"]["payment_kind"], Invoice.BALANCE)
+        self.assertEqual(stripe_parameters["line_items"][0]["price_data"]["unit_amount"], 42000)
+
     def test_refuse_un_visiteur_non_connecte(self):
         self.client.force_authenticate(user=None)
 
@@ -248,6 +267,46 @@ class DepositCheckoutTests(APITestCase):
         self.assertEqual(self.invoice.status, Invoice.PAID)
         self.assertTrue(self.booking.deposit_paid)
         self.assertEqual(self.booking.status, Booking.CONFIRMED)
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
+    def test_webhook_confirme_le_solde_et_marque_la_reservation_payee(self, construct_event):
+        self.invoice.invoice_type = Invoice.BALANCE
+        self.invoice.invoice_number = "SOLDE-BETA-WEBHOOK"
+        self.invoice.amount = "420.00"
+        self.invoice.save(update_fields=["invoice_type", "invoice_number", "amount"])
+        self.booking.deposit_paid = True
+        self.booking.status = Booking.PERFORMED
+        self.booking.save(update_fields=["deposit_paid", "status"])
+        payment = self.create_pending_payment()
+        payment.amount = self.invoice.amount
+        payment.save(update_fields=["amount"])
+        construct_event.return_value = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": payment.stripe_session_id,
+                    "payment_status": "paid",
+                    "payment_intent": "pi_test_solde_001",
+                    "amount_total": 42000,
+                    "currency": "eur",
+                    "metadata": {"invoice_id": str(self.invoice.pk)},
+                }
+            },
+        }
+        self.client.force_authenticate(user=None)
+
+        response = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"payload solde Stripe",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.booking.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.booking.status, Booking.PAID)
+        self.assertEqual(self.invoice.status, Invoice.PAID)
 
     @patch("apps.payments.views.stripe.Webhook.construct_event")
     def test_webhook_refuse_un_montant_incoherent(self, construct_event):

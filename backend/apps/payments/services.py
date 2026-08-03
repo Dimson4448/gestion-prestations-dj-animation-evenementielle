@@ -20,12 +20,12 @@ def amount_to_cents(amount: Decimal) -> int:
     return int((amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
-def create_deposit_checkout(invoice: Invoice) -> tuple[Payment, str]:
+def create_invoice_checkout(invoice: Invoice) -> tuple[Payment, str]:
     if not settings.STRIPE_SECRET_KEY or not settings.STRIPE_SECRET_KEY.startswith("sk_test_"):
         raise StripeConfigurationError("Une clé secrète Stripe de test est requise.")
 
-    if invoice.invoice_type != Invoice.DEPOSIT:
-        raise ValueError("Seule une facture d'acompte peut être payée avec ce parcours.")
+    if invoice.invoice_type not in {Invoice.DEPOSIT, Invoice.BALANCE, Invoice.FULL}:
+        raise ValueError("Ce type de facture ne peut pas être payé avec ce parcours.")
     if invoice.status != Invoice.SENT:
         raise ValueError("Seule une facture envoyée et non payée peut démarrer un paiement.")
     if invoice.amount <= 0:
@@ -42,14 +42,14 @@ def create_deposit_checkout(invoice: Invoice) -> tuple[Payment, str]:
             metadata={
                 "invoice_id": str(invoice.pk),
                 "booking_id": str(invoice.booking_id),
-                "payment_kind": "deposit",
+                "payment_kind": invoice.invoice_type,
             },
             line_items=[
                 {
                     "price_data": {
                         "currency": "eur",
                         "product_data": {
-                            "name": f"Acompte Ultimate DJ — {invoice.invoice_number}",
+                            "name": f"{invoice.get_invoice_type_display()} Ultimate DJ — {invoice.invoice_number}",
                         },
                         "unit_amount": amount_to_cents(invoice.amount),
                     },
@@ -78,6 +78,9 @@ def create_deposit_checkout(invoice: Invoice) -> tuple[Payment, str]:
         },
     )
     return payment, session.url
+
+
+create_deposit_checkout = create_invoice_checkout
 
 
 @transaction.atomic
@@ -114,12 +117,16 @@ def confirm_checkout_payment(session) -> bool:
     invoice.save(update_fields=["status"])
 
     booking = payment.booking
-    booking.deposit_paid = True
-    if booking.status == booking.PREPARATORY_MEETING:
-        booking.status = booking.CONFIRMED
-        booking.save(update_fields=["deposit_paid", "status"])
-    else:
-        booking.save(update_fields=["deposit_paid"])
+    if invoice.invoice_type == Invoice.DEPOSIT:
+        booking.deposit_paid = True
+        if booking.status == booking.PREPARATORY_MEETING:
+            booking.status = booking.CONFIRMED
+            booking.save(update_fields=["deposit_paid", "status"])
+        else:
+            booking.save(update_fields=["deposit_paid"])
+    elif invoice.invoice_type in {Invoice.BALANCE, Invoice.FULL}:
+        booking.status = booking.PAID
+        booking.save(update_fields=["status"])
     return True
 
 

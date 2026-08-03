@@ -724,3 +724,31 @@ class ApiUltimateDJTests(APITestCase):
             format="json",
         )
         self.assertEqual(locked.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_dj_cloture_la_prestation_et_genere_la_facture_de_solde(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        deposit_invoice = booking.invoices.get(invoice_type=Invoice.DEPOSIT)
+        booking.event_date = date.today() - timedelta(days=1)
+        booking.deposit_paid = True
+        booking.status = Booking.CONFIRMED
+        booking.save(update_fields=["event_date", "deposit_paid", "status"])
+        deposit_invoice.status = Invoice.PAID
+        deposit_invoice.save(update_fields=["status"])
+
+        self.client.force_authenticate(user=self.client_user)
+        client_attempt = self.client.post(f"/api/v1/bookings/{booking.pk}/complete/", {}, format="json")
+        self.assertEqual(client_attempt.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(user=booking.dj.user)
+        completed = self.client.post(f"/api/v1/bookings/{booking.pk}/complete/", {}, format="json")
+        duplicate = self.client.post(f"/api/v1/bookings/{booking.pk}/complete/", {}, format="json")
+
+        self.assertEqual(completed.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Booking.PERFORMED)
+        balance = Invoice.objects.get(booking=booking, invoice_type=Invoice.BALANCE)
+        self.assertEqual(balance.amount, booking.total_amount - deposit_invoice.amount)
+        self.assertEqual(balance.status, Invoice.SENT)
+        self.assertEqual(Invoice.objects.filter(booking=booking, invoice_type=Invoice.BALANCE).count(), 1)
