@@ -77,6 +77,9 @@ const formatEuro = (value) =>
     Number(value || 0),
   );
 
+const hasBookingEnded = (booking) =>
+  new Date(`${booking.event_date}T${booking.end_time || "23:59:59"}`) <= new Date();
+
 const quoteStatusLabels = {
   draft: "Brouillon",
   sent: "Envoyé",
@@ -129,7 +132,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginStatus, setLoginStatus] = useState("");
   const [loginPending, setLoginPending] = useState(false);
-  const [depositInvoices, setDepositInvoices] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [contractStatus, setContractStatus] = useState("");
   const [contractPendingId, setContractPendingId] = useState(null);
@@ -145,6 +148,8 @@ export default function App() {
   const [adminDjSelection, setAdminDjSelection] = useState({});
   const [adminStatus, setAdminStatus] = useState("");
   const [adminPendingId, setAdminPendingId] = useState(null);
+  const [adminBookings, setAdminBookings] = useState([]);
+  const [completionPendingId, setCompletionPendingId] = useState(null);
   const [clientBookings, setClientBookings] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [playlistSongs, setPlaylistSongs] = useState([]);
@@ -250,7 +255,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isAuthenticated || !currentUser || currentUser.is_staff) {
-      setDepositInvoices([]);
+      setInvoices([]);
       setClientQuotes([]);
       setVenues([]);
       setSelectedVenueId("new");
@@ -260,12 +265,12 @@ export default function App() {
     let mounted = true;
     setInvoiceStatus("Chargement de vos factures…");
     apiClient
-      .get("/invoices/", { params: { invoice_type: "deposit", ordering: "-issued_at" } })
+      .get("/invoices/", { params: { ordering: "-issued_at" } })
       .then((response) => {
         if (!mounted) return;
         const invoices = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        setDepositInvoices(Array.isArray(invoices) ? invoices : []);
-        setInvoiceStatus(invoices?.length ? "" : "Aucune facture d’acompte disponible.");
+        setInvoices(Array.isArray(invoices) ? invoices : []);
+        setInvoiceStatus(invoices?.length ? "" : "Aucune facture disponible.");
       })
       .catch((error) => {
         if (!mounted) return;
@@ -431,16 +436,23 @@ export default function App() {
   }, [isAuthenticated, currentUser]);
 
   const loadAdminDashboard = async () => {
-    setAdminStatus("Chargement des devis et des DJs…");
+    setAdminStatus("Chargement des devis, réservations et DJs…");
     try {
-      const [quotesResponse, djsResponse] = await Promise.all([
+      const [quotesResponse, djsResponse, bookingsResponse] = await Promise.all([
         apiClient.get("/quotes/", { params: { ordering: "-created_at" } }),
         apiClient.get("/djs/", { params: { ordering: "stage_name" } }),
+        apiClient.get("/bookings/", { params: { ordering: "-event_date" } }),
       ]);
       const quotes = Array.isArray(quotesResponse.data?.results) ? quotesResponse.data.results : quotesResponse.data;
       const djs = Array.isArray(djsResponse.data?.results) ? djsResponse.data.results : djsResponse.data;
+      const bookings = Array.isArray(bookingsResponse.data?.results) ? bookingsResponse.data.results : bookingsResponse.data;
       setAdminQuotes((Array.isArray(quotes) ? quotes : []).filter((item) => ["draft", "sent"].includes(item.status)));
       setAdminDjs(Array.isArray(djs) ? djs : []);
+      setAdminBookings(
+        (Array.isArray(bookings) ? bookings : []).filter(
+          (item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item),
+        ),
+      );
       setAdminStatus("");
     } catch (error) {
       setAdminStatus(error.response?.status === 403 ? "Ce compte n’a pas les droits administrateur." : "Impossible de charger l’espace administrateur.");
@@ -671,6 +683,20 @@ export default function App() {
     }
   };
 
+  const completeAdminBooking = async (bookingId) => {
+    setCompletionPendingId(bookingId);
+    setAdminStatus("");
+    try {
+      const response = await apiClient.post(`/bookings/${bookingId}/complete/`);
+      setAdminBookings((current) => current.filter((item) => item.id !== bookingId));
+      setAdminStatus(`Réservation n°${bookingId} clôturée : la facture de solde ${response.data.balance_invoice.invoice_number} a été créée.`);
+    } catch (error) {
+      setAdminStatus(error.response?.data?.detail || "La prestation n’a pas pu être clôturée.");
+    } finally {
+      setCompletionPendingId(null);
+    }
+  };
+
   const signClientContract = async (contractId) => {
     setContractPendingId(contractId);
     setContractStatus("");
@@ -816,7 +842,7 @@ export default function App() {
     }
   };
 
-  const startDepositCheckout = async (invoice) => {
+  const startInvoiceCheckout = async (invoice) => {
     setCheckoutPendingId(invoice.id);
     setCheckoutStatus("");
     try {
@@ -957,7 +983,7 @@ export default function App() {
           <section className="section-wrap admin-page">
             <div className="page-heading"><p className="eyebrow dark">Espace administrateur</p><h1>Traiter les demandes de devis</h1><p>Envoyez le devis au client, choisissez un DJ réellement disponible, puis créez automatiquement la réservation, le contrat et la facture d’acompte.</p></div>
             <div className="admin-toolbar"><div><strong>{adminQuotes.length}</strong><span> devis à traiter</span></div><button className="secondary-button" type="button" onClick={loadAdminDashboard}>Actualiser</button></div>
-            {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
+            {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") || adminStatus.includes("clôturée") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
             <div className="admin-quote-grid">
               {adminQuotes.map((item) => {
                 const itemPackage = packages.find((entry) => String(entry.id) === String(item.package));
@@ -980,6 +1006,20 @@ export default function App() {
                 );
               })}
               {!adminStatus && !adminQuotes.length && <p className="invoice-empty">Aucun devis en attente de traitement.</p>}
+            </div>
+            <div className="admin-booking-panel">
+              <div className="playlist-heading"><div><h2>Clôturer les prestations</h2><p>Une clôture confirme la prestation réalisée et émet automatiquement la facture de solde.</p></div><Check /></div>
+              <div className="admin-quote-grid">
+                {adminBookings.map((booking) => (
+                  <article className="admin-quote-card" key={booking.id}>
+                    <div className="quote-row-heading"><h2>Réservation n°{booking.id}</h2><span className="quote-status accepted">Confirmée</span></div>
+                    <p><CalendarDays /> {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")} · {String(booking.start_time).slice(0, 5)}</p>
+                    <p><FileText /> Montant total : <strong>{formatEuro(booking.total_amount)}</strong></p>
+                    <button className="primary-button" type="button" onClick={() => completeAdminBooking(booking.id)} disabled={completionPendingId === booking.id}>{completionPendingId === booking.id ? "Clôture…" : "Marquer comme réalisée"}</button>
+                  </article>
+                ))}
+                {!adminBookings.length && <p className="invoice-empty">Aucune prestation confirmée à clôturer.</p>}
+              </div>
             </div>
           </section>
         )}
@@ -1037,19 +1077,19 @@ export default function App() {
                     ))}
                   </div>
                   <div className="invoice-list">
-                    <h3>Factures d’acompte</h3>
+                    <h3>Mes factures</h3>
                     {invoiceStatus && <p className="invoice-empty" role="status">{invoiceStatus}</p>}
                     {checkoutStatus && <p className="form-message" role="alert">{checkoutStatus}</p>}
-                    {depositInvoices.map((invoice) => (
+                    {invoices.map((invoice) => (
                       <article className="invoice-row" key={invoice.id}>
-                        <div><strong>{invoice.invoice_number}</strong><span>Échéance : {new Date(invoice.due_at).toLocaleDateString("fr-BE")}</span></div>
+                        <div><strong>{invoice.invoice_number}</strong><span>{invoice.invoice_type === "deposit" ? "Acompte" : invoice.invoice_type === "balance" ? "Solde" : "Facture complète"} · Échéance : {new Date(invoice.due_at).toLocaleDateString("fr-BE")}</span></div>
                         <div className="invoice-actions">
                           <strong>{formatEuro(invoice.amount)}</strong>
                           <span className={`invoice-status ${invoice.status}`}>{invoice.status === "paid" ? "Payée" : invoice.status === "sent" ? "À payer" : invoice.status}</span>
                           <button className="document-button" type="button" onClick={() => downloadDocument("invoices", invoice.id, invoice.invoice_number)} disabled={downloadPending === `invoices-${invoice.id}`}><Download /> {downloadPending === `invoices-${invoice.id}` ? "Préparation…" : "Télécharger le PDF"}</button>
                           {invoice.status === "sent" && (
-                            <button className="primary-button payment-button" type="button" onClick={() => startDepositCheckout(invoice)} disabled={checkoutPendingId === invoice.id}>
-                              <CreditCard /> {checkoutPendingId === invoice.id ? "Redirection…" : "Payer l’acompte"}
+                            <button className="primary-button payment-button" type="button" onClick={() => startInvoiceCheckout(invoice)} disabled={checkoutPendingId === invoice.id}>
+                              <CreditCard /> {checkoutPendingId === invoice.id ? "Redirection…" : invoice.invoice_type === "deposit" ? "Payer l’acompte" : "Payer le solde"}
                             </button>
                           )}
                         </div>

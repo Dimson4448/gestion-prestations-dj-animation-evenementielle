@@ -292,6 +292,9 @@ svg { width: 20px; height: 20px; }
 .admin-quote-card h2, .admin-quote-card p { margin: 0; }
 .admin-quote-card p { display: flex; align-items: center; gap: 8px; color: #526079; }
 .admin-quote-card p svg { width: 18px; height: 18px; color: var(--cyan-dark); }
+.admin-booking-panel { margin-top: 34px; padding-top: 28px; border-top: 1px solid var(--line); }
+.admin-booking-panel .playlist-heading h2, .admin-booking-panel .playlist-heading p { margin: 0; }
+.admin-booking-panel .playlist-heading p { margin-top: 5px; color: #69758b; }
 .admin-acceptance { display: grid; gap: 12px; padding-top: 5px; border-top: 1px solid var(--line); }
 .admin-acceptance label { display: grid; gap: 7px; color: #344054; font-size: .86rem; font-weight: 800; }
 .admin-acceptance select { width: 100%; min-height: 45px; padding: 10px 12px; border: 1px solid #cfd8e6; border-radius: 9px; color: var(--night); background: #f9fbfd; }
