@@ -252,6 +252,17 @@ svg { width: 20px; height: 20px; }
 .appointment-status { align-self: start; font-weight: 800; text-transform: uppercase; }
 .appointment-status.done { color: #17724a; }
 .appointment-status.cancelled { color: #9f2d3d; }
+.review-panel { display: grid; gap: 14px; margin: 8px 0; padding: 18px; border: 1px solid #f2d89b; border-radius: 12px; background: #fffaf0; }
+.review-panel .playlist-form > small { color: #69758b; text-align: right; }
+.review-list { display: grid; gap: 8px; }
+.review-list article { display: grid; gap: 7px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.review-list p { margin: 0; }
+.review-stars { display: flex; gap: 3px; }
+.review-stars svg { width: 17px; height: 17px; color: #c8ced8; }
+.review-stars svg.filled { color: #f0ad24; fill: #f0ad24; }
+.review-status { color: #69758b; font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+.review-status.published { color: #17724a; }
+.review-status.rejected { color: #9f2d3d; }
 .playlist-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .playlist-heading h3, .playlist-heading p, .playlist-form h4 { margin: 0; }
 .playlist-heading p { color: #69758b; font-size: .82rem; }

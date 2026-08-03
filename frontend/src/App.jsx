@@ -165,6 +165,12 @@ export default function App() {
   const [appointmentDateTime, setAppointmentDateTime] = useState("");
   const [appointmentMode, setAppointmentMode] = useState("online");
   const [appointmentNotes, setAppointmentNotes] = useState("");
+  const [reviews, setReviews] = useState([]);
+  const [reviewStatus, setReviewStatus] = useState("");
+  const [reviewPending, setReviewPending] = useState(false);
+  const [reviewBookingId, setReviewBookingId] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -275,6 +281,25 @@ export default function App() {
     return () => {
       mounted = false;
     };
+  }, [isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser || currentUser.is_staff) {
+      setReviews([]);
+      return;
+    }
+    let mounted = true;
+    setReviewStatus("Chargement de vos avis…");
+    apiClient.get("/reviews/", { params: { ordering: "-created_at" } })
+      .then((response) => {
+        if (!mounted) return;
+        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        const records = Array.isArray(data) ? data : [];
+        setReviews(records);
+        setReviewStatus(records.length ? "" : "Aucun avis déposé.");
+      })
+      .catch(() => mounted && setReviewStatus("Impossible de charger vos avis."));
+    return () => { mounted = false; };
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
@@ -446,6 +471,10 @@ export default function App() {
       && type?.requires_preparatory_meeting
       && !plannedAppointmentBookingIds.has(item.id);
   });
+  const reviewedBookingIds = new Set(reviews.map((item) => item.booking));
+  const eligibleReviewBookings = clientBookings.filter(
+    (item) => ["performed", "paid"].includes(item.status) && !reviewedBookingIds.has(item.id),
+  );
 
   const quote = useMemo(() => {
     const base = Number(selectedPackage?.base_price || 0);
@@ -759,6 +788,34 @@ export default function App() {
     }
   };
 
+  const createClientReview = async (event) => {
+    event.preventDefault();
+    if (!reviewBookingId || !reviewComment.trim()) {
+      setReviewStatus("Sélectionnez une réservation et rédigez votre commentaire.");
+      return;
+    }
+    setReviewPending(true);
+    setReviewStatus("");
+    try {
+      const response = await apiClient.post("/reviews/", {
+        booking: Number(reviewBookingId),
+        rating: Number(reviewRating),
+        comment: reviewComment.trim(),
+      });
+      setReviews((current) => [response.data, ...current]);
+      setReviewBookingId("");
+      setReviewRating(5);
+      setReviewComment("");
+      setReviewStatus("Merci ! Votre avis est enregistré et attend sa modération.");
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setReviewStatus(firstError || "Votre avis n’a pas pu être enregistré.");
+    } finally {
+      setReviewPending(false);
+    }
+  };
+
   const startDepositCheckout = async (invoice) => {
     setCheckoutPendingId(invoice.id);
     setCheckoutStatus("");
@@ -1040,6 +1097,22 @@ export default function App() {
                         {!playlistSongs.length && <p className="invoice-empty">Aucune chanson ajoutée.</p>}
                       </div>
                     </>}
+                  </div>
+                  <div className="review-panel">
+                    <div className="playlist-heading"><div><h3>Mon avis</h3><p>Partagez votre expérience après la prestation.</p></div><Star /></div>
+                    {reviewStatus && <p className={reviewStatus.includes("Merci") ? "form-message success" : "invoice-empty"} role="status">{reviewStatus}</p>}
+                    {eligibleReviewBookings.length > 0 && (
+                      <form className="playlist-form" onSubmit={createClientReview}>
+                        <label>Prestation réalisée<select value={reviewBookingId} onChange={(event) => setReviewBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligibleReviewBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")}</option>)}</select></label>
+                        <label>Note<select value={reviewRating} onChange={(event) => setReviewRating(event.target.value)}>{[5, 4, 3, 2, 1].map((rating) => <option value={rating} key={rating}>{rating} / 5</option>)}</select></label>
+                        <label>Commentaire<textarea rows="3" maxLength="255" value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} placeholder="Décrivez la qualité de la prestation…" required /></label>
+                        <small>{reviewComment.length}/255 caractères</small>
+                        <button className="primary-button" type="submit" disabled={reviewPending}>{reviewPending ? "Envoi…" : "Envoyer mon avis"}</button>
+                      </form>
+                    )}
+                    <div className="review-list">
+                      {reviews.map((review) => <article key={review.id}><div className="review-stars" aria-label={`${review.rating} étoiles`}>{[1, 2, 3, 4, 5].map((value) => <Star key={value} className={value <= review.rating ? "filled" : ""} />)}</div><p>{review.comment}</p><span className={`review-status ${review.status}`}>{review.status === "published" ? "Publié" : review.status === "rejected" ? "Rejeté" : "En modération"}</span></article>)}
+                    </div>
                   </div>
                   </>}
                   <button className="secondary-button" type="button" onClick={handleLogout}>Se déconnecter</button>
