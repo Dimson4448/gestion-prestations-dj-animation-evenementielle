@@ -299,6 +299,8 @@ class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSe
             raise serializers.ValidationError({"booking": "La réservation doit être confirmée par le paiement de l'acompte."})
 
         target_status = attrs.get("status", getattr(self.instance, "status", PreparatoryAppointment.PLANNED))
+        if self.instance and target_status == PreparatoryAppointment.DONE and scheduled_at > timezone.now():
+            raise serializers.ValidationError({"status": "Le rendez-vous ne peut pas être réalisé avant l'heure prévue."})
         if target_status == PreparatoryAppointment.PLANNED:
             duplicate = PreparatoryAppointment.objects.filter(booking=booking, status=PreparatoryAppointment.PLANNED)
             if self.instance:

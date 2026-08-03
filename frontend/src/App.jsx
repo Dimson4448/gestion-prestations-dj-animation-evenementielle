@@ -151,8 +151,12 @@ export default function App() {
   const [adminBookings, setAdminBookings] = useState([]);
   const [completionPendingId, setCompletionPendingId] = useState(null);
   const [djBookings, setDjBookings] = useState([]);
+  const [djAppointments, setDjAppointments] = useState([]);
+  const [djSongs, setDjSongs] = useState([]);
   const [djStatus, setDjStatus] = useState("");
   const [djPendingId, setDjPendingId] = useState(null);
+  const [djAppointmentPendingId, setDjAppointmentPendingId] = useState(null);
+  const [djSongPendingId, setDjSongPendingId] = useState(null);
   const [clientBookings, setClientBookings] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [playlistSongs, setPlaylistSongs] = useState([]);
@@ -469,17 +473,27 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated || currentUser?.role !== "dj") {
       setDjBookings([]);
+      setDjAppointments([]);
+      setDjSongs([]);
       return;
     }
     let mounted = true;
-    setDjStatus("Chargement de vos prestations…");
-    apiClient.get("/bookings/", { params: { ordering: "event_date" } })
-      .then((response) => {
+    setDjStatus("Chargement de votre espace DJ…");
+    Promise.all([
+      apiClient.get("/bookings/", { params: { ordering: "event_date" } }),
+      apiClient.get("/appointments/", { params: { ordering: "scheduled_at" } }),
+      apiClient.get("/playlist-songs/", { params: { ordering: "title" } }),
+    ])
+      .then(([bookingsResponse, appointmentsResponse, songsResponse]) => {
         if (!mounted) return;
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        const bookings = Array.isArray(data) ? data : [];
+        const records = (response) => Array.isArray(response.data?.results) ? response.data.results : (Array.isArray(response.data) ? response.data : []);
+        const bookings = records(bookingsResponse);
+        const appointments = records(appointmentsResponse);
+        const songs = records(songsResponse);
         setDjBookings(bookings);
-        setDjStatus(bookings.length ? "" : "Aucune prestation ne vous est affectée.");
+        setDjAppointments(appointments);
+        setDjSongs(songs);
+        setDjStatus(bookings.length || appointments.length || songs.length ? "" : "Aucun dossier ne vous est affecté.");
       })
       .catch((error) => {
         if (mounted) setDjStatus(error.response?.status === 403 ? "Ce compte n’a pas accès à l’espace DJ." : "Impossible de charger vos prestations.");
@@ -678,6 +692,8 @@ export default function App() {
     setCurrentUser(null);
     setAdminQuotes([]);
     setDjBookings([]);
+    setDjAppointments([]);
+    setDjSongs([]);
     setLoginStatus("Vous êtes déconnecté.");
   };
 
@@ -739,6 +755,34 @@ export default function App() {
       setDjStatus(error.response?.data?.detail || "La prestation n’a pas pu être clôturée.");
     } finally {
       setDjPendingId(null);
+    }
+  };
+
+  const updateDjAppointment = async (appointmentId, status) => {
+    setDjAppointmentPendingId(appointmentId);
+    setDjStatus("");
+    try {
+      const response = await apiClient.patch(`/appointments/${appointmentId}/`, { status });
+      setDjAppointments((current) => current.map((item) => item.id === appointmentId ? response.data : item));
+      setDjStatus(`Rendez-vous n°${appointmentId} ${status === "done" ? "marqué comme réalisé" : "annulé"}.`);
+    } catch (error) {
+      setDjStatus(error.response?.data?.detail || "Le rendez-vous n’a pas pu être mis à jour.");
+    } finally {
+      setDjAppointmentPendingId(null);
+    }
+  };
+
+  const updateDjSong = async (songId, status) => {
+    setDjSongPendingId(songId);
+    setDjStatus("");
+    try {
+      const response = await apiClient.patch(`/playlist-songs/${songId}/`, { status });
+      setDjSongs((current) => current.map((item) => item.id === songId ? response.data : item));
+      setDjStatus(`La demande « ${response.data.title} » a été ${status === "approved" ? "acceptée" : "refusée"}.`);
+    } catch (error) {
+      setDjStatus(error.response?.data?.detail || "La chanson n’a pas pu être mise à jour.");
+    } finally {
+      setDjSongPendingId(null);
     }
   };
 
@@ -1078,7 +1122,7 @@ export default function App() {
           <section className="section-wrap admin-page">
             <div className="page-heading"><p className="eyebrow dark">Espace DJ</p><h1>Mes prestations</h1><p>Consultez les événements qui vous sont affectés et clôturez une prestation lorsque celle-ci est terminée.</p></div>
             <div className="admin-toolbar"><div><strong>{djBookings.length}</strong><span> prestations affectées</span></div></div>
-            {djStatus && <p className={djStatus.includes("clôturée") ? "form-message success" : "form-message"} role="status">{djStatus}</p>}
+            {djStatus && <p className={djStatus.includes("clôturée") || djStatus.includes("marqué") || djStatus.includes("annulé") || djStatus.includes("acceptée") || djStatus.includes("refusée") ? "form-message success" : "form-message"} role="status">{djStatus}</p>}
             <div className="admin-quote-grid">
               {djBookings.map((booking) => {
                 const canComplete = booking.status === "confirmed" && booking.deposit_paid && hasBookingEnded(booking);
@@ -1094,6 +1138,39 @@ export default function App() {
                 );
               })}
               {!djStatus && !djBookings.length && <p className="invoice-empty">Aucune prestation ne vous est affectée.</p>}
+            </div>
+            <div className="dj-workflow-grid">
+              <section className="dj-action-panel">
+                <div className="playlist-heading"><div><h2>Rendez-vous préparatoires</h2><p>Confirmez le suivi effectué avec vos clients.</p></div><CalendarDays /></div>
+                <div className="appointment-list">
+                  {djAppointments.map((appointment) => {
+                    const appointmentDate = new Date(appointment.scheduled_at);
+                    return (
+                      <article key={appointment.id}>
+                        <div><strong>{appointmentDate.toLocaleString("fr-BE")}</strong><span>Réservation n°{appointment.booking} · {appointment.mode === "online" ? "En ligne" : "En présentiel"}</span>{appointment.notes && <small>{appointment.notes}</small>}</div>
+                        <div className="dj-action-buttons">
+                          <span className={`appointment-status ${appointment.status}`}>{appointment.status === "done" ? "Réalisé" : appointment.status === "cancelled" ? "Annulé" : "Planifié"}</span>
+                          {appointment.status === "planned" && appointmentDate <= new Date() && <button className="document-button" type="button" onClick={() => updateDjAppointment(appointment.id, "done")} disabled={djAppointmentPendingId === appointment.id}>Marquer réalisé</button>}
+                          {appointment.status === "planned" && <button className="document-button danger-button" type="button" onClick={() => updateDjAppointment(appointment.id, "cancelled")} disabled={djAppointmentPendingId === appointment.id}>Annuler</button>}
+                        </div>
+                      </article>
+                    );
+                  })}
+                  {!djAppointments.length && <p className="invoice-empty">Aucun rendez-vous préparatoire.</p>}
+                </div>
+              </section>
+              <section className="dj-action-panel">
+                <div className="playlist-heading"><div><h2>Demandes musicales</h2><p>Acceptez ou refusez les propositions des clients.</p></div><Music2 /></div>
+                <div className="playlist-songs">
+                  {djSongs.map((song) => (
+                    <article key={song.id}>
+                      <div><strong>{song.title}</strong><span>{song.artist} · Playlist n°{song.playlist}</span></div>
+                      <div className="dj-action-buttons"><small className={`song-status ${song.status}`}>{song.status === "approved" ? "Acceptée" : song.status === "rejected" ? "Refusée" : "Demandée"}</small>{song.status === "requested" && <><button className="document-button" type="button" onClick={() => updateDjSong(song.id, "approved")} disabled={djSongPendingId === song.id}>Accepter</button><button className="document-button danger-button" type="button" onClick={() => updateDjSong(song.id, "rejected")} disabled={djSongPendingId === song.id}>Refuser</button></>}</div>
+                    </article>
+                  ))}
+                  {!djSongs.length && <p className="invoice-empty">Aucune demande musicale.</p>}
+                </div>
+              </section>
             </div>
           </section>
         )}
