@@ -153,10 +153,17 @@ export default function App() {
   const [djBookings, setDjBookings] = useState([]);
   const [djAppointments, setDjAppointments] = useState([]);
   const [djSongs, setDjSongs] = useState([]);
+  const [djAvailabilities, setDjAvailabilities] = useState([]);
   const [djStatus, setDjStatus] = useState("");
   const [djPendingId, setDjPendingId] = useState(null);
   const [djAppointmentPendingId, setDjAppointmentPendingId] = useState(null);
   const [djSongPendingId, setDjSongPendingId] = useState(null);
+  const [availabilityPendingId, setAvailabilityPendingId] = useState(null);
+  const [availabilityDate, setAvailabilityDate] = useState(todayIso);
+  const [availabilityStart, setAvailabilityStart] = useState("18:00");
+  const [availabilityEnd, setAvailabilityEnd] = useState("23:59");
+  const [availabilityStatus, setAvailabilityStatus] = useState("available");
+  const [availabilityReason, setAvailabilityReason] = useState("");
   const [clientBookings, setClientBookings] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [playlistSongs, setPlaylistSongs] = useState([]);
@@ -475,6 +482,7 @@ export default function App() {
       setDjBookings([]);
       setDjAppointments([]);
       setDjSongs([]);
+      setDjAvailabilities([]);
       return;
     }
     let mounted = true;
@@ -483,17 +491,20 @@ export default function App() {
       apiClient.get("/bookings/", { params: { ordering: "event_date" } }),
       apiClient.get("/appointments/", { params: { ordering: "scheduled_at" } }),
       apiClient.get("/playlist-songs/", { params: { ordering: "title" } }),
+      apiClient.get("/availability/"),
     ])
-      .then(([bookingsResponse, appointmentsResponse, songsResponse]) => {
+      .then(([bookingsResponse, appointmentsResponse, songsResponse, availabilitiesResponse]) => {
         if (!mounted) return;
         const records = (response) => Array.isArray(response.data?.results) ? response.data.results : (Array.isArray(response.data) ? response.data : []);
         const bookings = records(bookingsResponse);
         const appointments = records(appointmentsResponse);
         const songs = records(songsResponse);
+        const availabilities = records(availabilitiesResponse);
         setDjBookings(bookings);
         setDjAppointments(appointments);
         setDjSongs(songs);
-        setDjStatus(bookings.length || appointments.length || songs.length ? "" : "Aucun dossier ne vous est affecté.");
+        setDjAvailabilities(availabilities);
+        setDjStatus(bookings.length || appointments.length || songs.length || availabilities.length ? "" : "Aucun dossier ne vous est affecté.");
       })
       .catch((error) => {
         if (mounted) setDjStatus(error.response?.status === 403 ? "Ce compte n’a pas accès à l’espace DJ." : "Impossible de charger vos prestations.");
@@ -694,6 +705,7 @@ export default function App() {
     setDjBookings([]);
     setDjAppointments([]);
     setDjSongs([]);
+    setDjAvailabilities([]);
     setLoginStatus("Vous êtes déconnecté.");
   };
 
@@ -783,6 +795,61 @@ export default function App() {
       setDjStatus(error.response?.data?.detail || "La chanson n’a pas pu être mise à jour.");
     } finally {
       setDjSongPendingId(null);
+    }
+  };
+
+  const createDjAvailability = async (event) => {
+    event.preventDefault();
+    setAvailabilityPendingId("create");
+    setDjStatus("");
+    try {
+      const response = await apiClient.post("/availability/", {
+        available_date: availabilityDate,
+        start_time: availabilityStart,
+        end_time: availabilityEnd,
+        status: availabilityStatus,
+        reason: availabilityStatus === "blocked" ? availabilityReason.trim() : "",
+      });
+      setDjAvailabilities((current) => [...current, response.data].sort((a, b) => `${a.available_date}${a.start_time}`.localeCompare(`${b.available_date}${b.start_time}`)));
+      setAvailabilityReason("");
+      setDjStatus("Le nouveau créneau a été enregistré.");
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setDjStatus(firstError || "Le créneau n’a pas pu être enregistré.");
+    } finally {
+      setAvailabilityPendingId(null);
+    }
+  };
+
+  const updateDjAvailability = async (availability, status) => {
+    setAvailabilityPendingId(availability.id);
+    setDjStatus("");
+    try {
+      const response = await apiClient.patch(`/availability/${availability.id}/`, {
+        status,
+        reason: status === "blocked" ? "Indisponibilité déclarée par le DJ" : "",
+      });
+      setDjAvailabilities((current) => current.map((item) => item.id === availability.id ? response.data : item));
+      setDjStatus(`Le créneau du ${new Date(`${availability.available_date}T00:00:00`).toLocaleDateString("fr-BE")} est maintenant ${status === "available" ? "disponible" : "bloqué"}.`);
+    } catch (error) {
+      setDjStatus(error.response?.data?.detail || "Le créneau n’a pas pu être modifié.");
+    } finally {
+      setAvailabilityPendingId(null);
+    }
+  };
+
+  const deleteDjAvailability = async (availability) => {
+    setAvailabilityPendingId(availability.id);
+    setDjStatus("");
+    try {
+      await apiClient.delete(`/availability/${availability.id}/`);
+      setDjAvailabilities((current) => current.filter((item) => item.id !== availability.id));
+      setDjStatus("Le créneau a été supprimé.");
+    } catch (error) {
+      setDjStatus(error.response?.data?.detail || "Le créneau n’a pas pu être supprimé.");
+    } finally {
+      setAvailabilityPendingId(null);
     }
   };
 
@@ -1122,7 +1189,7 @@ export default function App() {
           <section className="section-wrap admin-page">
             <div className="page-heading"><p className="eyebrow dark">Espace DJ</p><h1>Mes prestations</h1><p>Consultez les événements qui vous sont affectés et clôturez une prestation lorsque celle-ci est terminée.</p></div>
             <div className="admin-toolbar"><div><strong>{djBookings.length}</strong><span> prestations affectées</span></div></div>
-            {djStatus && <p className={djStatus.includes("clôturée") || djStatus.includes("marqué") || djStatus.includes("annulé") || djStatus.includes("acceptée") || djStatus.includes("refusée") ? "form-message success" : "form-message"} role="status">{djStatus}</p>}
+            {djStatus && <p className={djStatus.includes("clôturée") || djStatus.includes("marqué") || djStatus.includes("annulé") || djStatus.includes("acceptée") || djStatus.includes("refusée") || djStatus.includes("enregistré") || djStatus.includes("maintenant") || djStatus.includes("supprimé") ? "form-message success" : "form-message"} role="status">{djStatus}</p>}
             <div className="admin-quote-grid">
               {djBookings.map((booking) => {
                 const canComplete = booking.status === "confirmed" && booking.deposit_paid && hasBookingEnded(booking);
@@ -1172,6 +1239,26 @@ export default function App() {
                 </div>
               </section>
             </div>
+            <section className="availability-panel">
+              <div className="playlist-heading"><div><h2>Mes disponibilités</h2><p>Ouvrez les créneaux pendant lesquels l’administration peut vous affecter une prestation.</p></div><Clock3 /></div>
+              <form className="availability-form" onSubmit={createDjAvailability}>
+                <label>Date<input type="date" min={todayIso} value={availabilityDate} onChange={(event) => setAvailabilityDate(event.target.value)} required /></label>
+                <label>Début<input type="time" value={availabilityStart} onChange={(event) => setAvailabilityStart(event.target.value)} required /></label>
+                <label>Fin<input type="time" value={availabilityEnd} onChange={(event) => setAvailabilityEnd(event.target.value)} required /></label>
+                <label>État<select value={availabilityStatus} onChange={(event) => setAvailabilityStatus(event.target.value)}><option value="available">Disponible</option><option value="blocked">Bloqué</option></select></label>
+                {availabilityStatus === "blocked" && <label className="availability-reason">Motif<input value={availabilityReason} onChange={(event) => setAvailabilityReason(event.target.value)} placeholder="Indisponibilité personnelle" required /></label>}
+                <button className="primary-button" type="submit" disabled={availabilityPendingId === "create"}>{availabilityPendingId === "create" ? "Enregistrement…" : "Ajouter le créneau"}</button>
+              </form>
+              <div className="availability-list">
+                {djAvailabilities.map((availability) => (
+                  <article key={availability.id}>
+                    <div><strong>{new Date(`${availability.available_date}T00:00:00`).toLocaleDateString("fr-BE")}</strong><span>{String(availability.start_time).slice(0, 5)}–{String(availability.end_time).slice(0, 5)}</span>{availability.reason && <small>{availability.reason}</small>}</div>
+                    <div className="dj-action-buttons"><span className={`availability-status ${availability.status}`}>{availability.status === "available" ? "Disponible" : availability.status === "reserved" ? "Réservé" : "Bloqué"}</span>{availability.status === "available" && <button className="document-button" type="button" onClick={() => updateDjAvailability(availability, "blocked")} disabled={availabilityPendingId === availability.id}>Bloquer</button>}{availability.status === "blocked" && <button className="document-button" type="button" onClick={() => updateDjAvailability(availability, "available")} disabled={availabilityPendingId === availability.id}>Rouvrir</button>}{availability.status !== "reserved" && <button className="document-button danger-button" type="button" onClick={() => deleteDjAvailability(availability)} disabled={availabilityPendingId === availability.id}>Supprimer</button>}</div>
+                  </article>
+                ))}
+                {!djAvailabilities.length && <p className="invoice-empty">Aucun créneau enregistré.</p>}
+              </div>
+            </section>
           </section>
         )}
 
