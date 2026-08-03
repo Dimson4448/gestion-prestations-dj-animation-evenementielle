@@ -131,11 +131,54 @@ class DJProfileSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
 
 class DJAvailabilitySerializer(serializers.ModelSerializer):
     dj = DJProfileSerializer(read_only=True)
+    dj_id = serializers.PrimaryKeyRelatedField(
+        source="dj",
+        queryset=DJProfile.objects.all(),
+        write_only=True,
+        required=False,
+    )
     liens = serializers.SerializerMethodField(label="Liens")
 
     class Meta:
         model = DJAvailability
-        fields = ["id", "dj", "available_date", "start_time", "end_time", "status", "reason", "liens"]
+        fields = ["id", "dj", "dj_id", "available_date", "start_time", "end_time", "status", "reason", "liens"]
+        validators = []
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        available_date = attrs.get("available_date", getattr(self.instance, "available_date", None))
+        start_time = attrs.get("start_time", getattr(self.instance, "start_time", None))
+        end_time = attrs.get("end_time", getattr(self.instance, "end_time", None))
+        target_status = attrs.get("status", getattr(self.instance, "status", DJAvailability.AVAILABLE))
+
+        if available_date and available_date < date.today():
+            raise serializers.ValidationError({"available_date": "Un créneau ne peut pas être placé dans le passé."})
+        if start_time and end_time and end_time <= start_time:
+            raise serializers.ValidationError({"end_time": "L'heure de fin doit être postérieure à l'heure de début."})
+        if self.instance is None and request and request.user.is_staff and "dj" not in attrs:
+            raise serializers.ValidationError({"dj_id": "Sélectionnez le DJ concerné."})
+        if request and not request.user.is_staff:
+            if self.instance and self.instance.status == DJAvailability.RESERVED:
+                raise serializers.ValidationError({"status": "Un créneau réservé ne peut être modifié par le DJ."})
+            if target_status == DJAvailability.RESERVED:
+                raise serializers.ValidationError({"status": "Le statut réservé est géré automatiquement par les réservations."})
+            attrs.pop("dj", None)
+
+        dj = attrs.get("dj") or getattr(self.instance, "dj", None)
+        if dj is None and request:
+            dj = getattr(request.user, "dj_profile", None)
+        if dj and available_date and start_time:
+            duplicate = DJAvailability.objects.filter(
+                dj=dj,
+                available_date=available_date,
+                start_time=start_time,
+            )
+            if self.instance:
+                duplicate = duplicate.exclude(pk=self.instance.pk)
+            if duplicate.exists():
+                raise serializers.ValidationError({"start_time": "Ce créneau existe déjà pour cette date."})
+        return attrs
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_liens(self, obj):

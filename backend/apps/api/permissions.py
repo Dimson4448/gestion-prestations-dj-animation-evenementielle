@@ -17,6 +17,17 @@ class UtilisateurAuthentifie(permissions.BasePermission):
         return bool(request.user and request.user.is_authenticated)
 
 
+class DJOuAdministration(permissions.BasePermission):
+    message = "Seul un DJ ou un administrateur peut gérer les disponibilités."
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and (request.user.is_staff or hasattr(request.user, "dj_profile"))
+        )
+
+
 class AdministrationOuProprietaire(permissions.BasePermission):
     message = "Vous n'avez pas l'autorisation d'accéder à cette ressource."
 

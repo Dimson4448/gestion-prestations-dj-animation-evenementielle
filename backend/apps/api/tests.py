@@ -112,6 +112,65 @@ class ApiUltimateDJTests(APITestCase):
         _, contract, _ = accept_quote(quote.pk, dj.pk)
         return contract
 
+    def test_dj_gere_ses_disponibilites_sans_modifier_un_creneau_reserve(self):
+        dj, public_slot = self.create_available_dj()
+        self.client.force_authenticate(user=self.client_user)
+        forbidden = self.client.post(
+            "/api/v1/availability/",
+            {
+                "available_date": str(date.today() + timedelta(days=31)),
+                "start_time": "18:00:00",
+                "end_time": "23:00:00",
+            },
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(user=dj.user)
+        created = self.client.post(
+            "/api/v1/availability/",
+            {
+                "available_date": str(date.today() + timedelta(days=31)),
+                "start_time": "18:00:00",
+                "end_time": "23:00:00",
+                "status": DJAvailability.AVAILABLE,
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["dj"]["id"], dj.pk)
+
+        blocked = self.client.patch(
+            f"/api/v1/availability/{created.data['id']}/",
+            {"status": DJAvailability.BLOCKED, "reason": "Indisponibilité personnelle"},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, status.HTTP_200_OK)
+        self.assertEqual(blocked.data["status"], DJAvailability.BLOCKED)
+
+        reserved_slot = DJAvailability.objects.create(
+            dj=dj,
+            available_date=date.today() + timedelta(days=32),
+            start_time="18:00:00",
+            end_time="23:00:00",
+            status=DJAvailability.RESERVED,
+        )
+        protected_update = self.client.patch(
+            f"/api/v1/availability/{reserved_slot.pk}/",
+            {"status": DJAvailability.AVAILABLE},
+            format="json",
+        )
+        protected_delete = self.client.delete(f"/api/v1/availability/{reserved_slot.pk}/")
+        self.assertEqual(protected_update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(protected_delete.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=None)
+        public_response = self.client.get("/api/v1/availability/")
+        public_ids = {item["id"] for item in public_response.data["results"]}
+        self.assertIn(public_slot.pk, public_ids)
+        self.assertNotIn(created.data["id"], public_ids)
+        self.assertNotIn(reserved_slot.pk, public_ids)
+
     def test_liste_des_packages_publique_avec_liens(self):
         response = self.client.get("/api/v1/packages/")
 

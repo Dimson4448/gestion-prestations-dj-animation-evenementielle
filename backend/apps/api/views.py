@@ -2,7 +2,7 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.generics import ListAPIView
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from drf_spectacular.types import OpenApiTypes
@@ -26,7 +26,7 @@ from apps.catalog.models import Equipment, EventType, MusicStyle, Package, Servi
 from apps.payments.models import Invoice, Payment
 from apps.payments.services import StripeCheckoutError, StripeConfigurationError, create_invoice_checkout
 
-from .permissions import AdministrationOuProprietaire, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
+from .permissions import AdministrationOuProprietaire, DJOuAdministration, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
 from .serializers import (
     BookingSerializer,
     ContractSerializer,
@@ -147,12 +147,23 @@ class DJProfileViewSet(PublicReadOnlyViewSet):
     ordering_fields = ["stage_name", "years_experience", "base_hourly_rate"]
 
 
-class AvailabilityListView(ListAPIView):
+class AvailabilityViewSet(viewsets.ModelViewSet):
     serializer_class = DJAvailabilitySerializer
-    permission_classes = [permissions.AllowAny]
+
+    def get_permissions(self):
+        if self.action in {"list", "retrieve"}:
+            return [permissions.AllowAny()]
+        return [DJOuAdministration(), AdministrationOuProprietaire()]
 
     def get_queryset(self):
-        queryset = DJAvailability.objects.select_related("dj").filter(status=DJAvailability.AVAILABLE)
+        queryset = DJAvailability.objects.select_related("dj", "dj__user")
+        user = self.request.user
+        if user.is_authenticated and user.is_staff:
+            pass
+        elif user.is_authenticated and dj_connecte(user):
+            queryset = queryset.filter(dj=dj_connecte(user))
+        else:
+            queryset = queryset.filter(status=DJAvailability.AVAILABLE)
         dj_id = self.request.query_params.get("dj")
         date = self.request.query_params.get("date")
         if dj_id:
@@ -160,6 +171,17 @@ class AvailabilityListView(ListAPIView):
         if date:
             queryset = queryset.filter(available_date=date)
         return queryset.order_by("available_date", "start_time")
+
+    def perform_create(self, serializer):
+        if self.request.user.is_staff:
+            serializer.save()
+        else:
+            serializer.save(dj=dj_connecte(self.request.user))
+
+    def perform_destroy(self, instance):
+        if not self.request.user.is_staff and instance.status == DJAvailability.RESERVED:
+            raise ValidationError({"status": "Un créneau réservé ne peut être supprimé par le DJ."})
+        instance.delete()
 
 
 class VenueViewSet(ProtectedModelViewSet):

@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from apps.payments.views import stripe_webhook
 
 from .views import (
-    AvailabilityListView,
+    AvailabilityViewSet,
     BookingViewSet,
     ContractViewSet,
     DJProfileViewSet,
@@ -33,6 +33,7 @@ router.register("equipment", EquipmentViewSet, basename="equipment")
 router.register("event-types", EventTypeViewSet, basename="event-type")
 router.register("music-styles", MusicStyleViewSet, basename="music-style")
 router.register("djs", DJProfileViewSet, basename="dj")
+router.register("availability", AvailabilityViewSet, basename="availability")
 router.register("venues", VenueViewSet, basename="venue")
 router.register("quotes", QuoteViewSet, basename="quote")
 router.register("bookings", BookingViewSet, basename="booking")
@@ -46,7 +47,6 @@ router.register("reviews", ReviewViewSet, basename="review")
 
 urlpatterns = [
     path("auth/me/", current_user, name="current-user"),
-    path("availability/", AvailabilityListView.as_view(), name="availability-list"),
     path("quotes/calculate/", calculate_quote, name="quote-calculate"),
     path("payments/webhook/", stripe_webhook, name="stripe-webhook"),
 ]
