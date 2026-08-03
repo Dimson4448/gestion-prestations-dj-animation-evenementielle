@@ -286,21 +286,25 @@ class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSe
         if booking is None or scheduled_at is None:
             return attrs
 
-        if scheduled_at <= timezone.now():
-            raise serializers.ValidationError({"scheduled_at": "Le rendez-vous doit être planifié dans le futur."})
-        event_start = timezone.make_aware(datetime.combine(booking.event_date, booking.start_time))
-        if scheduled_at >= event_start:
-            raise serializers.ValidationError({"scheduled_at": "Le rendez-vous doit avoir lieu avant l'événement."})
+        schedule_is_created_or_changed = self.instance is None or "scheduled_at" in attrs
+        if schedule_is_created_or_changed:
+            if scheduled_at <= timezone.now():
+                raise serializers.ValidationError({"scheduled_at": "Le rendez-vous doit être planifié dans le futur."})
+            event_start = timezone.make_aware(datetime.combine(booking.event_date, booking.start_time))
+            if scheduled_at >= event_start:
+                raise serializers.ValidationError({"scheduled_at": "Le rendez-vous doit avoir lieu avant l'événement."})
         if not booking.event_type.requires_preparatory_meeting:
             raise serializers.ValidationError({"booking": "Ce type d'événement ne nécessite pas de rendez-vous préparatoire."})
         if not booking.deposit_paid or booking.status not in {Booking.CONFIRMED, Booking.PERFORMED, Booking.PAID}:
             raise serializers.ValidationError({"booking": "La réservation doit être confirmée par le paiement de l'acompte."})
 
-        duplicate = PreparatoryAppointment.objects.filter(booking=booking, status=PreparatoryAppointment.PLANNED)
-        if self.instance:
-            duplicate = duplicate.exclude(pk=self.instance.pk)
-        if duplicate.exists():
-            raise serializers.ValidationError({"booking": "Un rendez-vous préparatoire est déjà planifié pour cette réservation."})
+        target_status = attrs.get("status", getattr(self.instance, "status", PreparatoryAppointment.PLANNED))
+        if target_status == PreparatoryAppointment.PLANNED:
+            duplicate = PreparatoryAppointment.objects.filter(booking=booking, status=PreparatoryAppointment.PLANNED)
+            if self.instance:
+                duplicate = duplicate.exclude(pk=self.instance.pk)
+            if duplicate.exists():
+                raise serializers.ValidationError({"booking": "Un rendez-vous préparatoire est déjà planifié pour cette réservation."})
 
         if not request or request.user.is_staff:
             return attrs

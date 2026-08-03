@@ -633,6 +633,10 @@ class ApiUltimateDJTests(APITestCase):
         )
         self.assertEqual(forbidden_status.status_code, status.HTTP_400_BAD_REQUEST)
 
+        appointment = PreparatoryAppointment.objects.get(pk=created.data["id"])
+        appointment.scheduled_at = timezone.now() - timedelta(hours=1)
+        appointment.save(update_fields=["scheduled_at"])
+
         self.client.force_authenticate(user=booking.dj.user)
         completed = self.client.patch(
             f"/api/v1/appointments/{created.data['id']}/",
