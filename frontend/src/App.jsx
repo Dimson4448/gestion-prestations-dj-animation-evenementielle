@@ -150,6 +150,9 @@ export default function App() {
   const [adminPendingId, setAdminPendingId] = useState(null);
   const [adminBookings, setAdminBookings] = useState([]);
   const [completionPendingId, setCompletionPendingId] = useState(null);
+  const [djBookings, setDjBookings] = useState([]);
+  const [djStatus, setDjStatus] = useState("");
+  const [djPendingId, setDjPendingId] = useState(null);
   const [clientBookings, setClientBookings] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [playlistSongs, setPlaylistSongs] = useState([]);
@@ -254,7 +257,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.is_staff) {
+    if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
       setInvoices([]);
       setClientQuotes([]);
       setVenues([]);
@@ -289,7 +292,7 @@ export default function App() {
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.is_staff) {
+    if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
       setReviews([]);
       return;
     }
@@ -308,7 +311,7 @@ export default function App() {
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.is_staff) {
+    if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
       setAppointments([]);
       return;
     }
@@ -327,7 +330,7 @@ export default function App() {
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.is_staff) {
+    if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
       setClientBookings([]);
       setPlaylists([]);
       setPlaylistSongs([]);
@@ -363,7 +366,7 @@ export default function App() {
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.is_staff) {
+    if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
       setContracts([]);
       return;
     }
@@ -385,7 +388,7 @@ export default function App() {
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.is_staff) return;
+    if (!isAuthenticated || !currentUser || currentUser.role !== "client") return;
 
     let mounted = true;
     setQuoteListStatus("Chargement de vos devis…");
@@ -415,7 +418,7 @@ export default function App() {
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.is_staff) return;
+    if (!isAuthenticated || !currentUser || currentUser.role !== "client") return;
 
     let mounted = true;
     apiClient
@@ -462,6 +465,27 @@ export default function App() {
   useEffect(() => {
     if (currentUser?.is_staff) loadAdminDashboard();
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!isAuthenticated || currentUser?.role !== "dj") {
+      setDjBookings([]);
+      return;
+    }
+    let mounted = true;
+    setDjStatus("Chargement de vos prestations…");
+    apiClient.get("/bookings/", { params: { ordering: "event_date" } })
+      .then((response) => {
+        if (!mounted) return;
+        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        const bookings = Array.isArray(data) ? data : [];
+        setDjBookings(bookings);
+        setDjStatus(bookings.length ? "" : "Aucune prestation ne vous est affectée.");
+      })
+      .catch((error) => {
+        if (mounted) setDjStatus(error.response?.status === 403 ? "Ce compte n’a pas accès à l’espace DJ." : "Impossible de charger vos prestations.");
+      });
+    return () => { mounted = false; };
+  }, [isAuthenticated, currentUser]);
 
   const selectedPackage = useMemo(
     () => packages.find((item) => String(item.id) === String(selectedPackageId)) || packages[0],
@@ -630,7 +654,13 @@ export default function App() {
       setIsAuthenticated(true);
       setCurrentUser(profile);
       setPassword("");
-      setLoginStatus(profile.is_staff ? "Connexion réussie. L’espace administrateur est accessible." : "Connexion réussie. Votre espace client est maintenant accessible.");
+      setLoginStatus(
+        profile.is_staff
+          ? "Connexion réussie. L’espace administrateur est accessible."
+          : profile.role === "dj"
+            ? "Connexion réussie. Votre espace DJ est maintenant accessible."
+            : "Connexion réussie. Votre espace client est maintenant accessible.",
+      );
     } catch (error) {
       setLoginStatus(
         error.response?.status === 401
@@ -647,6 +677,7 @@ export default function App() {
     setIsAuthenticated(false);
     setCurrentUser(null);
     setAdminQuotes([]);
+    setDjBookings([]);
     setLoginStatus("Vous êtes déconnecté.");
   };
 
@@ -694,6 +725,20 @@ export default function App() {
       setAdminStatus(error.response?.data?.detail || "La prestation n’a pas pu être clôturée.");
     } finally {
       setCompletionPendingId(null);
+    }
+  };
+
+  const completeDjBooking = async (bookingId) => {
+    setDjPendingId(bookingId);
+    setDjStatus("");
+    try {
+      const response = await apiClient.post(`/bookings/${bookingId}/complete/`);
+      setDjBookings((current) => current.map((item) => item.id === bookingId ? response.data.booking : item));
+      setDjStatus(`Prestation n°${bookingId} clôturée. La facture de solde ${response.data.balance_invoice.invoice_number} est disponible pour le client.`);
+    } catch (error) {
+      setDjStatus(error.response?.data?.detail || "La prestation n’a pas pu être clôturée.");
+    } finally {
+      setDjPendingId(null);
     }
   };
 
@@ -891,6 +936,11 @@ export default function App() {
               <Settings aria-hidden="true" /> Espace administrateur
             </button>
           )}
+          {currentUser?.role === "dj" && (
+            <button className={page === "dj" ? "active" : ""} onClick={() => navigate("dj")}>
+              <Headphones aria-hidden="true" /> Espace DJ
+            </button>
+          )}
           <a className="admin-link" href="http://127.0.0.1:8000/admin/" target="_blank" rel="noreferrer">
             Django Admin
           </a>
@@ -1024,6 +1074,30 @@ export default function App() {
           </section>
         )}
 
+        {page === "dj" && currentUser?.role === "dj" && (
+          <section className="section-wrap admin-page">
+            <div className="page-heading"><p className="eyebrow dark">Espace DJ</p><h1>Mes prestations</h1><p>Consultez les événements qui vous sont affectés et clôturez une prestation lorsque celle-ci est terminée.</p></div>
+            <div className="admin-toolbar"><div><strong>{djBookings.length}</strong><span> prestations affectées</span></div></div>
+            {djStatus && <p className={djStatus.includes("clôturée") ? "form-message success" : "form-message"} role="status">{djStatus}</p>}
+            <div className="admin-quote-grid">
+              {djBookings.map((booking) => {
+                const canComplete = booking.status === "confirmed" && booking.deposit_paid && hasBookingEnded(booking);
+                const statusLabel = booking.status === "confirmed" ? "Confirmée" : booking.status === "performed" ? "Réalisée" : booking.status === "paid" ? "Payée" : booking.status;
+                return (
+                  <article className="admin-quote-card" key={booking.id}>
+                    <div className="quote-row-heading"><h2>Réservation n°{booking.id}</h2><span className={`quote-status ${booking.status === "paid" || booking.status === "performed" ? "accepted" : "sent"}`}>{statusLabel}</span></div>
+                    <p><CalendarDays /> {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")} · {String(booking.start_time).slice(0, 5)}–{String(booking.end_time).slice(0, 5)}</p>
+                    <p><FileText /> Montant : <strong>{formatEuro(booking.total_amount)}</strong></p>
+                    <p><ShieldCheck /> Acompte {booking.deposit_paid ? "payé" : "en attente"}</p>
+                    {canComplete && <button className="primary-button" type="button" onClick={() => completeDjBooking(booking.id)} disabled={djPendingId === booking.id}>{djPendingId === booking.id ? "Clôture…" : "Marquer comme réalisée"}</button>}
+                  </article>
+                );
+              })}
+              {!djStatus && !djBookings.length && <p className="invoice-empty">Aucune prestation ne vous est affectée.</p>}
+            </div>
+          </section>
+        )}
+
         {page === "compte" && (
           <section className="section-wrap account-page">
             <div className="page-heading"><p className="eyebrow dark">Espace client</p><h1>Retrouvez votre événement au même endroit</h1><p>Connectez-vous pour suivre vos devis, contrats, paiements et playlists.</p></div>
@@ -1039,11 +1113,12 @@ export default function App() {
                 </form>
               ) : (
                 <div className="account-card connected-card">
-                  <div className="confirmation-icon"><Check /></div><h2>Session client active</h2>
-                  <p>{currentUser?.is_staff ? "Vous êtes connecté avec un compte administrateur." : "Vous pouvez maintenant suivre vos devis, vos factures et vos paiements sécurisés."}</p>
+                  <div className="confirmation-icon"><Check /></div><h2>Session active</h2>
+                  <p>{currentUser?.is_staff ? "Vous êtes connecté avec un compte administrateur." : currentUser?.role === "dj" ? "Vous êtes connecté avec un compte DJ." : "Vous pouvez maintenant suivre vos devis, vos factures et vos paiements sécurisés."}</p>
                   {loginStatus && <p className="form-message success" role="status">{loginStatus}</p>}
                   {currentUser?.is_staff && <button className="primary-button" type="button" onClick={() => navigate("administration")}><Settings /> Ouvrir l’espace administrateur</button>}
-                  {!currentUser?.is_staff && <>
+                  {currentUser?.role === "dj" && <button className="primary-button" type="button" onClick={() => navigate("dj")}><Headphones /> Ouvrir l’espace DJ</button>}
+                  {currentUser?.role === "client" && <>
                   <div className="quote-list">
                     <h3>Mes demandes de devis</h3>
                     {quoteListStatus && <p className="invoice-empty" role="status">{quoteListStatus}</p>}
