@@ -377,6 +377,130 @@ class DepositCheckoutTests(APITestCase):
         self.assertEqual(self.booking.status, Booking.CONFIRMED)
 
     @patch("apps.payments.views.stripe.Webhook.construct_event")
+    def test_webhook_finalise_un_remboursement_differe(self, construct_event):
+        payment = self.create_paid_payment()
+        refund = Refund.objects.create(
+            payment=payment,
+            stripe_refund_id="re_test_async_001",
+            amount=payment.amount,
+            currency=payment.currency,
+            internal_reason="Annulation client traitée en différé",
+        )
+        construct_event.return_value = {
+            "type": "refund.updated",
+            "data": {
+                "object": {
+                    "id": refund.stripe_refund_id,
+                    "payment_intent": payment.stripe_payment_intent_id,
+                    "amount": 18000,
+                    "currency": "eur",
+                    "status": "succeeded",
+                    "metadata": {"refund_id": str(refund.pk)},
+                }
+            },
+        }
+        self.client.force_authenticate(user=None)
+
+        first = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"remboursement Stripe",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+        second = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"remboursement Stripe rejoue",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        refund.refresh_from_db()
+        payment.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(refund.status, Refund.SUCCEEDED)
+        self.assertIsNotNone(refund.processed_at)
+        self.assertEqual(payment.status, Payment.REFUNDED)
+        self.assertEqual(self.invoice.status, Invoice.CANCELLED)
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
+    def test_webhook_enregistre_echec_remboursement_sans_annuler_facture(self, construct_event):
+        payment = self.create_paid_payment()
+        refund = Refund.objects.create(
+            payment=payment,
+            amount=payment.amount,
+            currency=payment.currency,
+            internal_reason="Remboursement refusé par Stripe",
+        )
+        construct_event.return_value = {
+            "type": "refund.failed",
+            "data": {
+                "object": {
+                    "id": "re_test_failed_001",
+                    "payment_intent": payment.stripe_payment_intent_id,
+                    "amount": 18000,
+                    "currency": "eur",
+                    "status": "failed",
+                    "metadata": {"refund_id": str(refund.pk)},
+                }
+            },
+        }
+        self.client.force_authenticate(user=None)
+
+        response = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"echec remboursement Stripe",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        refund.refresh_from_db()
+        payment.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(refund.status, Refund.FAILED)
+        self.assertEqual(payment.status, Payment.PAID)
+        self.assertEqual(self.invoice.status, Invoice.PAID)
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
+    def test_webhook_refuse_un_remboursement_stripe_incoherent(self, construct_event):
+        payment = self.create_paid_payment()
+        refund = Refund.objects.create(
+            payment=payment,
+            amount=payment.amount,
+            currency=payment.currency,
+            internal_reason="Contrôle des données Stripe",
+        )
+        construct_event.return_value = {
+            "type": "refund.updated",
+            "data": {
+                "object": {
+                    "id": "re_test_bad_amount",
+                    "payment_intent": payment.stripe_payment_intent_id,
+                    "amount": 100,
+                    "currency": "eur",
+                    "status": "succeeded",
+                    "metadata": {"refund_id": str(refund.pk)},
+                }
+            },
+        }
+        self.client.force_authenticate(user=None)
+
+        response = self.client.post(
+            "/api/v1/payments/webhook/",
+            data=b"remboursement incoherent",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        refund.refresh_from_db()
+        payment.refresh_from_db()
+        self.assertEqual(refund.status, Refund.PENDING)
+        self.assertEqual(payment.status, Payment.PAID)
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
     def test_webhook_confirme_le_solde_et_marque_la_reservation_payee(self, construct_event):
         self.invoice.invoice_type = Invoice.BALANCE
         self.invoice.invoice_number = "SOLDE-BETA-WEBHOOK"

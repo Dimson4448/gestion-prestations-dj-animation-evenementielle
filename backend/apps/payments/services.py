@@ -224,3 +224,45 @@ def create_payment_refund(
             refund.payment.invoice.status = Invoice.CANCELLED
             refund.payment.invoice.save(update_fields=["status"])
     return refund
+
+
+@transaction.atomic
+def synchronize_refund_from_stripe(stripe_refund) -> Refund:
+    """Synchronise un remboursement local depuis un événement Stripe signé."""
+    stripe_refund_id = stripe_refund.get("id")
+    metadata = stripe_refund.get("metadata") or {}
+    local_refund_id = metadata.get("refund_id")
+    queryset = Refund.objects.select_for_update().select_related("payment__invoice")
+    if local_refund_id:
+        refund = queryset.get(pk=local_refund_id)
+    else:
+        refund = queryset.get(stripe_refund_id=stripe_refund_id)
+
+    payment = refund.payment
+    if refund.stripe_refund_id and refund.stripe_refund_id != stripe_refund_id:
+        raise ValueError("L'identifiant Stripe du remboursement ne correspond pas.")
+    if stripe_refund.get("payment_intent") != payment.stripe_payment_intent_id:
+        raise ValueError("Le PaymentIntent Stripe du remboursement ne correspond pas.")
+    if stripe_refund.get("amount") != amount_to_cents(refund.amount):
+        raise ValueError("Le montant Stripe du remboursement ne correspond pas.")
+    if str(stripe_refund.get("currency", "")).upper() != refund.currency.upper():
+        raise ValueError("La devise Stripe du remboursement ne correspond pas.")
+
+    local_status = {
+        "succeeded": Refund.SUCCEEDED,
+        "failed": Refund.FAILED,
+        "canceled": Refund.CANCELLED,
+    }.get(stripe_refund.get("status"), Refund.PENDING)
+    refund.stripe_refund_id = stripe_refund_id
+    refund.status = local_status
+    refund.processed_at = timezone.now() if local_status != Refund.PENDING else None
+    refund.save(update_fields=["stripe_refund_id", "status", "processed_at"])
+
+    if local_status == Refund.SUCCEEDED:
+        succeeded_amount = payment.refunds.filter(status=Refund.SUCCEEDED).aggregate(total=Sum("amount"))["total"]
+        if succeeded_amount >= payment.amount:
+            payment.status = Payment.REFUNDED
+            payment.save(update_fields=["status"])
+            payment.invoice.status = Invoice.CANCELLED
+            payment.invoice.save(update_fields=["status"])
+    return refund
