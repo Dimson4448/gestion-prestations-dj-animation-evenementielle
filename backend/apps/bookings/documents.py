@@ -108,9 +108,19 @@ def build_contract_pdf(contract):
         Spacer(1, 4 * mm),
         Paragraph("Signature électronique", styles["Section"]),
         _details_table([("Statut", contract.get_status_display()), ("Signé par le client", signed)], styles),
+    ]
+    if booking.status == booking.CANCELLED or contract.status == contract.CANCELLED:
+        story.extend([
+            Paragraph("Annulation", styles["Section"]),
+            _details_table([
+                ("Statut de la réservation", booking.get_status_display()),
+                ("Motif", booking.cancellation_reason or "Non renseigné"),
+            ], styles),
+        ])
+    story.extend([
         Spacer(1, 8 * mm),
         Paragraph("La signature électronique confirme l'acceptation des informations de prestation et des conditions affichées dans ce document.", styles["Small"]),
-    ]
+    ])
     return _document(story)
 
 
@@ -118,10 +128,19 @@ def build_invoice_pdf(invoice):
     styles = _styles()
     booking = invoice.booking
     client = booking.client
+    invoice_titles = {
+        invoice.DEPOSIT: "FACTURE D'ACOMPTE",
+        invoice.BALANCE: "FACTURE DE SOLDE",
+        invoice.FULL: "FACTURE DE PRESTATION",
+    }
+    detail_labels = {invoice.DEPOSIT: "Acompte", invoice.BALANCE: "Solde", invoice.FULL: "Prestation complète"}
+    payments = list(invoice.payments.prefetch_related("refunds").all())
+    paid_amount = sum((payment.amount for payment in payments if payment.status in {payment.PAID, payment.REFUNDED}), 0)
+    refunded_amount = sum((refund.amount for payment in payments for refund in payment.refunds.all() if refund.status == refund.SUCCEEDED), 0)
     story = [
         Spacer(1, 6 * mm),
         Paragraph("ULTIMATE <font color='#00A9D6'>DJ</font>", styles["Brand"]),
-        Paragraph("FACTURE D'ACOMPTE", styles["DocumentTitle"]),
+        Paragraph(invoice_titles[invoice.invoice_type], styles["DocumentTitle"]),
         Paragraph(f"Facture {escape(invoice.invoice_number)}", styles["Right"]),
         Spacer(1, 8 * mm),
         _details_table([
@@ -134,15 +153,30 @@ def build_invoice_pdf(invoice):
         ], styles),
         Paragraph("Détail", styles["Section"]),
         _details_table([
-            ("Prestation", f"Acompte - {booking.package.name}"),
+            ("Prestation", f"{detail_labels[invoice.invoice_type]} - {booking.package.name}"),
             ("Événement", f"{booking.event_type.name} du {booking.event_date:%d/%m/%Y}"),
             ("Réservation", f"N° {booking.pk}"),
-            ("Montant de l'acompte", f"{invoice.amount:.2f} EUR"),
+            ("Montant de la facture", f"{invoice.amount:.2f} EUR"),
             ("Montant total de la prestation", f"{booking.total_amount:.2f} EUR"),
         ], styles),
         Spacer(1, 9 * mm),
-        Paragraph(f"<b>TOTAL À PAYER : {invoice.amount:.2f} EUR</b>", styles["DocumentTitle"]),
+        Paragraph(f"<b>{'TOTAL FACTURÉ' if invoice.status in {invoice.PAID, invoice.CANCELLED} else 'TOTAL À PAYER'} : {invoice.amount:.2f} EUR</b>", styles["DocumentTitle"]),
         Spacer(1, 5 * mm),
-        Paragraph("Le paiement en ligne est traité de manière sécurisée par Stripe. La facture passe automatiquement au statut payé après confirmation du paiement.", styles["Small"]),
     ]
+    if payments:
+        payment_rows = []
+        for payment in payments:
+            reference = payment.stripe_payment_intent_id or payment.stripe_session_id
+            payment_rows.append((f"Paiement Stripe n°{payment.pk}", f"{payment.amount:.2f} {payment.currency} - {payment.get_status_display()} - {reference}"))
+        payment_rows.extend([("Montant encaissé", f"{paid_amount:.2f} EUR"), ("Montant remboursé", f"{refunded_amount:.2f} EUR")])
+        story.extend([Paragraph("Paiements et remboursements", styles["Section"]), _details_table(payment_rows, styles)])
+    if invoice.status == invoice.CANCELLED:
+        story.extend([
+            Paragraph("Document annulé", styles["Section"]),
+            Paragraph(escape(booking.cancellation_reason or "Cette facture a été annulée à la suite de la régularisation du dossier."), styles["BodyText"]),
+        ])
+    story.extend([
+        Spacer(1, 5 * mm),
+        Paragraph("Le paiement en ligne est traité de manière sécurisée par Stripe. Les statuts financiers sont confirmés par des webhooks Stripe signés.", styles["Small"]),
+    ])
     return _document(story)

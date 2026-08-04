@@ -9,7 +9,7 @@ from apps.accounts.models import ClientProfile, DJProfile
 from apps.availability.models import DJAvailability
 from apps.bookings.models import Booking, CancellationRequest, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Review, Venue
 from apps.catalog.models import EventType, MusicStyle, Package
-from apps.payments.models import Invoice, Payment
+from apps.payments.models import Invoice, Payment, Refund
 from apps.bookings.services import accept_quote
 
 
@@ -533,6 +533,48 @@ class ApiUltimateDJTests(APITestCase):
         self.assertGreater(len(invoice_response.content), 2000)
         self.assertIn(contract.contract_number, contract_response["Content-Disposition"])
         self.assertIn(invoice.invoice_number, invoice_response["Content-Disposition"])
+
+    def test_documents_pdf_restent_disponibles_apres_remboursement_et_annulation(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        invoice = booking.invoices.get(invoice_type=Invoice.DEPOSIT)
+        payment = Payment.objects.create(
+            booking=booking,
+            invoice=invoice,
+            stripe_session_id="cs_test_pdf_cancelled",
+            stripe_payment_intent_id="pi_test_pdf_cancelled",
+            amount=invoice.amount,
+            currency="EUR",
+            status=Payment.REFUNDED,
+            paid_at=timezone.now(),
+        )
+        Refund.objects.create(
+            payment=payment,
+            stripe_refund_id="re_test_pdf_cancelled",
+            amount=payment.amount,
+            currency=payment.currency,
+            internal_reason="Annulation confirmée et remboursée",
+            status=Refund.SUCCEEDED,
+            processed_at=timezone.now(),
+        )
+        invoice.status = Invoice.CANCELLED
+        invoice.save(update_fields=["status"])
+        booking.status = Booking.CANCELLED
+        booking.cancellation_reason = "Événement annulé à la demande du client"
+        booking.save(update_fields=["status", "cancellation_reason"])
+        contract.status = Contract.CANCELLED
+        contract.save(update_fields=["status"])
+        self.client.force_authenticate(user=self.client_user)
+
+        contract_response = self.client.get(f"/api/v1/contracts/{contract.pk}/pdf/")
+        invoice_response = self.client.get(f"/api/v1/invoices/{invoice.pk}/pdf/")
+
+        self.assertEqual(contract_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(invoice_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(contract_response.content.startswith(b"%PDF-"))
+        self.assertTrue(invoice_response.content.startswith(b"%PDF-"))
+        self.assertGreater(len(contract_response.content), 2500)
+        self.assertGreater(len(invoice_response.content), 2500)
 
     def test_client_ne_peut_pas_fabriquer_reservation_contrat_ou_facture(self):
         self.client.force_authenticate(user=self.client_user)
