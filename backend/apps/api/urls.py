@@ -23,6 +23,7 @@ from .views import (
     VenueViewSet,
     calculate_quote,
     current_user,
+    logout_user,
 )
 
 
@@ -47,6 +48,7 @@ router.register("reviews", ReviewViewSet, basename="review")
 
 urlpatterns = [
     path("auth/me/", current_user, name="current-user"),
+    path("auth/logout/", logout_user, name="logout-user"),
     path("quotes/calculate/", calculate_quote, name="quote-calculate"),
     path("payments/webhook/", stripe_webhook, name="stripe-webhook"),
 ]

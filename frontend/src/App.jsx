@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, clearAuthentication, getCurrentUser, getStoredAccessToken, sessionExpiredEvent } from "./api";
+import { apiClient, authenticate, clearAuthentication, getCurrentUser, getStoredAccessToken, logout, sessionExpiredEvent } from "./api";
 
 const fallbackPackages = [
   {
@@ -738,8 +738,8 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    clearAuthentication();
+  const handleLogout = async () => {
+    await logout().catch(() => {});
     setIsAuthenticated(false);
     setCurrentUser(null);
     setAdminQuotes([]);

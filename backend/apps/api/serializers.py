@@ -44,6 +44,10 @@ class CurrentUserSerializer(serializers.Serializer):
         return "user"
 
 
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(write_only=True, trim_whitespace=False)
+
+
 class LiensHypermediaMixin(serializers.Serializer):
     liens = serializers.SerializerMethodField(label="Liens")
     route_basename = None

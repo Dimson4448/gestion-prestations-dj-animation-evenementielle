@@ -83,11 +83,32 @@ class ApiUltimateDJTests(APITestCase):
         )
         self.assertEqual(refreshed.status_code, status.HTTP_200_OK)
         self.assertTrue(refreshed.data["access"])
+        self.assertTrue(refreshed.data["refresh"])
+
+        old_refresh_rejected = self.client.post(
+            "/api/v1/auth/token/refresh/",
+            {"refresh": authenticated.data["refresh"]},
+            format="json",
+        )
+        self.assertEqual(old_refresh_rejected.status_code, status.HTTP_401_UNAUTHORIZED)
 
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refreshed.data['access']}")
         profile = self.client.get("/api/v1/auth/me/")
         self.assertEqual(profile.status_code, status.HTTP_200_OK)
         self.assertEqual(profile.data["email"], self.client_user.email)
+
+        logout = self.client.post(
+            "/api/v1/auth/logout/",
+            {"refresh": refreshed.data["refresh"]},
+            format="json",
+        )
+        self.assertEqual(logout.status_code, status.HTTP_204_NO_CONTENT)
+        revoked_refresh = self.client.post(
+            "/api/v1/auth/token/refresh/",
+            {"refresh": refreshed.data["refresh"]},
+            format="json",
+        )
+        self.assertEqual(revoked_refresh.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def create_available_dj(self):
         dj_user = get_user_model().objects.create_user(

@@ -223,6 +223,10 @@ restent privés et ne doivent jamais être commités. La variable `SECRET_KEY`
 doit également rester privée et contenir au moins 32 caractères aléatoires,
 car elle signe notamment les jetons JWT Django.
 
+Les sessions JWT utilisent une rotation du jeton de renouvellement. Chaque
+ancien jeton est placé en liste noire et la déconnexion React révoque le dernier
+jeton côté Django avant de supprimer les informations locales.
+
 La note destinée à la publication GitHub se trouve dans
 [`RELEASE_BETA.md`](RELEASE_BETA.md). Le tag prévu est `v0.2.0-beta.1` et ne
 sera créé qu'après fusion et validation finale.

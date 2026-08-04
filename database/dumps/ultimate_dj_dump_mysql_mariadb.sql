@@ -736,6 +736,44 @@ CREATE TABLE `service_options` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `token_blacklist_blacklistedtoken`
+--
+
+DROP TABLE IF EXISTS `token_blacklist_blacklistedtoken`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `token_blacklist_blacklistedtoken` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `blacklisted_at` datetime(6) NOT NULL,
+  `token_id` bigint(20) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `token_id` (`token_id`),
+  CONSTRAINT `token_blacklist_blacklistedtoken_token_id_3cc7fe56_fk` FOREIGN KEY (`token_id`) REFERENCES `token_blacklist_outstandingtoken` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `token_blacklist_outstandingtoken`
+--
+
+DROP TABLE IF EXISTS `token_blacklist_outstandingtoken`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `token_blacklist_outstandingtoken` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `token` longtext NOT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `expires_at` datetime(6) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `jti` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `token_blacklist_outstandingtoken_jti_hex_d9bdf6f7_uniq` (`jti`),
+  KEY `token_blacklist_outs_user_id_83bc629a_fk_auth_user` (`user_id`),
+  CONSTRAINT `token_blacklist_outs_user_id_83bc629a_fk_auth_user` FOREIGN KEY (`user_id`) REFERENCES `auth_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `venues`
 --
 
@@ -833,7 +871,19 @@ INSERT INTO `django_migrations` VALUES
 (31,'sessions','0001_initial','2026-07-26 18:44:43.496656'),
 (32,'payments','0004_refund','2026-08-04 10:25:54.079081'),
 (33,'bookings','0004_cancellationrequest','2026-08-04 10:51:26.225233'),
-(34,'bookings','0005_cancellationrequest_review_message','2026-08-04 11:01:04.353990');
+(34,'bookings','0005_cancellationrequest_review_message','2026-08-04 11:01:04.353990'),
+(35,'token_blacklist','0001_initial','2026-08-04 15:16:34.110646'),
+(36,'token_blacklist','0002_outstandingtoken_jti_hex','2026-08-04 15:16:34.167522'),
+(37,'token_blacklist','0003_auto_20171017_2007','2026-08-04 15:16:34.192453'),
+(38,'token_blacklist','0004_auto_20171017_2013','2026-08-04 15:16:34.332677'),
+(39,'token_blacklist','0005_remove_outstandingtoken_jti','2026-08-04 15:16:34.393689'),
+(40,'token_blacklist','0006_auto_20171017_2113','2026-08-04 15:16:34.452472'),
+(41,'token_blacklist','0007_auto_20171017_2214','2026-08-04 15:16:34.993804'),
+(42,'token_blacklist','0008_migrate_to_bigautofield','2026-08-04 15:16:35.527970'),
+(43,'token_blacklist','0010_fix_migrate_to_bigautofield','2026-08-04 15:16:35.607439'),
+(44,'token_blacklist','0011_linearizes_history','2026-08-04 15:16:35.607439'),
+(45,'token_blacklist','0012_alter_outstandingtoken_user','2026-08-04 15:16:35.643536'),
+(46,'token_blacklist','0013_alter_blacklistedtoken_options_and_more','2026-08-04 15:16:35.656098');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -871,7 +921,11 @@ INSERT INTO `django_content_type` VALUES
 (5,'contenttypes','contenttype'),
 (25,'payments','invoice'),
 (26,'payments','payment'),
-(6,'sessions','session');
+(27,'payments','refund'),
+(6,'sessions','session'),
+(29,'token_blacklist','blacklistedtoken'),
+(30,'token_blacklist','outstandingtoken'),
+(28,'bookings','cancellationrequest');
 /*!40000 ALTER TABLE `django_content_type` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -987,7 +1041,23 @@ INSERT INTO `auth_permission` VALUES
 (101,'Can add paiement',26,'add_payment'),
 (102,'Can change paiement',26,'change_payment'),
 (103,'Can delete paiement',26,'delete_payment'),
-(104,'Can view paiement',26,'view_payment');
+(104,'Can view paiement',26,'view_payment'),
+(105,'Can add remboursement',27,'add_refund'),
+(106,'Can change remboursement',27,'change_refund'),
+(107,'Can delete remboursement',27,'delete_refund'),
+(108,'Can view remboursement',27,'view_refund'),
+(109,'Can add demande d\'annulation',28,'add_cancellationrequest'),
+(110,'Can change demande d\'annulation',28,'change_cancellationrequest'),
+(111,'Can delete demande d\'annulation',28,'delete_cancellationrequest'),
+(112,'Can view demande d\'annulation',28,'view_cancellationrequest'),
+(113,'Can add Blacklisted Token',29,'add_blacklistedtoken'),
+(114,'Can change Blacklisted Token',29,'change_blacklistedtoken'),
+(115,'Can delete Blacklisted Token',29,'delete_blacklistedtoken'),
+(116,'Can view Blacklisted Token',29,'view_blacklistedtoken'),
+(117,'Can add Outstanding Token',30,'add_outstandingtoken'),
+(118,'Can change Outstanding Token',30,'change_outstandingtoken'),
+(119,'Can delete Outstanding Token',30,'delete_outstandingtoken'),
+(120,'Can view Outstanding Token',30,'view_outstandingtoken');
 /*!40000 ALTER TABLE `auth_permission` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;

@@ -34,7 +34,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 ### Frontend React
 
 - URL du backend configurable avec `VITE_API_BASE_URL` ;
-- authentification réelle avec les jetons JWT Django et renouvellement automatique de session ;
+- authentification réelle avec rotation des jetons JWT, renouvellement automatique et révocation à la déconnexion ;
 - affichage des factures d'acompte du client ;
 - bouton de paiement réservé aux factures envoyées ;
 - redirection contrôlée vers le domaine Stripe Checkout ;

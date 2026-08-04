@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import DJProfile
 from apps.availability.models import DJAvailability
@@ -39,6 +41,7 @@ from .serializers import (
     EquipmentSerializer,
     EventTypeSerializer,
     InvoiceSerializer,
+    LogoutSerializer,
     MusicStyleSerializer,
     PackageSerializer,
     PaymentSerializer,
@@ -107,6 +110,19 @@ def filtrer_par_reservation(queryset, user, prefix=""):
 @permission_classes([permissions.IsAuthenticated])
 def current_user(request):
     return Response(CurrentUserSerializer(request.user).data)
+
+
+@extend_schema(request=LogoutSerializer, responses={204: None}, summary="Révoquer la session JWT")
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def logout_user(request):
+    serializer = LogoutSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    try:
+        RefreshToken(serializer.validated_data["refresh"]).blacklist()
+    except TokenError:
+        return Response({"detail": "Le jeton de renouvellement est invalide ou déjà révoqué."}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PackageViewSet(AdminWritePublicReadViewSet):

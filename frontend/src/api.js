@@ -39,6 +39,15 @@ export const clearAuthentication = () => {
   delete apiClient.defaults.headers.common.Authorization;
 };
 
+export const logout = async () => {
+  const refresh = getStoredRefreshToken();
+  try {
+    if (refresh) await apiClient.post("/auth/logout/", { refresh });
+  } finally {
+    clearAuthentication();
+  }
+};
+
 const storedAccessToken = getStoredAccessToken();
 if (storedAccessToken) {
   apiClient.defaults.headers.common.Authorization = `Bearer ${storedAccessToken}`;
