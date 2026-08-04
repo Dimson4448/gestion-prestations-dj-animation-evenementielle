@@ -32,6 +32,8 @@ export const authenticate = async (username, password) => {
 };
 
 export const getCurrentUser = async () => (await apiClient.get("/auth/me/")).data;
+export const getClientProfile = async () => (await apiClient.get("/auth/profile/")).data;
+export const updateClientProfile = async (payload) => (await apiClient.patch("/auth/profile/", payload)).data;
 
 export const clearAuthentication = () => {
   window.localStorage.removeItem(accessTokenKey);

@@ -38,6 +38,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - inscription réelle d'un client avec validation Django et création de son profil ;
 - activation du compte par lien temporaire de vérification de l'adresse e-mail ;
 - renvoi confidentiel du lien d'activation pour les comptes encore inactifs ;
+- consultation et modification sécurisées des coordonnées du profil client ;
 - récupération sécurisée du mot de passe par lien temporaire envoyé par e-mail ;
 - affichage des factures d'acompte du client ;
 - bouton de paiement réservé aux factures envoyées ;

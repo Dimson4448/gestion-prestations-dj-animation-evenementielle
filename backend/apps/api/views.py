@@ -11,6 +11,7 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from drf_spectacular.types import OpenApiTypes
@@ -43,6 +44,7 @@ from .serializers import (
     CancellationRequestSerializer,
     CancellationRequestReviewSerializer,
     ClientRegistrationSerializer,
+    ClientProfileUpdateSerializer,
     ContractSerializer,
     CurrentUserSerializer,
     DJAvailabilitySerializer,
@@ -123,6 +125,20 @@ def filtrer_par_reservation(queryset, user, prefix=""):
 @permission_classes([permissions.IsAuthenticated])
 def current_user(request):
     return Response(CurrentUserSerializer(request.user).data)
+
+
+@extend_schema(request=ClientProfileUpdateSerializer, responses={200: ClientProfileUpdateSerializer}, summary="Consulter ou modifier son profil client")
+@api_view(["GET", "PATCH"])
+@permission_classes([permissions.IsAuthenticated])
+def client_profile(request):
+    if not hasattr(request.user, "client_profile"):
+        raise PermissionDenied("Un profil client est requis pour cette opération.")
+    if request.method == "GET":
+        return Response(ClientProfileUpdateSerializer(request.user).data)
+    serializer = ClientProfileUpdateSerializer(request.user, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data)
 
 
 def send_verification_email(user):

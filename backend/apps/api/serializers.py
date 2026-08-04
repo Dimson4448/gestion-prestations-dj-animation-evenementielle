@@ -51,6 +51,58 @@ class CurrentUserSerializer(serializers.Serializer):
         return "user"
 
 
+class ClientProfileUpdateSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    email = serializers.EmailField(read_only=True)
+    date_of_birth = serializers.DateField()
+    phone = serializers.CharField(max_length=30)
+    billing_address = serializers.CharField(max_length=255)
+    billing_city = serializers.CharField(max_length=80)
+    billing_postal_code = serializers.CharField(max_length=20)
+    preferred_language = serializers.ChoiceField(choices=ClientProfile._meta.get_field("preferred_language").choices)
+
+    def validate_date_of_birth(self, value):
+        try:
+            validate_adult(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages)) from exc
+        return value
+
+    def to_representation(self, user):
+        profile = user.client_profile
+        return {
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "date_of_birth": profile.date_of_birth,
+            "phone": profile.phone,
+            "billing_address": profile.billing_address,
+            "billing_city": profile.billing_city,
+            "billing_postal_code": profile.billing_postal_code,
+            "preferred_language": profile.preferred_language,
+        }
+
+    @transaction.atomic
+    def update(self, user, validated_data):
+        user_fields = []
+        for field in ("first_name", "last_name"):
+            if field in validated_data:
+                setattr(user, field, validated_data.pop(field))
+                user_fields.append(field)
+        if user_fields:
+            user.save(update_fields=user_fields)
+
+        profile = user.client_profile
+        profile_fields = []
+        for field, value in validated_data.items():
+            setattr(profile, field, value)
+            profile_fields.append(field)
+        if profile_fields:
+            profile.save(update_fields=profile_fields)
+        return user
+
+
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField(write_only=True, trim_whitespace=False)
 

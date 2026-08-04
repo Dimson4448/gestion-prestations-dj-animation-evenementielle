@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, clearAuthentication, confirmPasswordReset, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, sessionExpiredEvent, verifyEmail } from "./api";
+import { apiClient, authenticate, clearAuthentication, confirmPasswordReset, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
 
 const fallbackPackages = [
   {
@@ -158,6 +158,10 @@ export default function App() {
   const [verificationResendEmail, setVerificationResendEmail] = useState("");
   const [verificationResendPending, setVerificationResendPending] = useState(false);
   const [verificationResendStatus, setVerificationResendStatus] = useState("");
+  const [clientProfile, setClientProfile] = useState(null);
+  const [clientProfileOpen, setClientProfileOpen] = useState(false);
+  const [clientProfilePending, setClientProfilePending] = useState(false);
+  const [clientProfileStatus, setClientProfileStatus] = useState("");
   const [invoices, setInvoices] = useState([]);
   const [clientPayments, setClientPayments] = useState([]);
   const [contracts, setContracts] = useState([]);
@@ -375,6 +379,18 @@ export default function App() {
     return () => {
       mounted = false;
     };
+  }, [isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    if (!isAuthenticated || currentUser?.role !== "client") {
+      setClientProfile(null);
+      return;
+    }
+    let mounted = true;
+    getClientProfile()
+      .then((profile) => mounted && setClientProfile(profile))
+      .catch(() => mounted && setClientProfileStatus("Impossible de charger vos coordonnées."));
+    return () => { mounted = false; };
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
@@ -895,6 +911,29 @@ export default function App() {
       setVerificationResendStatus("La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
     } finally {
       setVerificationResendPending(false);
+    }
+  };
+
+  const changeClientProfile = (field, value) => {
+    setClientProfile((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleClientProfileUpdate = async (event) => {
+    event.preventDefault();
+    setClientProfilePending(true);
+    setClientProfileStatus("");
+    try {
+      const profile = await updateClientProfile(clientProfile);
+      setClientProfile(profile);
+      setCurrentUser((current) => ({ ...current, first_name: profile.first_name, last_name: profile.last_name }));
+      setClientProfileStatus("Vos coordonnées ont été mises à jour.");
+      setClientProfileOpen(false);
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setClientProfileStatus(firstError || "Vos coordonnées n’ont pas pu être modifiées.");
+    } finally {
+      setClientProfilePending(false);
     }
   };
 
@@ -1581,6 +1620,23 @@ export default function App() {
                   {currentUser?.is_staff && <button className="primary-button" type="button" onClick={() => navigate("administration")}><Settings /> Ouvrir l’espace administrateur</button>}
                   {currentUser?.role === "dj" && <button className="primary-button" type="button" onClick={() => navigate("dj")}><Headphones /> Ouvrir l’espace DJ</button>}
                   {currentUser?.role === "client" && <>
+                  <div className="profile-panel">
+                    <div className="playlist-heading"><div><h3>Mes coordonnées</h3><p>{clientProfile ? `${clientProfile.first_name} ${clientProfile.last_name} · ${clientProfile.email} · ${clientProfile.billing_city}` : "Chargement de vos coordonnées…"}</p></div><CircleUserRound /></div>
+                    <button className="document-button" type="button" onClick={() => setClientProfileOpen((open) => !open)} disabled={!clientProfile}>{clientProfileOpen ? "Fermer" : "Modifier mes coordonnées"}</button>
+                    {clientProfileStatus && <p className={clientProfileStatus.includes("mises à jour") ? "form-message success" : "form-message"} role="status">{clientProfileStatus}</p>}
+                    {clientProfileOpen && clientProfile && <form className="registration-grid profile-form" onSubmit={handleClientProfileUpdate}>
+                      <label>Prénom<input value={clientProfile.first_name} onChange={(event) => changeClientProfile("first_name", event.target.value)} required /></label>
+                      <label>Nom<input value={clientProfile.last_name} onChange={(event) => changeClientProfile("last_name", event.target.value)} required /></label>
+                      <label className="full-field">E-mail vérifié<input type="email" value={clientProfile.email} readOnly /></label>
+                      <label>Date de naissance<input type="date" max={todayIso} value={clientProfile.date_of_birth} onChange={(event) => changeClientProfile("date_of_birth", event.target.value)} required /></label>
+                      <label>Téléphone<input type="tel" value={clientProfile.phone} onChange={(event) => changeClientProfile("phone", event.target.value)} required /></label>
+                      <label className="full-field">Adresse de facturation<input value={clientProfile.billing_address} onChange={(event) => changeClientProfile("billing_address", event.target.value)} required /></label>
+                      <label>Code postal<input value={clientProfile.billing_postal_code} onChange={(event) => changeClientProfile("billing_postal_code", event.target.value)} required /></label>
+                      <label>Ville<input value={clientProfile.billing_city} onChange={(event) => changeClientProfile("billing_city", event.target.value)} required /></label>
+                      <label>Langue<select value={clientProfile.preferred_language} onChange={(event) => changeClientProfile("preferred_language", event.target.value)}><option value="fr">Français</option><option value="en">Anglais</option><option value="nl">Néerlandais</option></select></label>
+                      <button className="primary-button" type="submit" disabled={clientProfilePending}>{clientProfilePending ? "Enregistrement…" : "Enregistrer"}</button>
+                    </form>}
+                  </div>
                   <div className="quote-list">
                     <h3>Mes demandes de devis</h3>
                     {quoteListStatus && <p className="invoice-empty" role="status">{quoteListStatus}</p>}

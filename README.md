@@ -243,6 +243,11 @@ Django applique les mêmes règles de robustesse au nouveau mot de passe et
 invalide les jetons JWT créés avec l'ancien mot de passe. En développement, le
 lien apparaît dans le terminal Django avec le backend d'e-mail `console`.
 
+Une fois connecté, le client peut consulter et corriger ses coordonnées
+personnelles et de facturation depuis React. L'API réserve cette ressource au
+propriétaire du profil, conserve l'adresse e-mail vérifiée en lecture seule et
+réapplique notamment le contrôle de majorité lors d'une modification.
+
 La note destinée à la publication GitHub se trouve dans
 [`RELEASE_BETA.md`](RELEASE_BETA.md). Le tag prévu est `v0.2.0-beta.1` et ne
 sera créé qu'après fusion et validation finale.

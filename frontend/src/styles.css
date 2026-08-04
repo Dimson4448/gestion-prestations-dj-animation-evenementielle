@@ -213,6 +213,9 @@ svg { width: 20px; height: 20px; }
 .form-message { margin: 0; padding: 10px 12px; border-radius: 8px; color: #9f2d3d; background: #fff0f2; font-size: .85rem; font-weight: 700; }
 .form-message.success { color: #17633f; background: #eaf8f1; }
 .connected-card p { margin: 0; line-height: 1.6; }
+.profile-panel { display: grid; gap: 14px; margin: 8px 0; padding: 18px; border: 1px solid #cbd9eb; border-radius: 12px; background: #f7f9fc; }
+.profile-form { gap: 14px 18px; padding-top: 4px; }
+.profile-form input[readonly] { color: #69758b; background: #edf1f6; cursor: not-allowed; }
 .quote-list { display: grid; gap: 10px; margin: 8px 0; }
 .quote-list h3 { margin: 0 0 2px; }
 .quote-row { display: grid; gap: 6px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: #f9fbfd; }

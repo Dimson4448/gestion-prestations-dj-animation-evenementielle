@@ -113,6 +113,52 @@ class ApiUltimateDJTests(APITestCase):
         )
         self.assertEqual(revoked_refresh.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_client_consulte_et_modifie_ses_coordonnees(self):
+        self.client.force_authenticate(user=self.client_user)
+        profile = self.client.get("/api/v1/auth/profile/")
+        self.assertEqual(profile.status_code, status.HTTP_200_OK)
+        self.assertEqual(profile.data["email"], self.client_user.email)
+        self.assertEqual(profile.data["billing_city"], "Bruxelles")
+
+        updated = self.client.patch(
+            "/api/v1/auth/profile/",
+            {
+                "first_name": "Vianney",
+                "phone": "+32479999999",
+                "billing_address": "Avenue de la Musique 44",
+                "billing_city": "Mons",
+                "billing_postal_code": "7000",
+                "preferred_language": "nl",
+                "email": "tentative@example.com",
+            },
+            format="json",
+        )
+        self.assertEqual(updated.status_code, status.HTTP_200_OK)
+        self.client_user.refresh_from_db()
+        self.client_profile.refresh_from_db()
+        self.assertEqual(self.client_user.first_name, "Vianney")
+        self.assertEqual(self.client_user.email, "client@example.com")
+        self.assertEqual(self.client_profile.billing_city, "Mons")
+        self.assertEqual(self.client_profile.preferred_language, "nl")
+
+    def test_profil_client_refuse_mineur_et_utilisateur_sans_profil(self):
+        self.client.force_authenticate(user=self.client_user)
+        minor = self.client.patch(
+            "/api/v1/auth/profile/",
+            {"date_of_birth": str(date.today() - timedelta(days=365 * 10))},
+            format="json",
+        )
+        self.assertEqual(minor.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("date_of_birth", minor.data)
+
+        user_without_profile = get_user_model().objects.create_user(
+            username="utilisateur_sans_profil",
+            password="MotDePasseSansProfil2026!",
+        )
+        self.client.force_authenticate(user=user_without_profile)
+        forbidden = self.client.get("/api/v1/auth/profile/")
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
     def test_inscription_cree_un_profil_inactif_puis_verifie_email(self):
         response = self.client.post(
