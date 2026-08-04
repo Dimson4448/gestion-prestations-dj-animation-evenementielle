@@ -8,6 +8,7 @@ from apps.availability.models import DJAvailability
 from apps.payments.models import Invoice, Payment
 
 from .models import Booking, CancellationRequest, Contract, PreparatoryAppointment, Quote
+from .notifications import notify_cancellation_requested, notify_cancellation_reviewed
 
 
 class QuoteAcceptanceError(Exception):
@@ -229,10 +230,19 @@ def cancel_booking(booking_id, actor, reason):
         status=DJAvailability.RESERVED,
         reason=f"Réservation #{booking.pk}",
     ).update(status=DJAvailability.AVAILABLE, reason="")
-    CancellationRequest.objects.select_for_update().filter(
+    pending_requests = list(CancellationRequest.objects.select_for_update().filter(
         booking=booking,
         status=CancellationRequest.PENDING,
-    ).update(status=CancellationRequest.APPROVED, reviewed_at=timezone.now(), reviewed_by=actor)
+    ))
+    CancellationRequest.objects.filter(pk__in=[item.pk for item in pending_requests]).update(
+        status=CancellationRequest.APPROVED, reviewed_at=timezone.now(), reviewed_by=actor
+    )
+    for cancellation_request in pending_requests:
+        cancellation_request.status = CancellationRequest.APPROVED
+        cancellation_request.reviewed_at = timezone.now()
+        cancellation_request.reviewed_by = actor
+        cancellation_request.booking = booking
+        notify_cancellation_reviewed(cancellation_request)
     return booking
 
 
@@ -252,7 +262,9 @@ def request_booking_cancellation(booking_id, actor, reason):
         raise CancellationRequestError("Une prestation déjà commencée ne peut plus être annulée.")
     if CancellationRequest.objects.select_for_update().filter(booking=booking, status=CancellationRequest.PENDING).exists():
         raise CancellationRequestError("Une demande d'annulation est déjà en attente pour cette réservation.")
-    return CancellationRequest.objects.create(booking=booking, reason=reason)
+    cancellation_request = CancellationRequest.objects.create(booking=booking, reason=reason)
+    notify_cancellation_requested(cancellation_request)
+    return cancellation_request
 
 
 @transaction.atomic
@@ -276,4 +288,5 @@ def reject_booking_cancellation(booking_id, actor, message):
     cancellation_request.reviewed_by = actor
     cancellation_request.review_message = message
     cancellation_request.save(update_fields=["status", "reviewed_at", "reviewed_by", "review_message"])
+    notify_cancellation_reviewed(cancellation_request)
     return cancellation_request

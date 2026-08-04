@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -1012,6 +1013,41 @@ class ApiUltimateDJTests(APITestCase):
         self.client.force_authenticate(user=booking.dj.user)
         forbidden = self.client.get(f"/api/v1/bookings/{booking.pk}/cancellation-requests/")
         self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("apps.bookings.notifications.send_mail")
+    def test_notifications_email_pour_demande_et_decision_annulation(self, send_mail):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        admin = get_user_model().objects.create_superuser(
+            username="admin_email_cancellation",
+            email="admin-email-cancellation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=self.client_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            requested = self.client.post(
+                f"/api/v1/bookings/{booking.pk}/request-cancellation/",
+                {"reason": "Un motif suffisamment détaillé pour prévenir l'administration"},
+                format="json",
+            )
+
+        self.assertEqual(requested.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(send_mail.call_count, 1)
+        self.assertIn("demande d'annulation", send_mail.call_args.args[0])
+        self.assertIn(admin.email, send_mail.call_args.args[3])
+
+        self.client.force_authenticate(user=admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            rejected = self.client.post(
+                f"/api/v1/bookings/{booking.pk}/reject-cancellation/",
+                {"message": "Le délai prévu au contrat ne permet pas cette annulation."},
+                format="json",
+            )
+
+        self.assertEqual(rejected.status_code, status.HTTP_200_OK)
+        self.assertEqual(send_mail.call_count, 2)
+        self.assertIn("refusée", send_mail.call_args.args[0])
+        self.assertEqual(send_mail.call_args.args[3], [self.client_user.email])
 
     def test_admin_ne_peut_annuler_avant_le_remboursement_integral(self):
         contract = self.create_contract_for_client()
