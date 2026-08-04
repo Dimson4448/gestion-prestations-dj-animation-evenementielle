@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     Booking,
     BookingEquipment,
+    CancellationRequest,
     Contract,
     Playlist,
     PlaylistSong,
@@ -51,6 +52,14 @@ class BookingAdmin(admin.ModelAdmin):
 class PreparatoryAppointmentAdmin(admin.ModelAdmin):
     list_display = ("booking", "scheduled_at", "mode", "status")
     list_filter = ("mode", "status")
+
+
+@admin.register(CancellationRequest)
+class CancellationRequestAdmin(admin.ModelAdmin):
+    list_display = ("id", "booking", "status", "requested_at", "reviewed_by", "reviewed_at")
+    list_filter = ("status", "requested_at")
+    search_fields = ("booking__client__user__email", "reason")
+    readonly_fields = ("booking", "reason", "requested_at", "reviewed_by", "reviewed_at")
 
 
 @admin.register(Contract)

@@ -20,7 +20,7 @@ from apps.bookings.models import (
     Review,
     Venue,
 )
-from apps.bookings.services import BookingCancellationError, BookingCompletionError, ContractSigningError, QuoteAcceptanceError, accept_quote, cancel_booking, complete_booking, sign_contract
+from apps.bookings.services import BookingCancellationError, BookingCompletionError, CancellationRequestError, ContractSigningError, QuoteAcceptanceError, accept_quote, cancel_booking, complete_booking, request_booking_cancellation, sign_contract
 from apps.bookings.documents import build_contract_pdf, build_invoice_pdf
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
@@ -30,6 +30,7 @@ from .permissions import AdministrationOuProprietaire, DJOuAdministration, Lectu
 from .serializers import (
     BookingSerializer,
     BookingCancellationSerializer,
+    CancellationRequestSerializer,
     ContractSerializer,
     CurrentUserSerializer,
     DJAvailabilitySerializer,
@@ -318,6 +319,24 @@ class BookingViewSet(AdminManagedProtectedViewSet):
         except BookingCancellationError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(BookingSerializer(booking, context={"request": request}).data)
+
+    @extend_schema(
+        request=BookingCancellationSerializer,
+        responses={201: CancellationRequestSerializer},
+        summary="Demander l'annulation d'une réservation en tant que client",
+    )
+    @action(detail=True, methods=["post"], url_path="request-cancellation")
+    def request_cancellation(self, request, pk=None):
+        booking = self.get_object()
+        serializer = BookingCancellationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            cancellation_request = request_booking_cancellation(
+                booking.pk, request.user, serializer.validated_data["reason"]
+            )
+        except CancellationRequestError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(CancellationRequestSerializer(cancellation_request).data, status=status.HTTP_201_CREATED)
 
 class PreparatoryAppointmentViewSet(AdminManagedProtectedViewSet):
     admin_only_actions = {"destroy"}

@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import ClientProfile, DJProfile
 from apps.availability.models import DJAvailability
-from apps.bookings.models import Booking, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Review, Venue
+from apps.bookings.models import Booking, CancellationRequest, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Review, Venue
 from apps.catalog.models import EventType, MusicStyle, Package
 from apps.payments.models import Invoice, Payment
 from apps.bookings.services import accept_quote
@@ -873,6 +873,60 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(availability.status, DJAvailability.AVAILABLE)
         self.assertEqual(availability.reason, "")
         self.assertFalse(Invoice.objects.filter(booking=booking).exclude(status=Invoice.CANCELLED).exists())
+
+    def test_client_demande_annulation_puis_admin_la_confirme(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        self.client.force_authenticate(user=self.client_user)
+
+        response = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/request-cancellation/",
+            {"reason": "Un imprévu familial empêche la tenue de l'événement"},
+            format="json",
+        )
+        duplicate = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/request-cancellation/",
+            {"reason": "Nouvelle demande identique"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        cancellation_request = CancellationRequest.objects.get(booking=booking)
+        self.assertEqual(cancellation_request.status, CancellationRequest.PENDING)
+        booking.refresh_from_db()
+        self.assertNotEqual(booking.status, Booking.CANCELLED)
+
+        admin = get_user_model().objects.create_superuser(
+            username="admin_request_cancellation",
+            email="admin-request-cancellation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+        cancelled = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Demande client vérifiée et acceptée"},
+            format="json",
+        )
+        self.assertEqual(cancelled.status_code, status.HTTP_200_OK)
+        cancellation_request.refresh_from_db()
+        self.assertEqual(cancellation_request.status, CancellationRequest.APPROVED)
+        self.assertEqual(cancellation_request.reviewed_by, admin)
+        self.assertIsNotNone(cancellation_request.reviewed_at)
+
+    def test_dj_ne_peut_pas_creer_la_demande_annulation_du_client(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        self.client.force_authenticate(user=booking.dj.user)
+
+        response = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/request-cancellation/",
+            {"reason": "Tentative de demande au nom du client"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(CancellationRequest.objects.filter(booking=booking).exists())
 
     def test_admin_ne_peut_annuler_avant_le_remboursement_integral(self):
         contract = self.create_contract_for_client()

@@ -195,6 +195,30 @@ CREATE TABLE `bookings` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `cancellation_requests`
+--
+
+DROP TABLE IF EXISTS `cancellation_requests`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cancellation_requests` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `reason` varchar(255) NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `requested_at` datetime(6) NOT NULL,
+  `reviewed_at` datetime(6) DEFAULT NULL,
+  `booking_id` bigint(20) NOT NULL,
+  `reviewed_by_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `cancellation_requests_booking_id_8edac695_fk_bookings_id` (`booking_id`),
+  KEY `cancellation_requests_reviewed_by_id_d1c90040_fk_auth_user_id` (`reviewed_by_id`),
+  KEY `idx_cancel_request_status` (`status`,`requested_at`),
+  CONSTRAINT `cancellation_requests_booking_id_8edac695_fk_bookings_id` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`),
+  CONSTRAINT `cancellation_requests_reviewed_by_id_d1c90040_fk_auth_user_id` FOREIGN KEY (`reviewed_by_id`) REFERENCES `auth_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `client_profiles`
 --
 
@@ -806,7 +830,8 @@ INSERT INTO `django_migrations` VALUES
 (29,'payments','0002_alter_invoice_options_alter_payment_options_and_more','2026-07-26 18:44:43.303634'),
 (30,'payments','0003_alter_payment_stripe_payment_intent_id','2026-07-26 18:44:43.406346'),
 (31,'sessions','0001_initial','2026-07-26 18:44:43.496656'),
-(32,'payments','0004_refund','2026-08-04 10:25:54.079081');
+(32,'payments','0004_refund','2026-08-04 10:25:54.079081'),
+(33,'bookings','0004_cancellationrequest','2026-08-04 10:51:26.225233');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;

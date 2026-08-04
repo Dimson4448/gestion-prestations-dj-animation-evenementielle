@@ -11,6 +11,7 @@ from apps.accounts.models import DJProfile
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
+    CancellationRequest,
     Contract,
     Playlist,
     PlaylistSong,
@@ -316,6 +317,13 @@ class BookingSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
 
 class BookingCancellationSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=255, min_length=5)
+
+
+class CancellationRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CancellationRequest
+        fields = ["id", "booking", "reason", "status", "requested_at", "reviewed_at", "reviewed_by"]
+        read_only_fields = fields
 
 
 class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
