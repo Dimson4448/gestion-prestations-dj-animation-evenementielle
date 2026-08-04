@@ -113,7 +113,7 @@ svg { width: 20px; height: 20px; }
 .filter-heading h2 { margin: 0; font-size: 1.25rem; }
 .filter-heading button { padding: 0; border: 0; color: var(--cyan-dark); background: none; font-size: .8rem; font-weight: 800; }
 .filters > label, .filters fieldset, .booking-card label, .account-card label, .quote-form label { display: grid; gap: 7px; margin-top: 20px; color: #344054; font-size: .86rem; font-weight: 800; }
-.filters input, .filters select, .booking-card input, .booking-card select, .account-card input, .quote-form input, .quote-form select, .quote-form textarea { width: 100%; min-height: 45px; padding: 10px 12px; border: 1px solid #cfd8e6; border-radius: 9px; color: var(--night); background: #f9fbfd; }
+.filters input, .filters select, .booking-card input, .booking-card select, .account-card input, .account-card select, .quote-form input, .quote-form select, .quote-form textarea { width: 100%; min-height: 45px; padding: 10px 12px; border: 1px solid #cfd8e6; border-radius: 9px; color: var(--night); background: #f9fbfd; }
 .filters fieldset { padding: 0; border: 0; }
 .filters legend { margin-bottom: 3px; }
 .filters .check-row { display: flex; align-items: center; gap: 9px; margin-top: 9px; font-weight: 600; }
@@ -203,6 +203,9 @@ svg { width: 20px; height: 20px; }
 .account-card h2 { margin: 0; }
 .account-card label { margin: 0; }
 .account-card button:disabled { cursor: wait; opacity: .65; }
+.registration-card { grid-column: 1 / -1; }
+.registration-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+.registration-grid .full-field { grid-column: 1 / -1; }
 .payment-return-message { display: flex; align-items: center; gap: 10px; max-width: 850px; margin: 0 auto 22px; padding: 14px 16px; border: 1px solid #a9e9f7; border-radius: 10px; color: #15596b; background: #eafaff; font-weight: 700; }
 .payment-return-message svg { flex: 0 0 auto; color: var(--cyan-dark); }
 .form-message { margin: 0; padding: 10px 12px; border-radius: 8px; color: #9f2d3d; background: #fff0f2; font-size: .85rem; font-weight: 700; }
@@ -377,7 +380,8 @@ footer small { grid-column: 1 / -1; padding-top: 18px; border-top: 1px solid #22
   .trust-strip { grid-template-columns: 1fr; margin-top: -28px; }
   .section-wrap { width: min(100% - 28px, 1240px); padding: 60px 0; }
   .section-title, .results-heading { align-items: flex-start; flex-direction: column; }
-  .package-grid, .detail-content, .form-grid, .account-grid, .admin-quote-grid, .dj-workflow-grid { grid-template-columns: 1fr; }
+  .package-grid, .detail-content, .form-grid, .account-grid, .registration-grid, .admin-quote-grid, .dj-workflow-grid { grid-template-columns: 1fr; }
+  .registration-grid .full-field { grid-column: auto; }
   .availability-form { grid-template-columns: 1fr 1fr; }
   .availability-reason { grid-column: 1 / -1; }
   .availability-list article { align-items: flex-start; flex-direction: column; }

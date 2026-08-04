@@ -227,6 +227,12 @@ Les sessions JWT utilisent une rotation du jeton de renouvellement. Chaque
 ancien jeton est placé en liste noire et la déconnexion React révoque le dernier
 jeton côté Django avant de supprimer les informations locales.
 
+L'espace client permet également de créer un compte réel depuis React. Django
+vérifie l'unicité de l'identifiant et de l'adresse e-mail, applique ses règles
+de robustesse au mot de passe, contrôle que le client est majeur, puis crée
+atomiquement l'utilisateur et son profil de facturation. Une session JWT est
+ouverte uniquement après la réussite complète de l'inscription.
+
 La note destinée à la publication GitHub se trouve dans
 [`RELEASE_BETA.md`](RELEASE_BETA.md). Le tag prévu est `v0.2.0-beta.1` et ne
 sera créé qu'après fusion et validation finale.

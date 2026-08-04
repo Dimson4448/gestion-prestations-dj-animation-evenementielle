@@ -39,6 +39,8 @@ export const clearAuthentication = () => {
   delete apiClient.defaults.headers.common.Authorization;
 };
 
+export const registerClient = async (payload) => (await apiClient.post("/auth/register/", payload)).data;
+
 export const logout = async () => {
   const refresh = getStoredRefreshToken();
   try {

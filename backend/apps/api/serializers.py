@@ -3,11 +3,15 @@ from decimal import Decimal
 
 from rest_framework import serializers
 from rest_framework.reverse import reverse
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 
-from apps.accounts.models import DJProfile
+from apps.accounts.models import ClientProfile, DJProfile, validate_adult
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
@@ -46,6 +50,69 @@ class CurrentUserSerializer(serializers.Serializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField(write_only=True, trim_whitespace=False)
+
+
+class ClientRegistrationSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    date_of_birth = serializers.DateField()
+    phone = serializers.CharField(max_length=30)
+    billing_address = serializers.CharField(max_length=255)
+    billing_city = serializers.CharField(max_length=80)
+    billing_postal_code = serializers.CharField(max_length=20)
+    preferred_language = serializers.ChoiceField(choices=ClientProfile._meta.get_field("preferred_language").choices, default="fr")
+
+    def validate_username(self, value):
+        if get_user_model().objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError("Cet identifiant est déjà utilisé.")
+        return value
+
+    def validate_email(self, value):
+        value = get_user_model().objects.normalize_email(value)
+        if get_user_model().objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("Cette adresse e-mail est déjà utilisée.")
+        return value
+
+    def validate_date_of_birth(self, value):
+        try:
+            validate_adult(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages)) from exc
+        return value
+
+    def validate(self, attrs):
+        candidate = get_user_model()(
+            username=attrs["username"],
+            email=attrs["email"],
+            first_name=attrs["first_name"],
+            last_name=attrs["last_name"],
+        )
+        try:
+            validate_password(attrs["password"], user=candidate)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)}) from exc
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        profile_fields = {
+            key: validated_data.pop(key)
+            for key in (
+                "date_of_birth",
+                "phone",
+                "billing_address",
+                "billing_city",
+                "billing_postal_code",
+                "preferred_language",
+            )
+        }
+        password = validated_data.pop("password")
+        user = get_user_model().objects.create_user(password=password, **validated_data)
+        ClientProfile.objects.create(user=user, **profile_fields)
+        return user
 
 
 class LiensHypermediaMixin(serializers.Serializer):

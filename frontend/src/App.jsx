@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, clearAuthentication, getCurrentUser, getStoredAccessToken, logout, sessionExpiredEvent } from "./api";
+import { apiClient, authenticate, clearAuthentication, getCurrentUser, getStoredAccessToken, logout, registerClient, sessionExpiredEvent } from "./api";
 
 const fallbackPackages = [
   {
@@ -132,6 +132,22 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginStatus, setLoginStatus] = useState("");
   const [loginPending, setLoginPending] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
+  const [registrationPending, setRegistrationPending] = useState(false);
+  const [registrationStatus, setRegistrationStatus] = useState("");
+  const [registration, setRegistration] = useState({
+    username: "",
+    email: "",
+    password: "",
+    first_name: "",
+    last_name: "",
+    date_of_birth: "",
+    phone: "",
+    billing_address: "",
+    billing_city: "",
+    billing_postal_code: "",
+    preferred_language: "fr",
+  });
   const [invoices, setInvoices] = useState([]);
   const [clientPayments, setClientPayments] = useState([]);
   const [contracts, setContracts] = useState([]);
@@ -797,6 +813,32 @@ export default function App() {
     }
   };
 
+  const updateRegistration = (field, value) => {
+    setRegistration((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleRegistration = async (event) => {
+    event.preventDefault();
+    setRegistrationPending(true);
+    setRegistrationStatus("");
+    try {
+      await registerClient(registration);
+      const profile = await authenticate(registration.username, registration.password);
+      setUsername(registration.username);
+      setPassword("");
+      setIsAuthenticated(true);
+      setCurrentUser(profile);
+      setRegistrationOpen(false);
+      setLoginStatus("Votre compte client a été créé et votre session est active.");
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setRegistrationStatus(firstError || "L’inscription est impossible pour le moment.");
+    } finally {
+      setRegistrationPending(false);
+    }
+  };
+
   const requestCancellation = async (bookingId) => {
     const reason = (cancellationReasons[bookingId] || "").trim();
     if (reason.length < 5) {
@@ -1407,13 +1449,35 @@ export default function App() {
             {paymentReturnStatus && <p className="payment-return-message" role="status"><ShieldCheck /> {paymentReturnStatus}</p>}
             <div className="account-grid">
               {!isAuthenticated ? (
-                <form className="account-card" onSubmit={handleLogin}>
-                  <CircleUserRound /><h2>Connexion</h2>
-                  <label>Identifiant Django<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
-                  <label>Mot de passe<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
-                  {loginStatus && <p className="form-message" role="status">{loginStatus}</p>}
-                  <button className="primary-button" type="submit" disabled={loginPending}>{loginPending ? "Connexion…" : "Se connecter"}</button>
-                </form>
+                <>
+                  <form className="account-card" onSubmit={handleLogin}>
+                    <CircleUserRound /><h2>Connexion</h2>
+                    <label>Identifiant Django<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
+                    <label>Mot de passe<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
+                    {loginStatus && <p className="form-message" role="status">{loginStatus}</p>}
+                    <button className="primary-button" type="submit" disabled={loginPending}>{loginPending ? "Connexion…" : "Se connecter"}</button>
+                    <button className="secondary-button" type="button" onClick={() => setRegistrationOpen((open) => !open)}>{registrationOpen ? "Fermer l’inscription" : "Créer un compte client"}</button>
+                  </form>
+                  {registrationOpen && <form className="account-card registration-card" onSubmit={handleRegistration}>
+                    <UsersRound /><h2>Créer mon compte</h2>
+                    <div className="registration-grid">
+                      <label>Prénom<input value={registration.first_name} onChange={(event) => updateRegistration("first_name", event.target.value)} autoComplete="given-name" required /></label>
+                      <label>Nom<input value={registration.last_name} onChange={(event) => updateRegistration("last_name", event.target.value)} autoComplete="family-name" required /></label>
+                      <label>Identifiant<input value={registration.username} onChange={(event) => updateRegistration("username", event.target.value)} autoComplete="username" required /></label>
+                      <label>E-mail<input type="email" value={registration.email} onChange={(event) => updateRegistration("email", event.target.value)} autoComplete="email" required /></label>
+                      <label className="full-field">Mot de passe<input type="password" minLength="8" value={registration.password} onChange={(event) => updateRegistration("password", event.target.value)} autoComplete="new-password" required /></label>
+                      <label>Date de naissance<input type="date" max={todayIso} value={registration.date_of_birth} onChange={(event) => updateRegistration("date_of_birth", event.target.value)} required /></label>
+                      <label>Téléphone<input type="tel" value={registration.phone} onChange={(event) => updateRegistration("phone", event.target.value)} autoComplete="tel" required /></label>
+                      <label className="full-field">Adresse de facturation<input value={registration.billing_address} onChange={(event) => updateRegistration("billing_address", event.target.value)} autoComplete="street-address" required /></label>
+                      <label>Code postal<input value={registration.billing_postal_code} onChange={(event) => updateRegistration("billing_postal_code", event.target.value)} autoComplete="postal-code" required /></label>
+                      <label>Ville<input value={registration.billing_city} onChange={(event) => updateRegistration("billing_city", event.target.value)} autoComplete="address-level2" required /></label>
+                      <label>Langue<select value={registration.preferred_language} onChange={(event) => updateRegistration("preferred_language", event.target.value)}><option value="fr">Français</option><option value="en">Anglais</option><option value="nl">Néerlandais</option></select></label>
+                    </div>
+                    <p className="secure-note"><ShieldCheck /> Le client doit être majeur et le mot de passe respecte les règles Django.</p>
+                    {registrationStatus && <p className="form-message" role="alert">{registrationStatus}</p>}
+                    <button className="primary-button" type="submit" disabled={registrationPending}>{registrationPending ? "Création…" : "Créer mon compte"}</button>
+                  </form>}
+                </>
               ) : (
                 <div className="account-card connected-card">
                   <div className="confirmation-icon"><Check /></div><h2>Session active</h2>

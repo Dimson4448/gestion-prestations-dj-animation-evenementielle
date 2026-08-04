@@ -34,6 +34,7 @@ from .serializers import (
     BookingCancellationSerializer,
     CancellationRequestSerializer,
     CancellationRequestReviewSerializer,
+    ClientRegistrationSerializer,
     ContractSerializer,
     CurrentUserSerializer,
     DJAvailabilitySerializer,
@@ -110,6 +111,16 @@ def filtrer_par_reservation(queryset, user, prefix=""):
 @permission_classes([permissions.IsAuthenticated])
 def current_user(request):
     return Response(CurrentUserSerializer(request.user).data)
+
+
+@extend_schema(request=ClientRegistrationSerializer, responses={201: CurrentUserSerializer}, summary="Créer un compte client")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def register_client(request):
+    serializer = ClientRegistrationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = serializer.save()
+    return Response(CurrentUserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(request=LogoutSerializer, responses={204: None}, summary="Révoquer la session JWT")

@@ -110,6 +110,69 @@ class ApiUltimateDJTests(APITestCase):
         )
         self.assertEqual(revoked_refresh.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_inscription_cree_un_utilisateur_et_son_profil_client(self):
+        response = self.client.post(
+            "/api/v1/auth/register/",
+            {
+                "username": "nouveau_client",
+                "email": "nouveau@example.com",
+                "password": "MotDePasseNouveau2026!",
+                "first_name": "Nouveau",
+                "last_name": "Client",
+                "date_of_birth": "1992-06-18",
+                "phone": "+32471111111",
+                "billing_address": "Rue du Test 4",
+                "billing_city": "Namur",
+                "billing_postal_code": "5000",
+                "preferred_language": "fr",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["role"], "client")
+        user = get_user_model().objects.get(username="nouveau_client")
+        self.assertTrue(user.check_password("MotDePasseNouveau2026!"))
+        self.assertEqual(user.client_profile.billing_city, "Namur")
+
+        authenticated = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": "nouveau_client", "password": "MotDePasseNouveau2026!"},
+            format="json",
+        )
+        self.assertEqual(authenticated.status_code, status.HTTP_200_OK)
+
+    def test_inscription_refuse_doublon_mot_de_passe_faible_et_mineur(self):
+        base_payload = {
+            "username": "client_invalide",
+            "email": "autre@example.com",
+            "password": "court",
+            "first_name": "Petit",
+            "last_name": "Client",
+            "date_of_birth": str(date.today() - timedelta(days=365 * 10)),
+            "phone": "+32472222222",
+            "billing_address": "Rue du Refus 2",
+            "billing_city": "Liège",
+            "billing_postal_code": "4000",
+            "preferred_language": "fr",
+        }
+        response = self.client.post("/api/v1/auth/register/", base_payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("date_of_birth", response.data)
+        self.assertFalse(get_user_model().objects.filter(email="autre@example.com").exists())
+
+        base_payload["date_of_birth"] = "1990-01-01"
+        weak_password = self.client.post("/api/v1/auth/register/", base_payload, format="json")
+        self.assertEqual(weak_password.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", weak_password.data)
+
+        base_payload.update(
+            username=self.client_user.username,
+            password="MotDePasseValide2026!",
+        )
+        duplicate = self.client.post("/api/v1/auth/register/", base_payload, format="json")
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("username", duplicate.data)
+
     def create_available_dj(self):
         dj_user = get_user_model().objects.create_user(
             username="dj_acceptation",
