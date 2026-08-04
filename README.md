@@ -219,7 +219,9 @@ courrier. Pour un déploiement réel, remplacer `EMAIL_BACKEND` par
 `django.core.mail.backends.smtp.EmailBackend` et renseigner dans
 `backend/.env` les paramètres `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`,
 `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` et `DEFAULT_FROM_EMAIL`. Ces identifiants
-restent privés et ne doivent jamais être commités.
+restent privés et ne doivent jamais être commités. La variable `SECRET_KEY`
+doit également rester privée et contenir au moins 32 caractères aléatoires,
+car elle signe notamment les jetons JWT Django.
 
 La note destinée à la publication GitHub se trouve dans
 [`RELEASE_BETA.md`](RELEASE_BETA.md). Le tag prévu est `v0.2.0-beta.1` et ne

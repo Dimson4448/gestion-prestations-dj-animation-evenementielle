@@ -68,6 +68,27 @@ class ApiUltimateDJTests(APITestCase):
         payload.update(overrides)
         return payload
 
+    def test_renouvelle_la_session_jwt_et_accede_au_profil(self):
+        authenticated = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "MotDePasseTest2026!"},
+            format="json",
+        )
+        self.assertEqual(authenticated.status_code, status.HTTP_200_OK)
+
+        refreshed = self.client.post(
+            "/api/v1/auth/token/refresh/",
+            {"refresh": authenticated.data["refresh"]},
+            format="json",
+        )
+        self.assertEqual(refreshed.status_code, status.HTTP_200_OK)
+        self.assertTrue(refreshed.data["access"])
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refreshed.data['access']}")
+        profile = self.client.get("/api/v1/auth/me/")
+        self.assertEqual(profile.status_code, status.HTTP_200_OK)
+        self.assertEqual(profile.data["email"], self.client_user.email)
+
     def create_available_dj(self):
         dj_user = get_user_model().objects.create_user(
             username="dj_acceptation",

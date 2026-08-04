@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, clearAuthentication, getCurrentUser, getStoredAccessToken } from "./api";
+import { apiClient, authenticate, clearAuthentication, getCurrentUser, getStoredAccessToken, sessionExpiredEvent } from "./api";
 
 const fallbackPackages = [
   {
@@ -200,6 +200,16 @@ export default function App() {
   const [reviewBookingId, setReviewBookingId] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
+    };
+    window.addEventListener(sessionExpiredEvent, handleSessionExpired);
+    return () => window.removeEventListener(sessionExpiredEvent, handleSessionExpired);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {

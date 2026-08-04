@@ -34,7 +34,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 ### Frontend React
 
 - URL du backend configurable avec `VITE_API_BASE_URL` ;
-- authentification réelle avec les jetons JWT Django ;
+- authentification réelle avec les jetons JWT Django et renouvellement automatique de session ;
 - affichage des factures d'acompte du client ;
 - bouton de paiement réservé aux factures envoyées ;
 - redirection contrôlée vers le domaine Stripe Checkout ;
@@ -75,7 +75,6 @@ Les tests automatisés simulent les réponses de Stripe et couvrent notamment :
 - une démonstration réelle nécessite un compte Stripe en mode test, une clé
   `sk_test_` et Stripe CLI pour transmettre le webhook local ;
 - aucune clé Stripe n'est fournie dans le dépôt ;
-- le rafraîchissement automatique du jeton JWT n'est pas encore implémenté ;
 - l'administrateur doit préparer une réservation et une facture d'acompte
   envoyée avant le test du parcours ;
 - les paiements réels en mode production sont volontairement désactivés.
