@@ -415,6 +415,36 @@ class InvoiceSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
 
 class PaymentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "payment"
+    refunded_amount = serializers.SerializerMethodField()
+    refundable_amount = serializers.SerializerMethodField()
+    refund_status = serializers.SerializerMethodField()
+
+    @staticmethod
+    def _refunds(payment):
+        return list(payment.refunds.all())
+
+    def get_refunded_amount(self, payment):
+        total = sum((refund.amount for refund in self._refunds(payment) if refund.status == Refund.SUCCEEDED), Decimal("0.00"))
+        return f"{total:.2f}"
+
+    def get_refundable_amount(self, payment):
+        reserved = sum(
+            (refund.amount for refund in self._refunds(payment) if refund.status not in {Refund.FAILED, Refund.CANCELLED}),
+            Decimal("0.00"),
+        )
+        return f"{max(payment.amount - reserved, Decimal('0.00')):.2f}"
+
+    def get_refund_status(self, payment):
+        refunds = self._refunds(payment)
+        if any(refund.status == Refund.PENDING for refund in refunds):
+            return "pending"
+        if payment.status == Payment.REFUNDED:
+            return "succeeded"
+        if any(refund.status == Refund.SUCCEEDED for refund in refunds):
+            return "partial"
+        if any(refund.status == Refund.FAILED for refund in refunds):
+            return "failed"
+        return "none"
 
     class Meta:
         model = Payment
@@ -427,6 +457,9 @@ class PaymentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             "amount",
             "currency",
             "status",
+            "refund_status",
+            "refunded_amount",
+            "refundable_amount",
             "paid_at",
             "liens",
         ]

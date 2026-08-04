@@ -132,6 +132,38 @@ class DepositCheckoutTests(APITestCase):
         self.assertIsNotNone(refund.idempotency_key)
         self.assertIsNone(refund.stripe_refund_id)
 
+    def test_api_expose_le_suivi_financier_des_remboursements(self):
+        payment = self.create_paid_payment()
+        Refund.objects.create(
+            payment=payment,
+            stripe_refund_id="re_test_suivi_partial",
+            amount="50.00",
+            currency=payment.currency,
+            internal_reason="Remboursement partiel confirmé",
+            status=Refund.SUCCEEDED,
+            processed_at=timezone.now(),
+        )
+
+        partial = self.client.get(f"/api/v1/payments/{payment.pk}/")
+
+        self.assertEqual(partial.status_code, status.HTTP_200_OK)
+        self.assertEqual(partial.data["refund_status"], "partial")
+        self.assertEqual(partial.data["refunded_amount"], "50.00")
+        self.assertEqual(partial.data["refundable_amount"], "130.00")
+
+        Refund.objects.create(
+            payment=payment,
+            stripe_refund_id="re_test_suivi_pending",
+            amount="30.00",
+            currency=payment.currency,
+            internal_reason="Complément en cours chez Stripe",
+        )
+        pending = self.client.get(f"/api/v1/payments/{payment.pk}/")
+
+        self.assertEqual(pending.data["refund_status"], "pending")
+        self.assertEqual(pending.data["refunded_amount"], "50.00")
+        self.assertEqual(pending.data["refundable_amount"], "100.00")
+
     @patch("apps.payments.services.stripe.Refund.create")
     def test_admin_rembourse_partiellement_puis_totalement_un_paiement(self, create_refund):
         payment = self.create_paid_payment()

@@ -470,7 +470,7 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        queryset = Payment.objects.select_related("booking", "booking__client", "booking__dj", "invoice").all()
+        queryset = Payment.objects.select_related("booking", "booking__client", "booking__dj", "invoice").prefetch_related("refunds").all()
         return filtrer_par_reservation(queryset, self.request.user)
 
     @extend_schema(

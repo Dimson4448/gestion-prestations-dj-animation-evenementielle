@@ -315,6 +315,8 @@ svg { width: 20px; height: 20px; }
 .cancellation-request-status.rejected { color: #9f2d3d; }
 .cancellation-payments { display: grid; gap: 8px; padding: 12px; border: 1px solid #bfeaf3; border-radius: 9px; background: #f4fcfe; }
 .cancellation-payments > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 9px; padding-top: 8px; border-top: 1px solid #d6edf2; }
+.cancellation-payments > div > span:first-child { display: grid; gap: 3px; }
+.cancellation-payments > div > span:first-child small { color: #69758b; }
 .cancellation-payments .document-button { margin-left: auto; }
 .cancellation-admin-actions { display: flex; justify-content: flex-end; }
 .availability-panel { display: grid; gap: 18px; margin-top: 30px; padding: 22px; border: 1px solid #bfeaf3; border-radius: var(--radius); background: #f4fcfe; }
