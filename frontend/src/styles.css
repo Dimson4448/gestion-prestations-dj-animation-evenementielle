@@ -243,6 +243,9 @@ svg { width: 20px; height: 20px; }
 .invoice-status { font-weight: 800; text-transform: uppercase; }
 .invoice-status.paid { color: #17724a; }
 .invoice-status.sent { color: #9a6200; }
+.invoice-status.cancelled { color: #9f2d3d; }
+.client-payment-trace { display: grid; gap: 3px; margin-top: 7px; padding: 8px 10px; border-left: 3px solid var(--cyan); background: #f4fcfe; }
+.client-payment-trace small { color: #526079; font-weight: 700; }
 .playlist-panel { display: grid; gap: 14px; margin: 8px 0; padding: 18px; border: 1px solid #bfeaf3; border-radius: 12px; background: #f4fcfe; }
 .appointment-panel { display: grid; gap: 14px; margin: 8px 0; padding: 18px; border: 1px solid #ead8fa; border-radius: 12px; background: #fbf7ff; }
 .appointment-list { display: grid; gap: 8px; }
