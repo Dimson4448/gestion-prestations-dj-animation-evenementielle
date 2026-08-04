@@ -209,6 +209,7 @@ CREATE TABLE `cancellation_requests` (
   `reviewed_at` datetime(6) DEFAULT NULL,
   `booking_id` bigint(20) NOT NULL,
   `reviewed_by_id` int(11) DEFAULT NULL,
+  `review_message` varchar(255) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `cancellation_requests_booking_id_8edac695_fk_bookings_id` (`booking_id`),
   KEY `cancellation_requests_reviewed_by_id_d1c90040_fk_auth_user_id` (`reviewed_by_id`),
@@ -831,7 +832,8 @@ INSERT INTO `django_migrations` VALUES
 (30,'payments','0003_alter_payment_stripe_payment_intent_id','2026-07-26 18:44:43.406346'),
 (31,'sessions','0001_initial','2026-07-26 18:44:43.496656'),
 (32,'payments','0004_refund','2026-08-04 10:25:54.079081'),
-(33,'bookings','0004_cancellationrequest','2026-08-04 10:51:26.225233');
+(33,'bookings','0004_cancellationrequest','2026-08-04 10:51:26.225233'),
+(34,'bookings','0005_cancellationrequest_review_message','2026-08-04 11:01:04.353990');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;

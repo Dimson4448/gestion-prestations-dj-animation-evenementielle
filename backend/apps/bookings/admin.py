@@ -59,7 +59,7 @@ class CancellationRequestAdmin(admin.ModelAdmin):
     list_display = ("id", "booking", "status", "requested_at", "reviewed_by", "reviewed_at")
     list_filter = ("status", "requested_at")
     search_fields = ("booking__client__user__email", "reason")
-    readonly_fields = ("booking", "reason", "requested_at", "reviewed_by", "reviewed_at")
+    readonly_fields = ("booking", "reason", "requested_at", "reviewed_by", "reviewed_at", "review_message")
 
 
 @admin.register(Contract)

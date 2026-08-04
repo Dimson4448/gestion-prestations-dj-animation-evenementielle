@@ -253,3 +253,27 @@ def request_booking_cancellation(booking_id, actor, reason):
     if CancellationRequest.objects.select_for_update().filter(booking=booking, status=CancellationRequest.PENDING).exists():
         raise CancellationRequestError("Une demande d'annulation est déjà en attente pour cette réservation.")
     return CancellationRequest.objects.create(booking=booking, reason=reason)
+
+
+@transaction.atomic
+def reject_booking_cancellation(booking_id, actor, message):
+    """Refuse la demande en attente en conservant la réponse administrative."""
+    if not actor.is_staff:
+        raise CancellationRequestError("Seule l'administration peut traiter une demande d'annulation.")
+    message = message.strip()
+    if not message:
+        raise CancellationRequestError("Une réponse au client est obligatoire.")
+    cancellation_request = (
+        CancellationRequest.objects.select_for_update()
+        .filter(booking_id=booking_id, status=CancellationRequest.PENDING)
+        .order_by("-requested_at")
+        .first()
+    )
+    if cancellation_request is None:
+        raise CancellationRequestError("Aucune demande d'annulation en attente n'a été trouvée.")
+    cancellation_request.status = CancellationRequest.REJECTED
+    cancellation_request.reviewed_at = timezone.now()
+    cancellation_request.reviewed_by = actor
+    cancellation_request.review_message = message
+    cancellation_request.save(update_fields=["status", "reviewed_at", "reviewed_by", "review_message"])
+    return cancellation_request

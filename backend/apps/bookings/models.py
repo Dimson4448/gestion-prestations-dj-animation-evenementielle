@@ -172,6 +172,7 @@ class CancellationRequest(models.Model):
     status = models.CharField("statut", max_length=20, choices=STATUS_CHOICES, default=PENDING)
     requested_at = models.DateTimeField("demandée le", default=timezone.now)
     reviewed_at = models.DateTimeField("traitée le", null=True, blank=True)
+    review_message = models.CharField("réponse administrative", max_length=255, blank=True)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

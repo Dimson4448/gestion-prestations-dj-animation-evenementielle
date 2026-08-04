@@ -928,6 +928,49 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(CancellationRequest.objects.filter(booking=booking).exists())
 
+    def test_admin_refuse_une_demande_et_le_client_consulte_la_reponse(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/request-cancellation/",
+            {"reason": "Je souhaite déplacer la fête à une autre année"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+
+        admin = get_user_model().objects.create_superuser(
+            username="admin_reject_cancellation",
+            email="admin-reject-cancellation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+        rejected = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/reject-cancellation/",
+            {"message": "Le délai contractuel est dépassé ; contactez-nous pour déplacer la date."},
+            format="json",
+        )
+        duplicate = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/reject-cancellation/",
+            {"message": "Deuxième traitement impossible"},
+            format="json",
+        )
+        self.assertEqual(rejected.status_code, status.HTTP_200_OK)
+        self.assertEqual(rejected.data["status"], CancellationRequest.REJECTED)
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=self.client_user)
+        history = self.client.get(f"/api/v1/bookings/{booking.pk}/cancellation-requests/")
+        self.assertEqual(history.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(history.data), 1)
+        self.assertEqual(history.data[0]["review_message"], rejected.data["review_message"])
+        booking.refresh_from_db()
+        self.assertNotEqual(booking.status, Booking.CANCELLED)
+
+        self.client.force_authenticate(user=booking.dj.user)
+        forbidden = self.client.get(f"/api/v1/bookings/{booking.pk}/cancellation-requests/")
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_admin_ne_peut_annuler_avant_le_remboursement_integral(self):
         contract = self.create_contract_for_client()
         booking = contract.booking

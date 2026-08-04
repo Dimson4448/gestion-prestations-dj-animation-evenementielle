@@ -322,8 +322,12 @@ class BookingCancellationSerializer(serializers.Serializer):
 class CancellationRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = CancellationRequest
-        fields = ["id", "booking", "reason", "status", "requested_at", "reviewed_at", "reviewed_by"]
+        fields = ["id", "booking", "reason", "status", "requested_at", "reviewed_at", "reviewed_by", "review_message"]
         read_only_fields = fields
+
+
+class CancellationRequestReviewSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=255, min_length=5)
 
 
 class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
