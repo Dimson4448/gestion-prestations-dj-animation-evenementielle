@@ -212,7 +212,8 @@ enregistrée dans un commit distinct avant la création de la Release GitHub.
 Le protocole complet de configuration et de démonstration locale est disponible
 dans [`STRIPE_TESTING.md`](STRIPE_TESTING.md).
 
-Les notifications d'annulation utilisent le système d'e-mail Django. En local,
+Les notifications d'annulation, de paiement confirmé et de remboursement
+utilisent le système d'e-mail Django. En local,
 le backend `console` affiche les messages dans le terminal sans envoyer de
 courrier. Pour un déploiement réel, remplacer `EMAIL_BACKEND` par
 `django.core.mail.backends.smtp.EmailBackend` et renseigner dans

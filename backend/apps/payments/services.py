@@ -7,6 +7,7 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from .models import Invoice, Payment, Refund
+from .notifications import notify_payment_confirmed, notify_refund_processed
 
 
 class StripeConfigurationError(Exception):
@@ -132,6 +133,7 @@ def confirm_checkout_payment(session) -> bool:
     elif invoice.invoice_type in {Invoice.BALANCE, Invoice.FULL}:
         booking.status = booking.PAID
         booking.save(update_fields=["status"])
+    notify_payment_confirmed(payment)
     return True
 
 
@@ -202,6 +204,9 @@ def create_payment_refund(
         )
     except stripe.StripeError as exc:
         Refund.objects.filter(pk=refund.pk).update(status=Refund.FAILED, processed_at=timezone.now())
+        refund.status = Refund.FAILED
+        refund.processed_at = timezone.now()
+        notify_refund_processed(refund)
         raise StripeRefundError("Le remboursement Stripe n'a pas pu être créé.") from exc
 
     stripe_status = getattr(stripe_refund, "status", None) or stripe_refund.get("status")
@@ -223,6 +228,8 @@ def create_payment_refund(
             refund.payment.save(update_fields=["status"])
             refund.payment.invoice.status = Invoice.CANCELLED
             refund.payment.invoice.save(update_fields=["status"])
+    if refund.status in {Refund.SUCCEEDED, Refund.FAILED}:
+        notify_refund_processed(refund)
     return refund
 
 
@@ -248,6 +255,7 @@ def synchronize_refund_from_stripe(stripe_refund) -> Refund:
     if str(stripe_refund.get("currency", "")).upper() != refund.currency.upper():
         raise ValueError("La devise Stripe du remboursement ne correspond pas.")
 
+    previous_status = refund.status
     local_status = {
         "succeeded": Refund.SUCCEEDED,
         "failed": Refund.FAILED,
@@ -265,4 +273,6 @@ def synchronize_refund_from_stripe(stripe_refund) -> Refund:
             payment.save(update_fields=["status"])
             payment.invoice.status = Invoice.CANCELLED
             payment.invoice.save(update_fields=["status"])
+    if local_status != previous_status and local_status in {Refund.SUCCEEDED, Refund.FAILED}:
+        notify_refund_processed(refund)
     return refund

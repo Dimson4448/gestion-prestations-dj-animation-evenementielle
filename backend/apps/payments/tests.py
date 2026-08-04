@@ -409,6 +409,46 @@ class DepositCheckoutTests(APITestCase):
         self.assertEqual(self.booking.status, Booking.CONFIRMED)
 
     @patch("apps.payments.views.stripe.Webhook.construct_event")
+    @patch("apps.payments.notifications.send_mail")
+    def test_webhook_notifie_un_paiement_une_seule_fois(self, send_mail, construct_event):
+        payment = self.create_pending_payment()
+        construct_event.return_value = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": payment.stripe_session_id,
+                    "payment_status": "paid",
+                    "payment_intent": "pi_test_email_payment",
+                    "amount_total": 18000,
+                    "currency": "eur",
+                    "metadata": {"invoice_id": str(self.invoice.pk)},
+                }
+            },
+        }
+        self.client.force_authenticate(user=None)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            first = self.client.post(
+                "/api/v1/payments/webhook/",
+                data=b"paiement confirme",
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE="signature_test",
+            )
+        with self.captureOnCommitCallbacks(execute=True):
+            replay = self.client.post(
+                "/api/v1/payments/webhook/",
+                data=b"paiement confirme rejoue",
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE="signature_test",
+            )
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(replay.status_code, status.HTTP_200_OK)
+        self.assertEqual(send_mail.call_count, 1)
+        self.assertIn("paiement confirmé", send_mail.call_args.args[0])
+        self.assertEqual(send_mail.call_args.args[3], [self.client_user.email])
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
     def test_webhook_finalise_un_remboursement_differe(self, construct_event):
         payment = self.create_paid_payment()
         refund = Refund.objects.create(
@@ -455,6 +495,53 @@ class DepositCheckoutTests(APITestCase):
         self.assertIsNotNone(refund.processed_at)
         self.assertEqual(payment.status, Payment.REFUNDED)
         self.assertEqual(self.invoice.status, Invoice.CANCELLED)
+
+    @patch("apps.payments.views.stripe.Webhook.construct_event")
+    @patch("apps.payments.notifications.send_mail")
+    def test_webhook_notifie_un_remboursement_une_seule_fois(self, send_mail, construct_event):
+        payment = self.create_paid_payment()
+        refund = Refund.objects.create(
+            payment=payment,
+            stripe_refund_id="re_test_email_refund",
+            amount=payment.amount,
+            currency=payment.currency,
+            internal_reason="Notification du remboursement",
+        )
+        construct_event.return_value = {
+            "type": "refund.updated",
+            "data": {
+                "object": {
+                    "id": refund.stripe_refund_id,
+                    "payment_intent": payment.stripe_payment_intent_id,
+                    "amount": 18000,
+                    "currency": "eur",
+                    "status": "succeeded",
+                    "metadata": {"refund_id": str(refund.pk)},
+                }
+            },
+        }
+        self.client.force_authenticate(user=None)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            first = self.client.post(
+                "/api/v1/payments/webhook/",
+                data=b"remboursement confirme",
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE="signature_test",
+            )
+        with self.captureOnCommitCallbacks(execute=True):
+            replay = self.client.post(
+                "/api/v1/payments/webhook/",
+                data=b"remboursement confirme rejoue",
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE="signature_test",
+            )
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(replay.status_code, status.HTTP_200_OK)
+        self.assertEqual(send_mail.call_count, 1)
+        self.assertIn("remboursement confirmé", send_mail.call_args.args[0])
+        self.assertEqual(send_mail.call_args.args[3], [self.client_user.email])
 
     @patch("apps.payments.views.stripe.Webhook.construct_event")
     def test_webhook_enregistre_echec_remboursement_sans_annuler_facture(self, construct_event):
