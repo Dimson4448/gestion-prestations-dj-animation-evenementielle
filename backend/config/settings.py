@@ -151,6 +151,7 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=config("JWT_REFRESH_DAYS", default=7, cast=int)),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
+    "CHECK_REVOKE_TOKEN": True,
 }
 
 SPECTACULAR_SETTINGS = {
@@ -178,3 +179,4 @@ EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="Ultimate DJ <noreply@ultimate-dj.local>")
+FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:5173")

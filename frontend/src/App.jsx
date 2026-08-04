@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, clearAuthentication, getCurrentUser, getStoredAccessToken, logout, registerClient, sessionExpiredEvent } from "./api";
+import { apiClient, authenticate, clearAuthentication, confirmPasswordReset, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, sessionExpiredEvent } from "./api";
 
 const fallbackPackages = [
   {
@@ -148,6 +148,12 @@ export default function App() {
     billing_postal_code: "",
     preferred_language: "fr",
   });
+  const [passwordResetOpen, setPasswordResetOpen] = useState(false);
+  const [passwordResetEmail, setPasswordResetEmail] = useState("");
+  const [passwordResetCredentials, setPasswordResetCredentials] = useState({ uid: "", token: "" });
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordResetPending, setPasswordResetPending] = useState(false);
+  const [passwordResetStatus, setPasswordResetStatus] = useState("");
   const [invoices, setInvoices] = useState([]);
   const [clientPayments, setClientPayments] = useState([]);
   const [contracts, setContracts] = useState([]);
@@ -246,6 +252,15 @@ export default function App() {
 
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
+    const resetUid = parameters.get("reset_uid");
+    const resetToken = parameters.get("reset_token");
+    if (resetUid && resetToken) {
+      setPage("compte");
+      setPasswordResetOpen(true);
+      setPasswordResetCredentials({ uid: resetUid, token: resetToken });
+      setPasswordResetStatus("Choisissez maintenant votre nouveau mot de passe.");
+      return;
+    }
     const paymentResult = parameters.get("payment");
     if (!paymentResult) return;
 
@@ -836,6 +851,40 @@ export default function App() {
       setRegistrationStatus(firstError || "L’inscription est impossible pour le moment.");
     } finally {
       setRegistrationPending(false);
+    }
+  };
+
+  const handlePasswordResetRequest = async (event) => {
+    event.preventDefault();
+    setPasswordResetPending(true);
+    setPasswordResetStatus("");
+    try {
+      const response = await requestPasswordReset(passwordResetEmail);
+      setPasswordResetStatus(response.detail);
+    } catch {
+      setPasswordResetStatus("La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
+    } finally {
+      setPasswordResetPending(false);
+    }
+  };
+
+  const handlePasswordResetConfirm = async (event) => {
+    event.preventDefault();
+    setPasswordResetPending(true);
+    setPasswordResetStatus("");
+    try {
+      await confirmPasswordReset(passwordResetCredentials.uid, passwordResetCredentials.token, newPassword);
+      setNewPassword("");
+      setPasswordResetCredentials({ uid: "", token: "" });
+      setPasswordResetOpen(false);
+      setLoginStatus("Votre mot de passe a été modifié. Vous pouvez maintenant vous connecter.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setPasswordResetStatus(firstError || "Ce lien est invalide ou a expiré.");
+    } finally {
+      setPasswordResetPending(false);
     }
   };
 
@@ -1457,6 +1506,7 @@ export default function App() {
                     {loginStatus && <p className="form-message" role="status">{loginStatus}</p>}
                     <button className="primary-button" type="submit" disabled={loginPending}>{loginPending ? "Connexion…" : "Se connecter"}</button>
                     <button className="secondary-button" type="button" onClick={() => setRegistrationOpen((open) => !open)}>{registrationOpen ? "Fermer l’inscription" : "Créer un compte client"}</button>
+                    <button className="text-button" type="button" onClick={() => setPasswordResetOpen((open) => !open)}>Mot de passe oublié ?</button>
                   </form>
                   {registrationOpen && <form className="account-card registration-card" onSubmit={handleRegistration}>
                     <UsersRound /><h2>Créer mon compte</h2>
@@ -1476,6 +1526,14 @@ export default function App() {
                     <p className="secure-note"><ShieldCheck /> Le client doit être majeur et le mot de passe respecte les règles Django.</p>
                     {registrationStatus && <p className="form-message" role="alert">{registrationStatus}</p>}
                     <button className="primary-button" type="submit" disabled={registrationPending}>{registrationPending ? "Création…" : "Créer mon compte"}</button>
+                  </form>}
+                  {passwordResetOpen && <form className="account-card password-reset-card" onSubmit={passwordResetCredentials.token ? handlePasswordResetConfirm : handlePasswordResetRequest}>
+                    <ShieldCheck /><h2>{passwordResetCredentials.token ? "Nouveau mot de passe" : "Réinitialiser le mot de passe"}</h2>
+                    {passwordResetCredentials.token
+                      ? <label>Nouveau mot de passe<input type="password" minLength="8" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" required /></label>
+                      : <label>Adresse e-mail du compte<input type="email" value={passwordResetEmail} onChange={(event) => setPasswordResetEmail(event.target.value)} autoComplete="email" required /></label>}
+                    {passwordResetStatus && <p className="form-message" role="status">{passwordResetStatus}</p>}
+                    <button className="primary-button" type="submit" disabled={passwordResetPending}>{passwordResetPending ? "Traitement…" : passwordResetCredentials.token ? "Enregistrer le mot de passe" : "Envoyer le lien"}</button>
                   </form>}
                 </>
               ) : (

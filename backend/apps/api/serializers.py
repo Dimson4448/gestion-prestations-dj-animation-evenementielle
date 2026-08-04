@@ -5,9 +5,12 @@ from rest_framework import serializers
 from rest_framework.reverse import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 
@@ -112,6 +115,37 @@ class ClientRegistrationSerializer(serializers.Serializer):
         password = validated_data.pop("password")
         user = get_user_model().objects.create_user(password=password, **validated_data)
         ClientProfile.objects.create(user=user, **profile_fields)
+        return user
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        try:
+            user_id = force_str(urlsafe_base64_decode(attrs["uid"]))
+            user = get_user_model().objects.get(pk=user_id, is_active=True)
+        except (ValueError, TypeError, OverflowError, get_user_model().DoesNotExist) as exc:
+            raise serializers.ValidationError({"token": "Ce lien de réinitialisation est invalide ou expiré."}) from exc
+        if not default_token_generator.check_token(user, attrs["token"]):
+            raise serializers.ValidationError({"token": "Ce lien de réinitialisation est invalide ou expiré."})
+        try:
+            validate_password(attrs["password"], user=user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)}) from exc
+        attrs["user"] = user
+        return attrs
+
+    def save(self):
+        user = self.validated_data["user"]
+        user.set_password(self.validated_data["password"])
+        user.save(update_fields=["password"])
         return user
 
 

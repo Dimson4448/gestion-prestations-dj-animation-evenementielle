@@ -1,5 +1,13 @@
+from urllib.parse import urlencode
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import ValidationError
@@ -43,6 +51,8 @@ from .serializers import (
     EventTypeSerializer,
     InvoiceSerializer,
     LogoutSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     MusicStyleSerializer,
     PackageSerializer,
     PaymentSerializer,
@@ -121,6 +131,41 @@ def register_client(request):
     serializer.is_valid(raise_exception=True)
     user = serializer.save()
     return Response(CurrentUserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(request=PasswordResetRequestSerializer, responses={200: OpenApiResponse(description="Demande traitée")}, summary="Demander un nouveau mot de passe")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def request_password_reset(request):
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = get_user_model().objects.filter(email__iexact=serializer.validated_data["email"], is_active=True).first()
+    if user:
+        parameters = urlencode(
+            {
+                "reset_uid": urlsafe_base64_encode(force_bytes(user.pk)),
+                "reset_token": default_token_generator.make_token(user),
+            }
+        )
+        reset_url = f"{settings.FRONTEND_URL.rstrip('/')}?{parameters}"
+        send_mail(
+            "Ultimate DJ - réinitialisation du mot de passe",
+            f"Utilisez ce lien pour choisir un nouveau mot de passe :\n\n{reset_url}\n\nIgnorez ce message si vous n'êtes pas à l'origine de cette demande.",
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=True,
+        )
+    return Response({"detail": "Si cette adresse correspond à un compte actif, un lien vient d'être envoyé."})
+
+
+@extend_schema(request=PasswordResetConfirmSerializer, responses={204: None}, summary="Confirmer un nouveau mot de passe")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def confirm_password_reset(request):
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @extend_schema(request=LogoutSerializer, responses={204: None}, summary="Révoquer la session JWT")

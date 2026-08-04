@@ -203,7 +203,9 @@ svg { width: 20px; height: 20px; }
 .account-card h2 { margin: 0; }
 .account-card label { margin: 0; }
 .account-card button:disabled { cursor: wait; opacity: .65; }
+.account-card .text-button { padding: 4px; border: 0; color: var(--cyan-dark); background: transparent; font-weight: 800; text-decoration: underline; cursor: pointer; }
 .registration-card { grid-column: 1 / -1; }
+.password-reset-card { grid-column: 1 / -1; max-width: 620px; }
 .registration-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
 .registration-grid .full-field { grid-column: 1 / -1; }
 .payment-return-message { display: flex; align-items: center; gap: 10px; max-width: 850px; margin: 0 auto 22px; padding: 14px 16px; border: 1px solid #a9e9f7; border-radius: 10px; color: #15596b; background: #eafaff; font-weight: 700; }

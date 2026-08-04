@@ -24,7 +24,9 @@ from .views import (
     calculate_quote,
     current_user,
     logout_user,
+    confirm_password_reset,
     register_client,
+    request_password_reset,
 )
 
 
@@ -49,6 +51,8 @@ router.register("reviews", ReviewViewSet, basename="review")
 
 urlpatterns = [
     path("auth/register/", register_client, name="register-client"),
+    path("auth/password-reset/", request_password_reset, name="request-password-reset"),
+    path("auth/password-reset/confirm/", confirm_password_reset, name="confirm-password-reset"),
     path("auth/me/", current_user, name="current-user"),
     path("auth/logout/", logout_user, name="logout-user"),
     path("quotes/calculate/", calculate_quote, name="quote-calculate"),

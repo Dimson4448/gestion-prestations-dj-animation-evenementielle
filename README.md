@@ -233,6 +233,12 @@ de robustesse au mot de passe, contrôle que le client est majeur, puis crée
 atomiquement l'utilisateur et son profil de facturation. Une session JWT est
 ouverte uniquement après la réussite complète de l'inscription.
 
+Le lien « Mot de passe oublié » envoie une URL temporaire à l'adresse du
+compte sans révéler publiquement si celle-ci existe. Après validation du lien,
+Django applique les mêmes règles de robustesse au nouveau mot de passe et
+invalide les jetons JWT créés avec l'ancien mot de passe. En développement, le
+lien apparaît dans le terminal Django avec le backend d'e-mail `console`.
+
 La note destinée à la publication GitHub se trouve dans
 [`RELEASE_BETA.md`](RELEASE_BETA.md). Le tag prévu est `v0.2.0-beta.1` et ne
 sera créé qu'après fusion et validation finale.

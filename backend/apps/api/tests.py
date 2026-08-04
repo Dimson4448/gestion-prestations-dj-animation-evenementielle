@@ -1,7 +1,10 @@
 from datetime import date, timedelta
+from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core import mail
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -172,6 +175,60 @@ class ApiUltimateDJTests(APITestCase):
         duplicate = self.client.post("/api/v1/auth/register/", base_payload, format="json")
         self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("username", duplicate.data)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
+    def test_reinitialisation_du_mot_de_passe_par_lien_email(self):
+        authenticated = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "MotDePasseTest2026!"},
+            format="json",
+        )
+        requested = self.client.post(
+            "/api/v1/auth/password-reset/",
+            {"email": self.client_user.email},
+            format="json",
+        )
+        self.assertEqual(requested.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        reset_url = next(line for line in mail.outbox[0].body.splitlines() if line.startswith("http://"))
+        parameters = parse_qs(urlparse(reset_url).query)
+
+        confirmed = self.client.post(
+            "/api/v1/auth/password-reset/confirm/",
+            {
+                "uid": parameters["reset_uid"][0],
+                "token": parameters["reset_token"][0],
+                "password": "NouveauMotDePasse2026!",
+            },
+            format="json",
+        )
+        self.assertEqual(confirmed.status_code, status.HTTP_204_NO_CONTENT)
+        self.client_user.refresh_from_db()
+        self.assertTrue(self.client_user.check_password("NouveauMotDePasse2026!"))
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {authenticated.data['access']}")
+        revoked_session = self.client.get("/api/v1/auth/me/")
+        self.assertEqual(revoked_session.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.client.credentials()
+
+        replayed = self.client.post(
+            "/api/v1/auth/password-reset/confirm/",
+            {
+                "uid": parameters["reset_uid"][0],
+                "token": parameters["reset_token"][0],
+                "password": "EncoreUnMotDePasse2026!",
+            },
+            format="json",
+        )
+        self.assertEqual(replayed.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_demande_mot_de_passe_ne_revele_pas_les_comptes(self):
+        existing = self.client.post("/api/v1/auth/password-reset/", {"email": self.client_user.email}, format="json")
+        unknown = self.client.post("/api/v1/auth/password-reset/", {"email": "inconnu@example.com"}, format="json")
+        self.assertEqual(existing.status_code, status.HTTP_200_OK)
+        self.assertEqual(unknown.status_code, status.HTTP_200_OK)
+        self.assertEqual(existing.data, unknown.data)
+        self.assertEqual(len(mail.outbox), 1)
 
     def create_available_dj(self):
         dj_user = get_user_model().objects.create_user(
