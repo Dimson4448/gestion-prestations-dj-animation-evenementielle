@@ -49,6 +49,7 @@ from .serializers import (
     DJProfileSerializer,
     EquipmentSerializer,
     EventTypeSerializer,
+    EmailVerificationSerializer,
     InvoiceSerializer,
     LogoutSerializer,
     PasswordResetConfirmSerializer,
@@ -123,14 +124,41 @@ def current_user(request):
     return Response(CurrentUserSerializer(request.user).data)
 
 
-@extend_schema(request=ClientRegistrationSerializer, responses={201: CurrentUserSerializer}, summary="Créer un compte client")
+@extend_schema(request=ClientRegistrationSerializer, responses={201: OpenApiResponse(description="Compte créé, vérification requise")}, summary="Créer un compte client")
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
 def register_client(request):
     serializer = ClientRegistrationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     user = serializer.save()
-    return Response(CurrentUserSerializer(user).data, status=status.HTTP_201_CREATED)
+    parameters = urlencode(
+        {
+            "verify_uid": urlsafe_base64_encode(force_bytes(user.pk)),
+            "verify_token": default_token_generator.make_token(user),
+        }
+    )
+    verification_url = f"{settings.FRONTEND_URL.rstrip('/')}?{parameters}"
+    send_mail(
+        "Ultimate DJ - confirmez votre adresse e-mail",
+        f"Bienvenue chez Ultimate DJ. Confirmez votre adresse e-mail avec ce lien :\n\n{verification_url}\n\nCe lien ne peut être utilisé qu'une fois.",
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        fail_silently=True,
+    )
+    return Response(
+        {"detail": "Votre compte a été créé. Consultez votre e-mail pour l'activer avant de vous connecter."},
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@extend_schema(request=EmailVerificationSerializer, responses={204: None}, summary="Confirmer une adresse e-mail")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def verify_email(request):
+    serializer = EmailVerificationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @extend_schema(request=PasswordResetRequestSerializer, responses={200: OpenApiResponse(description="Demande traitée")}, summary="Demander un nouveau mot de passe")

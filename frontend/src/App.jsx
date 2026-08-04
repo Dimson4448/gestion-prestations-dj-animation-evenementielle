@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, clearAuthentication, confirmPasswordReset, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, sessionExpiredEvent } from "./api";
+import { apiClient, authenticate, clearAuthentication, confirmPasswordReset, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, sessionExpiredEvent, verifyEmail } from "./api";
 
 const fallbackPackages = [
   {
@@ -252,6 +252,21 @@ export default function App() {
 
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
+    const verificationUid = parameters.get("verify_uid");
+    const verificationToken = parameters.get("verify_token");
+    if (verificationUid && verificationToken) {
+      setPage("compte");
+      setLoginStatus("Vérification de votre adresse e-mail…");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      verifyEmail(verificationUid, verificationToken)
+        .then(() => setLoginStatus("Votre adresse e-mail est confirmée. Vous pouvez maintenant vous connecter."))
+        .catch((error) => {
+          const details = error.response?.data;
+          const firstError = details && Object.values(details).flat()[0];
+          setLoginStatus(firstError || "Ce lien de vérification est invalide ou a expiré.");
+        });
+      return;
+    }
     const resetUid = parameters.get("reset_uid");
     const resetToken = parameters.get("reset_token");
     if (resetUid && resetToken) {
@@ -837,14 +852,11 @@ export default function App() {
     setRegistrationPending(true);
     setRegistrationStatus("");
     try {
-      await registerClient(registration);
-      const profile = await authenticate(registration.username, registration.password);
+      const response = await registerClient(registration);
       setUsername(registration.username);
       setPassword("");
-      setIsAuthenticated(true);
-      setCurrentUser(profile);
       setRegistrationOpen(false);
-      setLoginStatus("Votre compte client a été créé et votre session est active.");
+      setLoginStatus(response.detail);
     } catch (error) {
       const details = error.response?.data;
       const firstError = details && Object.values(details).flat()[0];

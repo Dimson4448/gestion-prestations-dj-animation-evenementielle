@@ -40,6 +40,7 @@ export const clearAuthentication = () => {
 };
 
 export const registerClient = async (payload) => (await apiClient.post("/auth/register/", payload)).data;
+export const verifyEmail = async (uid, token) => apiClient.post("/auth/verify-email/", { uid, token });
 export const requestPasswordReset = async (email) => (await apiClient.post("/auth/password-reset/", { email })).data;
 export const confirmPasswordReset = async (uid, token, password) => apiClient.post("/auth/password-reset/confirm/", { uid, token, password });
 

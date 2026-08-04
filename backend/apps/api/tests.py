@@ -113,7 +113,8 @@ class ApiUltimateDJTests(APITestCase):
         )
         self.assertEqual(revoked_refresh.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_inscription_cree_un_utilisateur_et_son_profil_client(self):
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
+    def test_inscription_cree_un_profil_inactif_puis_verifie_email(self):
         response = self.client.post(
             "/api/v1/auth/register/",
             {
@@ -132,10 +133,29 @@ class ApiUltimateDJTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["role"], "client")
         user = get_user_model().objects.get(username="nouveau_client")
         self.assertTrue(user.check_password("MotDePasseNouveau2026!"))
         self.assertEqual(user.client_profile.billing_city, "Namur")
+        self.assertFalse(user.is_active)
+        self.assertEqual(len(mail.outbox), 1)
+
+        blocked_login = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": "nouveau_client", "password": "MotDePasseNouveau2026!"},
+            format="json",
+        )
+        self.assertEqual(blocked_login.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        verification_url = next(line for line in mail.outbox[0].body.splitlines() if line.startswith("http://"))
+        parameters = parse_qs(urlparse(verification_url).query)
+        verification_payload = {
+            "uid": parameters["verify_uid"][0],
+            "token": parameters["verify_token"][0],
+        }
+        verified = self.client.post("/api/v1/auth/verify-email/", verification_payload, format="json")
+        self.assertEqual(verified.status_code, status.HTTP_204_NO_CONTENT)
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
 
         authenticated = self.client.post(
             "/api/v1/auth/token/",
@@ -143,6 +163,8 @@ class ApiUltimateDJTests(APITestCase):
             format="json",
         )
         self.assertEqual(authenticated.status_code, status.HTTP_200_OK)
+        replayed = self.client.post("/api/v1/auth/verify-email/", verification_payload, format="json")
+        self.assertEqual(replayed.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_inscription_refuse_doublon_mot_de_passe_faible_et_mineur(self):
         base_payload = {

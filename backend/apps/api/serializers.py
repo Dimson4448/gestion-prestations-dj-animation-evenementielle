@@ -113,8 +113,30 @@ class ClientRegistrationSerializer(serializers.Serializer):
             )
         }
         password = validated_data.pop("password")
-        user = get_user_model().objects.create_user(password=password, **validated_data)
+        user = get_user_model().objects.create_user(password=password, is_active=False, **validated_data)
         ClientProfile.objects.create(user=user, **profile_fields)
+        return user
+
+
+class EmailVerificationSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+
+    def validate(self, attrs):
+        try:
+            user_id = force_str(urlsafe_base64_decode(attrs["uid"]))
+            user = get_user_model().objects.get(pk=user_id)
+        except (ValueError, TypeError, OverflowError, get_user_model().DoesNotExist) as exc:
+            raise serializers.ValidationError({"token": "Ce lien de vérification est invalide ou expiré."}) from exc
+        if user.is_active or not default_token_generator.check_token(user, attrs["token"]):
+            raise serializers.ValidationError({"token": "Ce lien de vérification est invalide ou expiré."})
+        attrs["user"] = user
+        return attrs
+
+    def save(self):
+        user = self.validated_data["user"]
+        user.is_active = True
+        user.save(update_fields=["is_active"])
         return user
 
 
