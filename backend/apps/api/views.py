@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.utils.encoding import force_bytes
@@ -19,7 +20,7 @@ from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.accounts.models import DJProfile
+from apps.accounts.models import AccountDeletionRequest, DJProfile
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
@@ -40,6 +41,7 @@ from apps.payments.services import StripeCheckoutError, StripeConfigurationError
 from .permissions import AdministrationOuProprietaire, DJOuAdministration, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
 from .serializers import (
     BookingSerializer,
+    AccountDeletionRequestSerializer,
     BookingCancellationSerializer,
     CancellationRequestSerializer,
     CancellationRequestReviewSerializer,
@@ -140,6 +142,39 @@ def client_profile(request):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(serializer.data)
+
+
+@extend_schema(request=AccountDeletionRequestSerializer, responses={200: AccountDeletionRequestSerializer(many=True), 201: AccountDeletionRequestSerializer}, summary="Consulter ou demander la suppression du compte")
+@api_view(["GET", "POST"])
+@permission_classes([permissions.IsAuthenticated])
+def account_deletion_requests(request):
+    client = getattr(request.user, "client_profile", None)
+    if not client:
+        raise PermissionDenied("Un profil client est requis pour cette opération.")
+    if request.method == "GET":
+        requests = AccountDeletionRequest.objects.filter(client=client)
+        return Response(AccountDeletionRequestSerializer(requests, many=True).data)
+    serializer = AccountDeletionRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    with transaction.atomic():
+        locked_client = type(client).objects.select_for_update().get(pk=client.pk)
+        if AccountDeletionRequest.objects.filter(client=locked_client, status=AccountDeletionRequest.PENDING).exists():
+            raise ValidationError({"detail": "Une demande de suppression est déjà en attente."})
+        serializer.save(client=locked_client)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(request=None, responses={200: AccountDeletionRequestSerializer}, summary="Annuler une demande de suppression")
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def cancel_account_deletion_request(request, pk):
+    client = getattr(request.user, "client_profile", None)
+    deletion_request = get_object_or_404(AccountDeletionRequest, pk=pk, client=client)
+    if deletion_request.status != AccountDeletionRequest.PENDING:
+        raise ValidationError({"detail": "Seule une demande en attente peut être annulée."})
+    deletion_request.status = AccountDeletionRequest.CANCELLED
+    deletion_request.save(update_fields=["status"])
+    return Response(AccountDeletionRequestSerializer(deletion_request).data)
 
 
 @extend_schema(request=PasswordChangeSerializer, responses={204: None}, summary="Modifier le mot de passe connecté")

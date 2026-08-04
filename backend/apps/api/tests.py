@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.accounts.models import ClientProfile, DJProfile
+from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJProfile
 from apps.availability.models import DJAvailability
 from apps.bookings.models import Booking, CancellationRequest, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Review, Venue
 from apps.catalog.models import EventType, MusicStyle, Package
@@ -207,6 +207,55 @@ class ApiUltimateDJTests(APITestCase):
             format="json",
         )
         self.assertEqual(new_login.status_code, status.HTTP_200_OK)
+
+    def test_client_enregistre_et_annule_une_demande_suppression(self):
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post(
+            "/api/v1/auth/deletion-requests/",
+            {"reason": "Je souhaite fermer définitivement mon espace client."},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["status"], AccountDeletionRequest.PENDING)
+        self.assertEqual(AccountDeletionRequest.objects.get().client, self.client_profile)
+
+        duplicate = self.client.post(
+            "/api/v1/auth/deletion-requests/",
+            {"reason": "Une seconde demande ne doit pas être créée."},
+            format="json",
+        )
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(AccountDeletionRequest.objects.count(), 1)
+
+        listed = self.client.get("/api/v1/auth/deletion-requests/")
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(listed.data), 1)
+
+        cancelled = self.client.post(f"/api/v1/auth/deletion-requests/{created.data['id']}/cancel/")
+        self.assertEqual(cancelled.status_code, status.HTTP_200_OK)
+        self.assertEqual(cancelled.data["status"], AccountDeletionRequest.CANCELLED)
+
+    def test_client_ne_peut_pas_annuler_la_demande_suppression_d_un_autre(self):
+        deletion_request = AccountDeletionRequest.objects.create(
+            client=self.client_profile,
+            reason="Demande appartenant au premier client.",
+        )
+        other_user = get_user_model().objects.create_user(
+            username="autre_suppression",
+            email="autre-suppression@example.com",
+            password="MotDePasseAutre2026!",
+        )
+        ClientProfile.objects.create(
+            user=other_user,
+            date_of_birth=date(1991, 1, 1),
+            phone="+32473333333",
+            billing_address="Rue Autre 3",
+            billing_city="Charleroi",
+            billing_postal_code="6000",
+        )
+        self.client.force_authenticate(user=other_user)
+        forbidden = self.client.post(f"/api/v1/auth/deletion-requests/{deletion_request.pk}/cancel/")
+        self.assertEqual(forbidden.status_code, status.HTTP_404_NOT_FOUND)
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
     def test_inscription_cree_un_profil_inactif_puis_verifie_email(self):

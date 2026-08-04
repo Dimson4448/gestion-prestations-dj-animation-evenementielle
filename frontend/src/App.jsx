@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, changePassword, clearAuthentication, confirmPasswordReset, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
+import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
 
 const fallbackPackages = [
   {
@@ -167,6 +167,10 @@ export default function App() {
   const [changedPassword, setChangedPassword] = useState("");
   const [passwordChangePending, setPasswordChangePending] = useState(false);
   const [passwordChangeStatus, setPasswordChangeStatus] = useState("");
+  const [accountDeletionRequests, setAccountDeletionRequests] = useState([]);
+  const [accountDeletionReason, setAccountDeletionReason] = useState("");
+  const [accountDeletionPending, setAccountDeletionPending] = useState(false);
+  const [accountDeletionStatus, setAccountDeletionStatus] = useState("");
   const [invoices, setInvoices] = useState([]);
   const [clientPayments, setClientPayments] = useState([]);
   const [contracts, setContracts] = useState([]);
@@ -384,6 +388,18 @@ export default function App() {
     return () => {
       mounted = false;
     };
+  }, [isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    if (!isAuthenticated || currentUser?.role !== "client") {
+      setAccountDeletionRequests([]);
+      return;
+    }
+    let mounted = true;
+    getAccountDeletionRequests()
+      .then((requests) => mounted && setAccountDeletionRequests(requests))
+      .catch(() => mounted && setAccountDeletionStatus("Impossible de charger vos demandes de suppression."));
+    return () => { mounted = false; };
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
@@ -961,6 +977,38 @@ export default function App() {
       setPasswordChangeStatus(firstError || "Le mot de passe n’a pas pu être modifié.");
     } finally {
       setPasswordChangePending(false);
+    }
+  };
+
+  const handleAccountDeletionRequest = async (event) => {
+    event.preventDefault();
+    setAccountDeletionPending(true);
+    setAccountDeletionStatus("");
+    try {
+      const request = await createAccountDeletionRequest(accountDeletionReason);
+      setAccountDeletionRequests((current) => [request, ...current]);
+      setAccountDeletionReason("");
+      setAccountDeletionStatus("Votre demande de suppression a été enregistrée pour traitement administratif.");
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setAccountDeletionStatus(firstError || "La demande n’a pas pu être enregistrée.");
+    } finally {
+      setAccountDeletionPending(false);
+    }
+  };
+
+  const cancelAccountDeletion = async (requestId) => {
+    setAccountDeletionPending(true);
+    setAccountDeletionStatus("");
+    try {
+      const request = await cancelAccountDeletionRequest(requestId);
+      setAccountDeletionRequests((current) => current.map((item) => item.id === request.id ? request : item));
+      setAccountDeletionStatus("Votre demande de suppression a été annulée.");
+    } catch (error) {
+      setAccountDeletionStatus(error.response?.data?.detail || "La demande ne peut plus être annulée.");
+    } finally {
+      setAccountDeletionPending(false);
     }
   };
 
@@ -1670,6 +1718,12 @@ export default function App() {
                       {passwordChangeStatus && <p className="form-message" role="alert">{passwordChangeStatus}</p>}
                       <button className="primary-button" type="submit" disabled={passwordChangePending}>{passwordChangePending ? "Modification…" : "Modifier et me déconnecter"}</button>
                     </form>}
+                  </div>
+                  <div className="account-deletion-panel">
+                    <div className="playlist-heading"><div><h3>Suppression du compte</h3><p>La demande est examinée avant toute suppression afin de préserver les documents comptables et contractuels obligatoires.</p></div><X /></div>
+                    {accountDeletionRequests.map((request) => <article className="deletion-request-row" key={request.id}><div><strong>Demande n°{request.id}</strong><span>{request.reason}</span>{request.review_message && <small>Réponse : {request.review_message}</small>}</div><div><span className={`deletion-status ${request.status}`}>{request.status === "pending" ? "En attente" : request.status === "cancelled" ? "Annulée" : request.status === "approved" ? "Approuvée" : "Refusée"}</span>{request.status === "pending" && <button className="document-button" type="button" onClick={() => cancelAccountDeletion(request.id)} disabled={accountDeletionPending}>Annuler la demande</button>}</div></article>)}
+                    {!accountDeletionRequests.some((request) => request.status === "pending") && <form className="password-change-form" onSubmit={handleAccountDeletionRequest}><label>Motif de la demande<textarea rows="3" minLength="10" value={accountDeletionReason} onChange={(event) => setAccountDeletionReason(event.target.value)} required /></label><button className="document-button danger-button" type="submit" disabled={accountDeletionPending}>{accountDeletionPending ? "Enregistrement…" : "Demander la suppression"}</button></form>}
+                    {accountDeletionStatus && <p className={accountDeletionStatus.includes("enregistrée") || accountDeletionStatus.includes("annulée") ? "form-message success" : "form-message"} role="status">{accountDeletionStatus}</p>}
                   </div>
                   <div className="quote-list">
                     <h3>Mes demandes de devis</h3>

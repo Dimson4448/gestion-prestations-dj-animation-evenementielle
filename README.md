@@ -253,6 +253,12 @@ confirmé le mot de passe actuel. Le jeton de renouvellement est placé en liste
 noire, les anciens jetons d'accès deviennent invalides et React ferme la session
 locale afin d'imposer une nouvelle authentification.
 
+La demande de suppression du compte est désormais enregistrée dans MariaDB au
+lieu d'être une simple confirmation visuelle. Le client consulte son historique,
+ne peut avoir qu'une demande en attente et peut l'annuler avant traitement.
+L'administration retrouve le dossier dans Django Admin afin de vérifier les
+obligations contractuelles et comptables avant toute suppression effective.
+
 La note destinée à la publication GitHub se trouve dans
 [`RELEASE_BETA.md`](RELEASE_BETA.md). Le tag prévu est `v0.2.0-beta.1` et ne
 sera créé qu'après fusion et validation finale.

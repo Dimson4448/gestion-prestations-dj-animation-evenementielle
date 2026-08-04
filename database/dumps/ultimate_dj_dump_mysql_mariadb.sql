@@ -17,6 +17,30 @@
 /*M!100616 SET @OLD_NOTE_VERBOSITY=@@NOTE_VERBOSITY, NOTE_VERBOSITY=0 */;
 
 --
+-- Table structure for table `account_deletion_requests`
+--
+
+DROP TABLE IF EXISTS `account_deletion_requests`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `account_deletion_requests` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `reason` longtext NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `review_message` longtext NOT NULL,
+  `requested_at` datetime(6) NOT NULL,
+  `reviewed_at` datetime(6) DEFAULT NULL,
+  `client_id` bigint(20) NOT NULL,
+  `reviewed_by_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `account_deletion_req_client_id_e528c2c1_fk_client_pr` (`client_id`),
+  KEY `account_deletion_req_reviewed_by_id_a5573f4b_fk_auth_user` (`reviewed_by_id`),
+  CONSTRAINT `account_deletion_req_client_id_e528c2c1_fk_client_pr` FOREIGN KEY (`client_id`) REFERENCES `client_profiles` (`id`),
+  CONSTRAINT `account_deletion_req_reviewed_by_id_a5573f4b_fk_auth_user` FOREIGN KEY (`reviewed_by_id`) REFERENCES `auth_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `auth_group`
 --
 
@@ -65,7 +89,7 @@ CREATE TABLE `auth_permission` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `auth_permission_content_type_id_codename_01ab375a_uniq` (`content_type_id`,`codename`),
   CONSTRAINT `auth_permission_content_type_id_2f476e4b_fk_django_co` FOREIGN KEY (`content_type_id`) REFERENCES `django_content_type` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=105 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=125 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -371,7 +395,7 @@ CREATE TABLE `django_content_type` (
   `model` varchar(100) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `django_content_type_app_label_model_76bd3d3b_uniq` (`app_label`,`model`)
-) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -387,7 +411,7 @@ CREATE TABLE `django_migrations` (
   `name` varchar(255) NOT NULL,
   `applied` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -883,7 +907,9 @@ INSERT INTO `django_migrations` VALUES
 (43,'token_blacklist','0010_fix_migrate_to_bigautofield','2026-08-04 15:16:35.607439'),
 (44,'token_blacklist','0011_linearizes_history','2026-08-04 15:16:35.607439'),
 (45,'token_blacklist','0012_alter_outstandingtoken_user','2026-08-04 15:16:35.643536'),
-(46,'token_blacklist','0013_alter_blacklistedtoken_options_and_more','2026-08-04 15:16:35.656098');
+(46,'token_blacklist','0013_alter_blacklistedtoken_options_and_more','2026-08-04 15:16:35.656098'),
+(47,'accounts','0003_accountdeletionrequest','2026-08-04 16:23:38.295084'),
+(48,'accounts','0004_remove_accountdeletionrequest_unique_pending_account_deletion','2026-08-04 16:24:11.725422');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -896,6 +922,7 @@ LOCK TABLES `django_content_type` WRITE;
 /*!40000 ALTER TABLE `django_content_type` DISABLE KEYS */;
 set autocommit=0;
 INSERT INTO `django_content_type` VALUES
+(31,'accounts','accountdeletionrequest'),
 (7,'accounts','clientprofile'),
 (8,'accounts','djprofile'),
 (1,'admin','logentry'),
@@ -1057,7 +1084,11 @@ INSERT INTO `auth_permission` VALUES
 (117,'Can add Outstanding Token',30,'add_outstandingtoken'),
 (118,'Can change Outstanding Token',30,'change_outstandingtoken'),
 (119,'Can delete Outstanding Token',30,'delete_outstandingtoken'),
-(120,'Can view Outstanding Token',30,'view_outstandingtoken');
+(120,'Can view Outstanding Token',30,'view_outstandingtoken'),
+(121,'Can add demande de suppression de compte',31,'add_accountdeletionrequest'),
+(122,'Can change demande de suppression de compte',31,'change_accountdeletionrequest'),
+(123,'Can delete demande de suppression de compte',31,'delete_accountdeletionrequest'),
+(124,'Can view demande de suppression de compte',31,'view_accountdeletionrequest');
 /*!40000 ALTER TABLE `auth_permission` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;

@@ -40,6 +40,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - renvoi confidentiel du lien d'activation pour les comptes encore inactifs ;
 - consultation et modification sécurisées des coordonnées du profil client ;
 - changement du mot de passe avec révocation immédiate de la session JWT ;
+- demande de suppression de compte persistante, traçable et annulable ;
 - récupération sécurisée du mot de passe par lien temporaire envoyé par e-mail ;
 - affichage des factures d'acompte du client ;
 - bouton de paiement réservé aux factures envoyées ;

@@ -51,6 +51,43 @@ class ClientProfile(models.Model):
         return self.user.get_full_name() or self.user.email
 
 
+class AccountDeletionRequest(models.Model):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (PENDING, "En attente"),
+        (APPROVED, "Approuvée"),
+        (REJECTED, "Refusée"),
+        (CANCELLED, "Annulée par le client"),
+    ]
+
+    client = models.ForeignKey(ClientProfile, on_delete=models.PROTECT, related_name="deletion_requests", verbose_name="client")
+    reason = models.TextField("motif")
+    status = models.CharField("statut", max_length=20, choices=STATUS_CHOICES, default=PENDING)
+    review_message = models.TextField("réponse administrative", blank=True)
+    requested_at = models.DateTimeField("demandée le", auto_now_add=True)
+    reviewed_at = models.DateTimeField("traitée le", blank=True, null=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reviewed_account_deletion_requests",
+        verbose_name="traitée par",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        db_table = "account_deletion_requests"
+        verbose_name = "demande de suppression de compte"
+        verbose_name_plural = "demandes de suppression de compte"
+        ordering = ["-requested_at"]
+
+    def __str__(self):
+        return f"Suppression #{self.pk} - {self.client}"
+
+
 class DJProfile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,

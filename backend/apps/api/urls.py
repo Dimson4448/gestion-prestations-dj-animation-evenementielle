@@ -5,6 +5,8 @@ from apps.payments.views import stripe_webhook
 
 from .views import (
     AvailabilityViewSet,
+    account_deletion_requests,
+    cancel_account_deletion_request,
     BookingViewSet,
     ContractViewSet,
     DJProfileViewSet,
@@ -61,6 +63,8 @@ urlpatterns = [
     path("auth/password-reset/confirm/", confirm_password_reset, name="confirm-password-reset"),
     path("auth/me/", current_user, name="current-user"),
     path("auth/profile/", client_profile, name="client-profile"),
+    path("auth/deletion-requests/", account_deletion_requests, name="account-deletion-requests"),
+    path("auth/deletion-requests/<int:pk>/cancel/", cancel_account_deletion_request, name="cancel-account-deletion-request"),
     path("auth/password-change/", change_password, name="change-password"),
     path("auth/logout/", logout_user, name="logout-user"),
     path("quotes/calculate/", calculate_quote, name="quote-calculate"),

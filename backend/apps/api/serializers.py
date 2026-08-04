@@ -16,7 +16,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.accounts.models import ClientProfile, DJProfile, validate_adult
+from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJProfile, validate_adult
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
@@ -103,6 +103,19 @@ class ClientProfileUpdateSerializer(serializers.Serializer):
         if profile_fields:
             profile.save(update_fields=profile_fields)
         return user
+
+
+class AccountDeletionRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AccountDeletionRequest
+        fields = ["id", "reason", "status", "review_message", "requested_at", "reviewed_at"]
+        read_only_fields = ["id", "status", "review_message", "requested_at", "reviewed_at"]
+
+    def validate_reason(self, value):
+        value = value.strip()
+        if len(value) < 10:
+            raise serializers.ValidationError("Expliquez votre demande en au moins 10 caractères.")
+        return value
 
 
 class LogoutSerializer(serializers.Serializer):

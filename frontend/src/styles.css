@@ -217,6 +217,16 @@ svg { width: 20px; height: 20px; }
 .profile-form { gap: 14px 18px; padding-top: 4px; }
 .profile-form input[readonly] { color: #69758b; background: #edf1f6; cursor: not-allowed; }
 .password-change-form { display: grid; gap: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.account-deletion-panel { display: grid; gap: 14px; margin: 8px 0; padding: 18px; border: 1px solid #f0c5cb; border-radius: 12px; background: #fff8f9; }
+.account-deletion-panel textarea { width: 100%; padding: 10px 12px; border: 1px solid #d9bbc0; border-radius: 9px; background: white; }
+.deletion-request-row { display: flex; justify-content: space-between; gap: 18px; padding: 12px; border: 1px solid #ead7da; border-radius: 9px; background: white; }
+.deletion-request-row > div { display: grid; gap: 5px; }
+.deletion-request-row > div:last-child { justify-items: end; }
+.deletion-request-row span, .deletion-request-row small { color: #69758b; font-size: .76rem; }
+.deletion-status { font-weight: 800; text-transform: uppercase; }
+.deletion-status.pending { color: #9a6200; }
+.deletion-status.approved { color: #17633f; }
+.deletion-status.rejected, .deletion-status.cancelled { color: #9f2d3d; }
 .quote-list { display: grid; gap: 10px; margin: 8px 0; }
 .quote-list h3 { margin: 0 0 2px; }
 .quote-row { display: grid; gap: 6px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: #f9fbfd; }
