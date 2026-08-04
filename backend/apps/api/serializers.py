@@ -13,6 +13,8 @@ from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import ClientProfile, DJProfile, validate_adult
 from apps.availability.models import DJAvailability
@@ -105,6 +107,37 @@ class ClientProfileUpdateSerializer(serializers.Serializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField(write_only=True, trim_whitespace=False)
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    refresh = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        if not user.check_password(attrs["current_password"]):
+            raise serializers.ValidationError({"current_password": "Le mot de passe actuel est incorrect."})
+        try:
+            validate_password(attrs["new_password"], user=user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"new_password": list(exc.messages)}) from exc
+        try:
+            refresh = RefreshToken(attrs["refresh"])
+        except TokenError as exc:
+            raise serializers.ValidationError({"refresh": "Le jeton de renouvellement est invalide ou révoqué."}) from exc
+        if str(refresh.get("user_id")) != str(user.pk):
+            raise serializers.ValidationError({"refresh": "Ce jeton n'appartient pas à la session connectée."})
+        attrs["refresh_token"] = refresh
+        return attrs
+
+    @transaction.atomic
+    def save(self):
+        user = self.context["request"].user
+        self.validated_data["refresh_token"].blacklist()
+        user.set_password(self.validated_data["new_password"])
+        user.save(update_fields=["password"])
+        return user
 
 
 class ClientRegistrationSerializer(serializers.Serializer):

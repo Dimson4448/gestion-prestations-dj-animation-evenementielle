@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, clearAuthentication, confirmPasswordReset, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
+import { apiClient, authenticate, changePassword, clearAuthentication, confirmPasswordReset, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
 
 const fallbackPackages = [
   {
@@ -162,6 +162,11 @@ export default function App() {
   const [clientProfileOpen, setClientProfileOpen] = useState(false);
   const [clientProfilePending, setClientProfilePending] = useState(false);
   const [clientProfileStatus, setClientProfileStatus] = useState("");
+  const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [changedPassword, setChangedPassword] = useState("");
+  const [passwordChangePending, setPasswordChangePending] = useState(false);
+  const [passwordChangeStatus, setPasswordChangeStatus] = useState("");
   const [invoices, setInvoices] = useState([]);
   const [clientPayments, setClientPayments] = useState([]);
   const [contracts, setContracts] = useState([]);
@@ -937,6 +942,28 @@ export default function App() {
     }
   };
 
+  const handlePasswordChange = async (event) => {
+    event.preventDefault();
+    setPasswordChangePending(true);
+    setPasswordChangeStatus("");
+    try {
+      await changePassword(currentPassword, changedPassword);
+      clearAuthentication();
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      setClientProfile(null);
+      setCurrentPassword("");
+      setChangedPassword("");
+      setLoginStatus("Votre mot de passe a été modifié et votre ancienne session révoquée. Reconnectez-vous.");
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setPasswordChangeStatus(firstError || "Le mot de passe n’a pas pu être modifié.");
+    } finally {
+      setPasswordChangePending(false);
+    }
+  };
+
   const handlePasswordResetConfirm = async (event) => {
     event.preventDefault();
     setPasswordResetPending(true);
@@ -1623,6 +1650,7 @@ export default function App() {
                   <div className="profile-panel">
                     <div className="playlist-heading"><div><h3>Mes coordonnées</h3><p>{clientProfile ? `${clientProfile.first_name} ${clientProfile.last_name} · ${clientProfile.email} · ${clientProfile.billing_city}` : "Chargement de vos coordonnées…"}</p></div><CircleUserRound /></div>
                     <button className="document-button" type="button" onClick={() => setClientProfileOpen((open) => !open)} disabled={!clientProfile}>{clientProfileOpen ? "Fermer" : "Modifier mes coordonnées"}</button>
+                    <button className="document-button" type="button" onClick={() => setPasswordChangeOpen((open) => !open)}>{passwordChangeOpen ? "Fermer le mot de passe" : "Changer mon mot de passe"}</button>
                     {clientProfileStatus && <p className={clientProfileStatus.includes("mises à jour") ? "form-message success" : "form-message"} role="status">{clientProfileStatus}</p>}
                     {clientProfileOpen && clientProfile && <form className="registration-grid profile-form" onSubmit={handleClientProfileUpdate}>
                       <label>Prénom<input value={clientProfile.first_name} onChange={(event) => changeClientProfile("first_name", event.target.value)} required /></label>
@@ -1635,6 +1663,12 @@ export default function App() {
                       <label>Ville<input value={clientProfile.billing_city} onChange={(event) => changeClientProfile("billing_city", event.target.value)} required /></label>
                       <label>Langue<select value={clientProfile.preferred_language} onChange={(event) => changeClientProfile("preferred_language", event.target.value)}><option value="fr">Français</option><option value="en">Anglais</option><option value="nl">Néerlandais</option></select></label>
                       <button className="primary-button" type="submit" disabled={clientProfilePending}>{clientProfilePending ? "Enregistrement…" : "Enregistrer"}</button>
+                    </form>}
+                    {passwordChangeOpen && <form className="password-change-form" onSubmit={handlePasswordChange}>
+                      <label>Mot de passe actuel<input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" required /></label>
+                      <label>Nouveau mot de passe<input type="password" minLength="8" value={changedPassword} onChange={(event) => setChangedPassword(event.target.value)} autoComplete="new-password" required /></label>
+                      {passwordChangeStatus && <p className="form-message" role="alert">{passwordChangeStatus}</p>}
+                      <button className="primary-button" type="submit" disabled={passwordChangePending}>{passwordChangePending ? "Modification…" : "Modifier et me déconnecter"}</button>
                     </form>}
                   </div>
                   <div className="quote-list">

@@ -57,6 +57,7 @@ from .serializers import (
     LogoutSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    PasswordChangeSerializer,
     MusicStyleSerializer,
     PackageSerializer,
     PaymentSerializer,
@@ -139,6 +140,16 @@ def client_profile(request):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(serializer.data)
+
+
+@extend_schema(request=PasswordChangeSerializer, responses={204: None}, summary="Modifier le mot de passe connecté")
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def change_password(request):
+    serializer = PasswordChangeSerializer(data=request.data, context={"request": request})
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def send_verification_email(user):

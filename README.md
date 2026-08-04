@@ -248,6 +248,11 @@ personnelles et de facturation depuis React. L'API réserve cette ressource au
 propriétaire du profil, conserve l'adresse e-mail vérifiée en lecture seule et
 réapplique notamment le contrôle de majorité lors d'une modification.
 
+Le client peut également changer son mot de passe depuis ce profil après avoir
+confirmé le mot de passe actuel. Le jeton de renouvellement est placé en liste
+noire, les anciens jetons d'accès deviennent invalides et React ferme la session
+locale afin d'imposer une nouvelle authentification.
+
 La note destinée à la publication GitHub se trouve dans
 [`RELEASE_BETA.md`](RELEASE_BETA.md). Le tag prévu est `v0.2.0-beta.1` et ne
 sera créé qu'après fusion et validation finale.

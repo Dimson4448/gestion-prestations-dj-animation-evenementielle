@@ -34,6 +34,11 @@ export const authenticate = async (username, password) => {
 export const getCurrentUser = async () => (await apiClient.get("/auth/me/")).data;
 export const getClientProfile = async () => (await apiClient.get("/auth/profile/")).data;
 export const updateClientProfile = async (payload) => (await apiClient.patch("/auth/profile/", payload)).data;
+export const changePassword = async (currentPassword, newPassword) => apiClient.post("/auth/password-change/", {
+  current_password: currentPassword,
+  new_password: newPassword,
+  refresh: getStoredRefreshToken(),
+});
 
 export const clearAuthentication = () => {
   window.localStorage.removeItem(accessTokenKey);

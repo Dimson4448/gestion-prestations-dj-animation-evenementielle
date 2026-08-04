@@ -159,6 +159,55 @@ class ApiUltimateDJTests(APITestCase):
         forbidden = self.client.get("/api/v1/auth/profile/")
         self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_client_change_mot_de_passe_et_revoque_sa_session(self):
+        tokens = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "MotDePasseTest2026!"},
+            format="json",
+        ).data
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+
+        wrong = self.client.post(
+            "/api/v1/auth/password-change/",
+            {
+                "current_password": "MotDePasseIncorrect2026!",
+                "new_password": "NouveauMotDePasse2026!",
+                "refresh": tokens["refresh"],
+            },
+            format="json",
+        )
+        self.assertEqual(wrong.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("current_password", wrong.data)
+
+        changed = self.client.post(
+            "/api/v1/auth/password-change/",
+            {
+                "current_password": "MotDePasseTest2026!",
+                "new_password": "NouveauMotDePasse2026!",
+                "refresh": tokens["refresh"],
+            },
+            format="json",
+        )
+        self.assertEqual(changed.status_code, status.HTTP_204_NO_CONTENT)
+        self.client_user.refresh_from_db()
+        self.assertTrue(self.client_user.check_password("NouveauMotDePasse2026!"))
+
+        old_access = self.client.get("/api/v1/auth/me/")
+        self.assertEqual(old_access.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.client.credentials()
+        revoked_refresh = self.client.post(
+            "/api/v1/auth/token/refresh/",
+            {"refresh": tokens["refresh"]},
+            format="json",
+        )
+        self.assertEqual(revoked_refresh.status_code, status.HTTP_401_UNAUTHORIZED)
+        new_login = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "NouveauMotDePasse2026!"},
+            format="json",
+        )
+        self.assertEqual(new_login.status_code, status.HTTP_200_OK)
+
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
     def test_inscription_cree_un_profil_inactif_puis_verifie_email(self):
         response = self.client.post(
