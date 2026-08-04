@@ -314,6 +314,10 @@ class BookingSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         extra_kwargs = {"client": {"required": False}}
 
 
+class BookingCancellationSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=255, min_length=5)
+
+
 class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "appointment"
 

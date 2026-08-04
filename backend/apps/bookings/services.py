@@ -5,9 +5,9 @@ from django.utils import timezone
 
 from apps.accounts.models import DJProfile
 from apps.availability.models import DJAvailability
-from apps.payments.models import Invoice
+from apps.payments.models import Invoice, Payment
 
-from .models import Booking, Contract, Quote
+from .models import Booking, Contract, PreparatoryAppointment, Quote
 
 
 class QuoteAcceptanceError(Exception):
@@ -20,6 +20,10 @@ class ContractSigningError(Exception):
 
 class BookingCompletionError(Exception):
     """Erreur fonctionnelle empêchant la clôture d'une prestation."""
+
+
+class BookingCancellationError(Exception):
+    """Erreur fonctionnelle empêchant l'annulation d'une réservation."""
 
 
 def _event_end_time(quote):
@@ -168,3 +172,57 @@ def complete_booking(booking_id, actor):
     booking.status = Booking.PERFORMED
     booking.save(update_fields=["status"])
     return booking, invoice
+
+
+@transaction.atomic
+def cancel_booking(booking_id, actor, reason):
+    """Annule un dossier remboursé et libère toutes les ressources encore ouvertes."""
+    if not actor.is_staff:
+        raise BookingCancellationError("Seule l'administration peut confirmer l'annulation d'une réservation.")
+    reason = reason.strip()
+    if not reason:
+        raise BookingCancellationError("Un motif d'annulation est obligatoire.")
+
+    booking = (
+        Booking.objects.select_for_update()
+        .select_related("contract", "dj")
+        .get(pk=booking_id)
+    )
+    if booking.status not in {Booking.PREPARATORY_MEETING, Booking.CONFIRMED, Booking.PAID}:
+        raise BookingCancellationError("Cette réservation ne peut plus être annulée dans son état actuel.")
+    event_start = timezone.make_aware(datetime.combine(booking.event_date, booking.start_time))
+    if event_start <= timezone.now():
+        raise BookingCancellationError("Une prestation déjà commencée ne peut plus être annulée.")
+
+    blocking_payments = Payment.objects.select_for_update().filter(
+        booking=booking,
+        status__in=[Payment.PENDING, Payment.PAID],
+    )
+    if blocking_payments.exists():
+        raise BookingCancellationError(
+            "Tous les paiements en attente ou encaissés doivent être résolus et remboursés avant l'annulation."
+        )
+
+    booking.status = Booking.CANCELLED
+    booking.deposit_paid = False
+    booking.cancellation_reason = reason
+    booking.save(update_fields=["status", "deposit_paid", "cancellation_reason"])
+
+    if hasattr(booking, "contract") and booking.contract.status != Contract.CANCELLED:
+        booking.contract.status = Contract.CANCELLED
+        booking.contract.save(update_fields=["status"])
+    PreparatoryAppointment.objects.select_for_update().filter(
+        booking=booking,
+        status=PreparatoryAppointment.PLANNED,
+    ).update(status=PreparatoryAppointment.CANCELLED)
+    Invoice.objects.select_for_update().filter(
+        booking=booking,
+        status__in=[Invoice.DRAFT, Invoice.SENT],
+    ).update(status=Invoice.CANCELLED)
+    DJAvailability.objects.select_for_update().filter(
+        dj=booking.dj,
+        available_date=booking.event_date,
+        status=DJAvailability.RESERVED,
+        reason=f"Réservation #{booking.pk}",
+    ).update(status=DJAvailability.AVAILABLE, reason="")
+    return booking

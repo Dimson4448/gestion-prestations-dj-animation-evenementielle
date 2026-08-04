@@ -9,7 +9,7 @@ from apps.accounts.models import ClientProfile, DJProfile
 from apps.availability.models import DJAvailability
 from apps.bookings.models import Booking, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Review, Venue
 from apps.catalog.models import EventType, MusicStyle, Package
-from apps.payments.models import Invoice
+from apps.payments.models import Invoice, Payment
 from apps.bookings.services import accept_quote
 
 
@@ -822,3 +822,102 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(balance.amount, booking.total_amount - deposit_invoice.amount)
         self.assertEqual(balance.status, Invoice.SENT)
         self.assertEqual(Invoice.objects.filter(booking=booking, invoice_type=Invoice.BALANCE).count(), 1)
+
+    def test_admin_annule_un_dossier_sans_paiement_et_libere_le_dj(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        availability = DJAvailability.objects.get(dj=booking.dj, available_date=booking.event_date)
+        appointment = PreparatoryAppointment.objects.create(
+            booking=booking,
+            scheduled_at=timezone.now() + timedelta(days=7),
+            status=PreparatoryAppointment.PLANNED,
+        )
+
+        self.client.force_authenticate(user=self.client_user)
+        client_attempt = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Annulation demandée par le client"},
+            format="json",
+        )
+        self.client.force_authenticate(user=booking.dj.user)
+        dj_attempt = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Indisponibilité communiquée par le DJ"},
+            format="json",
+        )
+        self.assertEqual(client_attempt.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(dj_attempt.status_code, status.HTTP_403_FORBIDDEN)
+
+        admin = get_user_model().objects.create_superuser(
+            username="admin_cancellation",
+            email="admin-cancellation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+        response = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Annulation confirmée avec le client"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        booking.refresh_from_db()
+        contract.refresh_from_db()
+        appointment.refresh_from_db()
+        availability.refresh_from_db()
+        self.assertEqual(booking.status, Booking.CANCELLED)
+        self.assertFalse(booking.deposit_paid)
+        self.assertEqual(booking.cancellation_reason, "Annulation confirmée avec le client")
+        self.assertEqual(contract.status, Contract.CANCELLED)
+        self.assertEqual(appointment.status, PreparatoryAppointment.CANCELLED)
+        self.assertEqual(availability.status, DJAvailability.AVAILABLE)
+        self.assertEqual(availability.reason, "")
+        self.assertFalse(Invoice.objects.filter(booking=booking).exclude(status=Invoice.CANCELLED).exists())
+
+    def test_admin_ne_peut_annuler_avant_le_remboursement_integral(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        invoice = booking.invoices.get(invoice_type=Invoice.DEPOSIT)
+        payment = Payment.objects.create(
+            booking=booking,
+            invoice=invoice,
+            stripe_session_id="cs_test_cancel_booking",
+            stripe_payment_intent_id="pi_test_cancel_booking",
+            amount=invoice.amount,
+            currency="EUR",
+            status=Payment.PAID,
+            paid_at=timezone.now(),
+        )
+        invoice.status = Invoice.PAID
+        invoice.save(update_fields=["status"])
+        booking.status = Booking.CONFIRMED
+        booking.deposit_paid = True
+        booking.save(update_fields=["status", "deposit_paid"])
+        admin = get_user_model().objects.create_superuser(
+            username="admin_cancellation_refund",
+            email="admin-cancellation-refund@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+
+        blocked = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Le client demande une annulation"},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Booking.CONFIRMED)
+
+        payment.status = Payment.REFUNDED
+        payment.save(update_fields=["status"])
+        invoice.status = Invoice.CANCELLED
+        invoice.save(update_fields=["status"])
+        cancelled = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Paiement remboursé, annulation confirmée"},
+            format="json",
+        )
+        self.assertEqual(cancelled.status_code, status.HTTP_200_OK)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Booking.CANCELLED)

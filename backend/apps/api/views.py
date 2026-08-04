@@ -20,7 +20,7 @@ from apps.bookings.models import (
     Review,
     Venue,
 )
-from apps.bookings.services import BookingCompletionError, ContractSigningError, QuoteAcceptanceError, accept_quote, complete_booking, sign_contract
+from apps.bookings.services import BookingCancellationError, BookingCompletionError, ContractSigningError, QuoteAcceptanceError, accept_quote, cancel_booking, complete_booking, sign_contract
 from apps.bookings.documents import build_contract_pdf, build_invoice_pdf
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
@@ -29,6 +29,7 @@ from apps.payments.services import StripeCheckoutError, StripeConfigurationError
 from .permissions import AdministrationOuProprietaire, DJOuAdministration, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
 from .serializers import (
     BookingSerializer,
+    BookingCancellationSerializer,
     ContractSerializer,
     CurrentUserSerializer,
     DJAvailabilitySerializer,
@@ -263,6 +264,7 @@ class QuoteViewSet(ProtectedModelViewSet):
 
 
 class BookingViewSet(AdminManagedProtectedViewSet):
+    admin_only_actions = {"create", "update", "partial_update", "destroy", "cancel"}
     serializer_class = BookingSerializer
     filterset_fields = ["status", "event_type", "package", "deposit_paid"]
     search_fields = ["client__user__email", "dj__stage_name", "venue__name"]
@@ -300,6 +302,22 @@ class BookingViewSet(AdminManagedProtectedViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    @extend_schema(
+        request=BookingCancellationSerializer,
+        responses={200: BookingSerializer},
+        summary="Annuler une réservation remboursée et libérer le créneau DJ",
+    )
+    @action(detail=True, methods=["post"], url_path="cancel")
+    def cancel(self, request, pk=None):
+        booking = self.get_object()
+        serializer = BookingCancellationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            booking = cancel_booking(booking.pk, request.user, serializer.validated_data["reason"])
+        except BookingCancellationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(BookingSerializer(booking, context={"request": request}).data)
 
 class PreparatoryAppointmentViewSet(AdminManagedProtectedViewSet):
     admin_only_actions = {"destroy"}
