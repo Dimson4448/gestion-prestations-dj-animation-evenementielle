@@ -42,6 +42,9 @@ export const changePassword = async (currentPassword, newPassword) => apiClient.
 export const getAccountDeletionRequests = async () => (await apiClient.get("/auth/deletion-requests/")).data;
 export const createAccountDeletionRequest = async (reason) => (await apiClient.post("/auth/deletion-requests/", { reason })).data;
 export const cancelAccountDeletionRequest = async (id) => (await apiClient.post(`/auth/deletion-requests/${id}/cancel/`)).data;
+export const reviewAccountDeletionRequest = async (id, decision, reviewMessage) => (
+  await apiClient.post(`/auth/deletion-requests/${id}/review/`, { decision, review_message: reviewMessage })
+).data;
 
 export const clearAuthentication = () => {
   window.localStorage.removeItem(accessTokenKey);

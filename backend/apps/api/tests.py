@@ -257,6 +257,69 @@ class ApiUltimateDJTests(APITestCase):
         forbidden = self.client.post(f"/api/v1/auth/deletion-requests/{deletion_request.pk}/cancel/")
         self.assertEqual(forbidden.status_code, status.HTTP_404_NOT_FOUND)
 
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_administrateur_refuse_une_demande_suppression_avec_reponse(self):
+        deletion_request = AccountDeletionRequest.objects.create(
+            client=self.client_profile,
+            reason="Je souhaite fermer mon compte après mon événement.",
+        )
+        self.client.force_authenticate(user=self.client_user)
+        forbidden = self.client.post(
+            f"/api/v1/auth/deletion-requests/{deletion_request.pk}/review/",
+            {"decision": "rejected", "review_message": "Le dossier financier doit encore être clôturé."},
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+        admin = get_user_model().objects.create_superuser(
+            username="admin_suppression",
+            email="admin-suppression@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+        reviewed = self.client.post(
+            f"/api/v1/auth/deletion-requests/{deletion_request.pk}/review/",
+            {"decision": "rejected", "review_message": "Le dossier financier doit encore être clôturé."},
+            format="json",
+        )
+        self.assertEqual(reviewed.status_code, status.HTTP_200_OK)
+        self.assertEqual(reviewed.data["status"], AccountDeletionRequest.REJECTED)
+        self.assertEqual(reviewed.data["client_email"], self.client_user.email)
+        self.assertEqual(len(mail.outbox), 1)
+        self.client_user.refresh_from_db()
+        self.assertTrue(self.client_user.is_active)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_approbation_suppression_desactive_compte_et_revoque_sessions(self):
+        tokens = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "MotDePasseTest2026!"},
+            format="json",
+        ).data
+        deletion_request = AccountDeletionRequest.objects.create(
+            client=self.client_profile,
+            reason="Je confirme la fermeture de mon compte client.",
+        )
+        admin = get_user_model().objects.create_superuser(
+            username="admin_approbation_suppression",
+            email="admin-approbation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+        approved = self.client.post(
+            f"/api/v1/auth/deletion-requests/{deletion_request.pk}/review/",
+            {"decision": "approved", "review_message": "Le compte est désactivé, les pièces légales sont conservées."},
+            format="json",
+        )
+        self.assertEqual(approved.status_code, status.HTTP_200_OK)
+        self.assertEqual(approved.data["status"], AccountDeletionRequest.APPROVED)
+        self.client_user.refresh_from_db()
+        self.assertFalse(self.client_user.is_active)
+
+        self.client.force_authenticate(user=None)
+        revoked = self.client.post("/api/v1/auth/token/refresh/", {"refresh": tokens["refresh"]}, format="json")
+        self.assertEqual(revoked.status_code, status.HTTP_401_UNAUTHORIZED)
+
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
     def test_inscription_cree_un_profil_inactif_puis_verifie_email(self):
         response = self.client.post(

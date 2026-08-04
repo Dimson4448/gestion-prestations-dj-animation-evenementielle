@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import ValidationError
@@ -19,6 +20,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from apps.accounts.models import AccountDeletionRequest, DJProfile
 from apps.availability.models import DJAvailability
@@ -42,6 +44,7 @@ from .permissions import AdministrationOuProprietaire, DJOuAdministration, Lectu
 from .serializers import (
     BookingSerializer,
     AccountDeletionRequestSerializer,
+    AccountDeletionReviewSerializer,
     BookingCancellationSerializer,
     CancellationRequestSerializer,
     CancellationRequestReviewSerializer,
@@ -148,12 +151,18 @@ def client_profile(request):
 @api_view(["GET", "POST"])
 @permission_classes([permissions.IsAuthenticated])
 def account_deletion_requests(request):
+    if request.method == "GET":
+        if request.user.is_staff:
+            requests = AccountDeletionRequest.objects.select_related("client__user", "reviewed_by").all()
+        else:
+            client = getattr(request.user, "client_profile", None)
+            if not client:
+                raise PermissionDenied("Un profil client est requis pour cette opération.")
+            requests = AccountDeletionRequest.objects.filter(client=client)
+        return Response(AccountDeletionRequestSerializer(requests, many=True).data)
     client = getattr(request.user, "client_profile", None)
     if not client:
         raise PermissionDenied("Un profil client est requis pour cette opération.")
-    if request.method == "GET":
-        requests = AccountDeletionRequest.objects.filter(client=client)
-        return Response(AccountDeletionRequestSerializer(requests, many=True).data)
     serializer = AccountDeletionRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     with transaction.atomic():
@@ -174,6 +183,43 @@ def cancel_account_deletion_request(request, pk):
         raise ValidationError({"detail": "Seule une demande en attente peut être annulée."})
     deletion_request.status = AccountDeletionRequest.CANCELLED
     deletion_request.save(update_fields=["status"])
+    return Response(AccountDeletionRequestSerializer(deletion_request).data)
+
+
+@extend_schema(request=AccountDeletionReviewSerializer, responses={200: AccountDeletionRequestSerializer}, summary="Traiter une demande de suppression")
+@api_view(["POST"])
+@permission_classes([permissions.IsAdminUser])
+def review_account_deletion_request(request, pk):
+    serializer = AccountDeletionReviewSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    with transaction.atomic():
+        deletion_request = get_object_or_404(
+            AccountDeletionRequest.objects.select_for_update().select_related("client__user"),
+            pk=pk,
+        )
+        if deletion_request.status != AccountDeletionRequest.PENDING:
+            raise ValidationError({"detail": "Cette demande a déjà été traitée."})
+        deletion_request.status = serializer.validated_data["decision"]
+        deletion_request.review_message = serializer.validated_data["review_message"]
+        deletion_request.reviewed_by = request.user
+        deletion_request.reviewed_at = timezone.now()
+        deletion_request.save(update_fields=["status", "review_message", "reviewed_by", "reviewed_at"])
+
+        client_user = deletion_request.client.user
+        if deletion_request.status == AccountDeletionRequest.APPROVED:
+            client_user.is_active = False
+            client_user.save(update_fields=["is_active"])
+            for token in OutstandingToken.objects.filter(user=client_user):
+                BlacklistedToken.objects.get_or_create(token=token)
+
+    decision = "acceptée" if deletion_request.status == AccountDeletionRequest.APPROVED else "refusée"
+    send_mail(
+        f"Ultimate DJ - demande de suppression {decision}",
+        f"Votre demande de suppression a été {decision}.\n\nRéponse de l'administration : {deletion_request.review_message}",
+        settings.DEFAULT_FROM_EMAIL,
+        [client_user.email],
+        fail_silently=True,
+    )
     return Response(AccountDeletionRequestSerializer(deletion_request).data)
 
 

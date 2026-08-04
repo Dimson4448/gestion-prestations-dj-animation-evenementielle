@@ -258,6 +258,11 @@ lieu d'être une simple confirmation visuelle. Le client consulte son historique
 ne peut avoir qu'une demande en attente et peut l'annuler avant traitement.
 L'administration retrouve le dossier dans Django Admin afin de vérifier les
 obligations contractuelles et comptables avant toute suppression effective.
+Elle peut aussi le traiter depuis l'espace React : un refus conserve le compte
+avec une réponse motivée, tandis qu'une approbation désactive immédiatement
+l'utilisateur et place toutes ses sessions JWT en liste noire. Les écritures et
+documents restent conservés pour le suivi légal, et la décision est notifiée
+par e-mail.
 
 La note destinée à la publication GitHub se trouve dans
 [`RELEASE_BETA.md`](RELEASE_BETA.md). Le tag prévu est `v0.2.0-beta.1` et ne

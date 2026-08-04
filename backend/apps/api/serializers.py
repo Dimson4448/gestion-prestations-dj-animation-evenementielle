@@ -106,16 +106,27 @@ class ClientProfileUpdateSerializer(serializers.Serializer):
 
 
 class AccountDeletionRequestSerializer(serializers.ModelSerializer):
+    client_email = serializers.EmailField(source="client.user.email", read_only=True)
+    client_name = serializers.SerializerMethodField()
+
     class Meta:
         model = AccountDeletionRequest
-        fields = ["id", "reason", "status", "review_message", "requested_at", "reviewed_at"]
-        read_only_fields = ["id", "status", "review_message", "requested_at", "reviewed_at"]
+        fields = ["id", "client_email", "client_name", "reason", "status", "review_message", "requested_at", "reviewed_at"]
+        read_only_fields = ["id", "client_email", "client_name", "status", "review_message", "requested_at", "reviewed_at"]
+
+    def get_client_name(self, obj):
+        return obj.client.user.get_full_name() or obj.client.user.username
 
     def validate_reason(self, value):
         value = value.strip()
         if len(value) < 10:
             raise serializers.ValidationError("Expliquez votre demande en au moins 10 caractères.")
         return value
+
+
+class AccountDeletionReviewSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=[AccountDeletionRequest.APPROVED, AccountDeletionRequest.REJECTED])
+    review_message = serializers.CharField(min_length=10)
 
 
 class LogoutSerializer(serializers.Serializer):

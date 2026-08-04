@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
+import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
 
 const fallbackPackages = [
   {
@@ -171,6 +171,9 @@ export default function App() {
   const [accountDeletionReason, setAccountDeletionReason] = useState("");
   const [accountDeletionPending, setAccountDeletionPending] = useState(false);
   const [accountDeletionStatus, setAccountDeletionStatus] = useState("");
+  const [adminDeletionRequests, setAdminDeletionRequests] = useState([]);
+  const [adminDeletionMessages, setAdminDeletionMessages] = useState({});
+  const [adminDeletionPendingId, setAdminDeletionPendingId] = useState(null);
   const [invoices, setInvoices] = useState([]);
   const [clientPayments, setClientPayments] = useState([]);
   const [contracts, setContracts] = useState([]);
@@ -570,11 +573,12 @@ export default function App() {
   const loadAdminDashboard = async () => {
     setAdminStatus("Chargement des devis, réservations et DJs…");
     try {
-      const [quotesResponse, djsResponse, bookingsResponse, paymentsResponse] = await Promise.all([
+      const [quotesResponse, djsResponse, bookingsResponse, paymentsResponse, deletionResponse] = await Promise.all([
         apiClient.get("/quotes/", { params: { ordering: "-created_at" } }),
         apiClient.get("/djs/", { params: { ordering: "stage_name" } }),
         apiClient.get("/bookings/", { params: { ordering: "-event_date" } }),
         apiClient.get("/payments/", { params: { ordering: "-paid_at" } }),
+        getAccountDeletionRequests(),
       ]);
       const quotes = Array.isArray(quotesResponse.data?.results) ? quotesResponse.data.results : quotesResponse.data;
       const djs = Array.isArray(djsResponse.data?.results) ? djsResponse.data.results : djsResponse.data;
@@ -587,6 +591,7 @@ export default function App() {
       setAdminQuotes((Array.isArray(quotes) ? quotes : []).filter((item) => ["draft", "sent"].includes(item.status)));
       setAdminDjs(Array.isArray(djs) ? djs : []);
       setAdminPayments(Array.isArray(payments) ? payments : []);
+      setAdminDeletionRequests((Array.isArray(deletionResponse) ? deletionResponse : []).filter((item) => item.status === "pending"));
       setAdminBookings(
         bookingRecords.filter(
           (item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item),
@@ -1009,6 +1014,25 @@ export default function App() {
       setAccountDeletionStatus(error.response?.data?.detail || "La demande ne peut plus être annulée.");
     } finally {
       setAccountDeletionPending(false);
+    }
+  };
+
+  const reviewAccountDeletion = async (request, decision) => {
+    const message = (adminDeletionMessages[request.id] || "").trim();
+    if (message.length < 10) {
+      setAdminStatus("Expliquez la décision au client en au moins 10 caractères.");
+      return;
+    }
+    setAdminDeletionPendingId(request.id);
+    setAdminStatus("");
+    try {
+      const reviewed = await reviewAccountDeletionRequest(request.id, decision, message);
+      setAdminDeletionRequests((current) => current.filter((item) => item.id !== reviewed.id));
+      setAdminStatus(decision === "approved" ? `Le compte de ${request.client_email} a été désactivé et ses sessions révoquées.` : `La demande de ${request.client_email} a été refusée.`);
+    } catch (error) {
+      setAdminStatus(error.response?.data?.detail || "La demande de suppression n’a pas pu être traitée.");
+    } finally {
+      setAdminDeletionPendingId(null);
     }
   };
 
@@ -1540,6 +1564,13 @@ export default function App() {
                   );
                 })}
                 {!adminCancellationRequests.length && <p className="invoice-empty">Aucune demande d'annulation en attente.</p>}
+              </div>
+            </div>
+            <div className="admin-booking-panel account-deletion-panel">
+              <div className="playlist-heading"><div><h2>Suppressions de compte</h2><p>Vérifiez les obligations de conservation avant de désactiver un compte et de révoquer ses sessions.</p></div><CircleUserRound /></div>
+              <div className="admin-quote-grid">
+                {adminDeletionRequests.map((request) => <article className="admin-quote-card" key={request.id}><div className="quote-row-heading"><h2>{request.client_name}</h2><span className="quote-status sent">En attente</span></div><p>{request.client_email}</p><p>{request.reason}</p><small>Demandée le {new Date(request.requested_at).toLocaleString("fr-BE")}</small><label className="cancellation-message">Réponse au client<textarea rows="3" value={adminDeletionMessages[request.id] || ""} onChange={(event) => setAdminDeletionMessages((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Décision motivée…" required /></label><div className="cancellation-admin-actions"><button className="primary-button" type="button" onClick={() => reviewAccountDeletion(request, "approved")} disabled={adminDeletionPendingId === request.id}>{adminDeletionPendingId === request.id ? "Traitement…" : "Approuver et désactiver"}</button><button className="document-button danger-button" type="button" onClick={() => reviewAccountDeletion(request, "rejected")} disabled={adminDeletionPendingId === request.id}>Refuser</button></div></article>)}
+                {!adminDeletionRequests.length && <p className="invoice-empty">Aucune demande de suppression en attente.</p>}
               </div>
             </div>
             <div className="admin-booking-panel">

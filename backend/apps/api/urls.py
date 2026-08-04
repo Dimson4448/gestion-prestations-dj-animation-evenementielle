@@ -31,6 +31,7 @@ from .views import (
     confirm_password_reset,
     register_client,
     resend_verification_email,
+    review_account_deletion_request,
     request_password_reset,
     verify_email,
 )
@@ -65,6 +66,7 @@ urlpatterns = [
     path("auth/profile/", client_profile, name="client-profile"),
     path("auth/deletion-requests/", account_deletion_requests, name="account-deletion-requests"),
     path("auth/deletion-requests/<int:pk>/cancel/", cancel_account_deletion_request, name="cancel-account-deletion-request"),
+    path("auth/deletion-requests/<int:pk>/review/", review_account_deletion_request, name="review-account-deletion-request"),
     path("auth/password-change/", change_password, name="change-password"),
     path("auth/logout/", logout_user, name="logout-user"),
     path("quotes/calculate/", calculate_quote, name="quote-calculate"),
