@@ -165,6 +165,13 @@ export default function App() {
   const [availabilityStatus, setAvailabilityStatus] = useState("available");
   const [availabilityReason, setAvailabilityReason] = useState("");
   const [clientBookings, setClientBookings] = useState([]);
+  const [cancellationRequests, setCancellationRequests] = useState([]);
+  const [cancellationReasons, setCancellationReasons] = useState({});
+  const [cancellationPendingId, setCancellationPendingId] = useState(null);
+  const [cancellationStatus, setCancellationStatus] = useState("");
+  const [adminCancellationRequests, setAdminCancellationRequests] = useState([]);
+  const [adminCancellationMessages, setAdminCancellationMessages] = useState({});
+  const [adminCancellationPendingId, setAdminCancellationPendingId] = useState(null);
   const [playlists, setPlaylists] = useState([]);
   const [playlistSongs, setPlaylistSongs] = useState([]);
   const [musicStyles, setMusicStyles] = useState([]);
@@ -343,6 +350,7 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
       setClientBookings([]);
+      setCancellationRequests([]);
       setPlaylists([]);
       setPlaylistSongs([]);
       return;
@@ -355,7 +363,7 @@ export default function App() {
       apiClient.get("/playlist-songs/", { params: { ordering: "title" } }),
       apiClient.get("/music-styles/", { params: { ordering: "name" } }),
     ])
-      .then(([bookingsResponse, playlistsResponse, songsResponse, stylesResponse]) => {
+      .then(async ([bookingsResponse, playlistsResponse, songsResponse, stylesResponse]) => {
         if (!mounted) return;
         const records = (response) => Array.isArray(response.data?.results) ? response.data.results : (Array.isArray(response.data) ? response.data : []);
         const bookingRecords = records(bookingsResponse);
@@ -363,6 +371,11 @@ export default function App() {
         const songRecords = records(songsResponse);
         const styleRecords = records(stylesResponse);
         setClientBookings(bookingRecords);
+        const requestResponses = await Promise.all(
+          bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
+        );
+        if (!mounted) return;
+        setCancellationRequests(requestResponses.flatMap((response) => response.data));
         setPlaylists(playlistRecords);
         setPlaylistSongs(songRecords);
         setMusicStyles(styleRecords);
@@ -460,12 +473,19 @@ export default function App() {
       const quotes = Array.isArray(quotesResponse.data?.results) ? quotesResponse.data.results : quotesResponse.data;
       const djs = Array.isArray(djsResponse.data?.results) ? djsResponse.data.results : djsResponse.data;
       const bookings = Array.isArray(bookingsResponse.data?.results) ? bookingsResponse.data.results : bookingsResponse.data;
+      const bookingRecords = Array.isArray(bookings) ? bookings : [];
+      const requestResponses = await Promise.all(
+        bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
+      );
       setAdminQuotes((Array.isArray(quotes) ? quotes : []).filter((item) => ["draft", "sent"].includes(item.status)));
       setAdminDjs(Array.isArray(djs) ? djs : []);
       setAdminBookings(
-        (Array.isArray(bookings) ? bookings : []).filter(
+        bookingRecords.filter(
           (item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item),
         ),
+      );
+      setAdminCancellationRequests(
+        requestResponses.flatMap((response) => response.data).filter((item) => item.status === "pending"),
       );
       setAdminStatus("");
     } catch (error) {
@@ -753,6 +773,45 @@ export default function App() {
       setAdminStatus(error.response?.data?.detail || "La prestation n’a pas pu être clôturée.");
     } finally {
       setCompletionPendingId(null);
+    }
+  };
+
+  const requestCancellation = async (bookingId) => {
+    const reason = (cancellationReasons[bookingId] || "").trim();
+    if (reason.length < 5) {
+      setCancellationStatus("Expliquez le motif de votre demande en au moins 5 caractères.");
+      return;
+    }
+    setCancellationPendingId(bookingId);
+    setCancellationStatus("");
+    try {
+      const response = await apiClient.post(`/bookings/${bookingId}/request-cancellation/`, { reason });
+      setCancellationRequests((current) => [response.data, ...current]);
+      setCancellationReasons((current) => ({ ...current, [bookingId]: "" }));
+      setCancellationStatus(`Votre demande pour la réservation n°${bookingId} a été transmise à l'administration.`);
+    } catch (error) {
+      setCancellationStatus(error.response?.data?.detail || "La demande d'annulation n'a pas pu être envoyée.");
+    } finally {
+      setCancellationPendingId(null);
+    }
+  };
+
+  const rejectCancellation = async (request) => {
+    const message = (adminCancellationMessages[request.id] || "").trim();
+    if (message.length < 5) {
+      setAdminStatus("Rédigez une réponse au client en au moins 5 caractères.");
+      return;
+    }
+    setAdminCancellationPendingId(request.id);
+    setAdminStatus("");
+    try {
+      await apiClient.post(`/bookings/${request.booking}/reject-cancellation/`, { message });
+      setAdminCancellationRequests((current) => current.filter((item) => item.id !== request.id));
+      setAdminStatus(`La demande d'annulation n°${request.id} a été refusée et la réponse est disponible pour le client.`);
+    } catch (error) {
+      setAdminStatus(error.response?.data?.detail || "La demande d'annulation n'a pas pu être traitée.");
+    } finally {
+      setAdminCancellationPendingId(null);
     }
   };
 
@@ -1144,7 +1203,7 @@ export default function App() {
           <section className="section-wrap admin-page">
             <div className="page-heading"><p className="eyebrow dark">Espace administrateur</p><h1>Traiter les demandes de devis</h1><p>Envoyez le devis au client, choisissez un DJ réellement disponible, puis créez automatiquement la réservation, le contrat et la facture d’acompte.</p></div>
             <div className="admin-toolbar"><div><strong>{adminQuotes.length}</strong><span> devis à traiter</span></div><button className="secondary-button" type="button" onClick={loadAdminDashboard}>Actualiser</button></div>
-            {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") || adminStatus.includes("clôturée") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
+            {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") || adminStatus.includes("clôturée") || adminStatus.includes("refusée") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
             <div className="admin-quote-grid">
               {adminQuotes.map((item) => {
                 const itemPackage = packages.find((entry) => String(entry.id) === String(item.package));
@@ -1167,6 +1226,21 @@ export default function App() {
                 );
               })}
               {!adminStatus && !adminQuotes.length && <p className="invoice-empty">Aucun devis en attente de traitement.</p>}
+            </div>
+            <div className="admin-booking-panel cancellation-panel">
+              <div className="playlist-heading"><div><h2>Demandes d'annulation</h2><p>Consultez le motif du client et répondez avant toute opération de remboursement ou d'annulation.</p></div><FileText /></div>
+              <div className="admin-quote-grid">
+                {adminCancellationRequests.map((request) => (
+                  <article className="admin-quote-card" key={request.id}>
+                    <div className="quote-row-heading"><h2>Réservation n°{request.booking}</h2><span className="quote-status sent">En attente</span></div>
+                    <p>{request.reason}</p>
+                    <small>Demandée le {new Date(request.requested_at).toLocaleString("fr-BE")}</small>
+                    <label className="cancellation-message">Réponse au client<textarea rows="3" maxLength="255" value={adminCancellationMessages[request.id] || ""} onChange={(event) => setAdminCancellationMessages((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Expliquez clairement le refus…" /></label>
+                    <button className="document-button danger-button" type="button" onClick={() => rejectCancellation(request)} disabled={adminCancellationPendingId === request.id}>{adminCancellationPendingId === request.id ? "Traitement…" : "Refuser la demande"}</button>
+                  </article>
+                ))}
+                {!adminCancellationRequests.length && <p className="invoice-empty">Aucune demande d'annulation en attente.</p>}
+              </div>
             </div>
             <div className="admin-booking-panel">
               <div className="playlist-heading"><div><h2>Clôturer les prestations</h2><p>Une clôture confirme la prestation réalisée et émet automatiquement la facture de solde.</p></div><Check /></div>
@@ -1299,6 +1373,24 @@ export default function App() {
                         </article>
                       );
                     })}
+                  </div>
+                  <div className="cancellation-panel client-cancellation-panel">
+                    <div className="playlist-heading"><div><h3>Mes demandes d'annulation</h3><p>Une demande n'annule pas automatiquement la prestation et ne déclenche aucun remboursement.</p></div><FileText /></div>
+                    {cancellationStatus && <p className={cancellationStatus.includes("transmise") ? "form-message success" : "form-message"} role="status">{cancellationStatus}</p>}
+                    <div className="cancellation-list">
+                      {clientBookings.filter((booking) => ["preparatory_meeting", "confirmed", "paid"].includes(booking.status)).map((booking) => {
+                        const bookingRequests = cancellationRequests.filter((request) => request.booking === booking.id);
+                        const pendingRequest = bookingRequests.find((request) => request.status === "pending");
+                        return (
+                          <article key={booking.id}>
+                            <div className="quote-row-heading"><strong>Réservation n°{booking.id}</strong><span>{new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")}</span></div>
+                            {bookingRequests.map((request) => <div className="cancellation-history" key={request.id}><span className={`cancellation-request-status ${request.status}`}>{request.status === "pending" ? "En attente" : request.status === "approved" ? "Acceptée" : "Refusée"}</span><p>{request.reason}</p>{request.review_message && <small>Réponse : {request.review_message}</small>}</div>)}
+                            {!pendingRequest && <div className="cancellation-form"><label>Motif<textarea rows="3" maxLength="255" value={cancellationReasons[booking.id] || ""} onChange={(event) => setCancellationReasons((current) => ({ ...current, [booking.id]: event.target.value }))} placeholder="Expliquez la raison de votre demande…" /></label><button className="document-button danger-button" type="button" onClick={() => requestCancellation(booking.id)} disabled={cancellationPendingId === booking.id}>{cancellationPendingId === booking.id ? "Envoi…" : "Demander l'annulation"}</button></div>}
+                          </article>
+                        );
+                      })}
+                      {!clientBookings.some((booking) => ["preparatory_meeting", "confirmed", "paid"].includes(booking.status)) && <p className="invoice-empty">Aucune réservation ne peut actuellement faire l'objet d'une demande.</p>}
+                    </div>
                   </div>
                   <div className="contract-list">
                     <h3>Mes contrats</h3>
