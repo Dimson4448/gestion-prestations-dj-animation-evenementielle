@@ -172,6 +172,8 @@ export default function App() {
   const [adminCancellationRequests, setAdminCancellationRequests] = useState([]);
   const [adminCancellationMessages, setAdminCancellationMessages] = useState({});
   const [adminCancellationPendingId, setAdminCancellationPendingId] = useState(null);
+  const [adminPayments, setAdminPayments] = useState([]);
+  const [refundPendingId, setRefundPendingId] = useState(null);
   const [playlists, setPlaylists] = useState([]);
   const [playlistSongs, setPlaylistSongs] = useState([]);
   const [musicStyles, setMusicStyles] = useState([]);
@@ -465,20 +467,23 @@ export default function App() {
   const loadAdminDashboard = async () => {
     setAdminStatus("Chargement des devis, réservations et DJs…");
     try {
-      const [quotesResponse, djsResponse, bookingsResponse] = await Promise.all([
+      const [quotesResponse, djsResponse, bookingsResponse, paymentsResponse] = await Promise.all([
         apiClient.get("/quotes/", { params: { ordering: "-created_at" } }),
         apiClient.get("/djs/", { params: { ordering: "stage_name" } }),
         apiClient.get("/bookings/", { params: { ordering: "-event_date" } }),
+        apiClient.get("/payments/", { params: { ordering: "-paid_at" } }),
       ]);
       const quotes = Array.isArray(quotesResponse.data?.results) ? quotesResponse.data.results : quotesResponse.data;
       const djs = Array.isArray(djsResponse.data?.results) ? djsResponse.data.results : djsResponse.data;
       const bookings = Array.isArray(bookingsResponse.data?.results) ? bookingsResponse.data.results : bookingsResponse.data;
+      const payments = Array.isArray(paymentsResponse.data?.results) ? paymentsResponse.data.results : paymentsResponse.data;
       const bookingRecords = Array.isArray(bookings) ? bookings : [];
       const requestResponses = await Promise.all(
         bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
       );
       setAdminQuotes((Array.isArray(quotes) ? quotes : []).filter((item) => ["draft", "sent"].includes(item.status)));
       setAdminDjs(Array.isArray(djs) ? djs : []);
+      setAdminPayments(Array.isArray(payments) ? payments : []);
       setAdminBookings(
         bookingRecords.filter(
           (item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item),
@@ -810,6 +815,40 @@ export default function App() {
       setAdminStatus(`La demande d'annulation n°${request.id} a été refusée et la réponse est disponible pour le client.`);
     } catch (error) {
       setAdminStatus(error.response?.data?.detail || "La demande d'annulation n'a pas pu être traitée.");
+    } finally {
+      setAdminCancellationPendingId(null);
+    }
+  };
+
+  const refundCancellationPayment = async (payment, request) => {
+    setRefundPendingId(payment.id);
+    setAdminStatus("");
+    try {
+      const response = await apiClient.post(`/payments/${payment.id}/refund/`, {
+        reason: "requested_by_customer",
+        internal_reason: `Demande d'annulation n°${request.id} : ${request.reason}`.slice(0, 255),
+      });
+      await loadAdminDashboard();
+      setAdminStatus(response.data.status === "succeeded" ? `Le paiement n°${payment.id} a été remboursé par Stripe.` : `Le remboursement Stripe n°${response.data.id} est en cours de traitement.`);
+    } catch (error) {
+      setAdminStatus(error.response?.data?.detail || "Le remboursement Stripe n'a pas pu être effectué.");
+    } finally {
+      setRefundPendingId(null);
+    }
+  };
+
+  const approveCancellation = async (request) => {
+    setAdminCancellationPendingId(request.id);
+    setAdminStatus("");
+    try {
+      await apiClient.post(`/bookings/${request.booking}/cancel/`, {
+        reason: `Demande client acceptée : ${request.reason}`.slice(0, 255),
+      });
+      setAdminCancellationRequests((current) => current.filter((item) => item.id !== request.id));
+      setAdminPayments((current) => current.filter((payment) => payment.booking !== request.booking));
+      setAdminStatus(`La réservation n°${request.booking} a été annulée et le créneau du DJ a été libéré.`);
+    } catch (error) {
+      setAdminStatus(error.response?.data?.detail || "L'annulation n'a pas pu être confirmée.");
     } finally {
       setAdminCancellationPendingId(null);
     }
@@ -1203,7 +1242,7 @@ export default function App() {
           <section className="section-wrap admin-page">
             <div className="page-heading"><p className="eyebrow dark">Espace administrateur</p><h1>Traiter les demandes de devis</h1><p>Envoyez le devis au client, choisissez un DJ réellement disponible, puis créez automatiquement la réservation, le contrat et la facture d’acompte.</p></div>
             <div className="admin-toolbar"><div><strong>{adminQuotes.length}</strong><span> devis à traiter</span></div><button className="secondary-button" type="button" onClick={loadAdminDashboard}>Actualiser</button></div>
-            {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") || adminStatus.includes("clôturée") || adminStatus.includes("refusée") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
+            {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") || adminStatus.includes("clôturée") || adminStatus.includes("refusée") || adminStatus.includes("remboursé") || adminStatus.includes("annulée") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
             <div className="admin-quote-grid">
               {adminQuotes.map((item) => {
                 const itemPackage = packages.find((entry) => String(entry.id) === String(item.package));
@@ -1230,15 +1269,25 @@ export default function App() {
             <div className="admin-booking-panel cancellation-panel">
               <div className="playlist-heading"><div><h2>Demandes d'annulation</h2><p>Consultez le motif du client et répondez avant toute opération de remboursement ou d'annulation.</p></div><FileText /></div>
               <div className="admin-quote-grid">
-                {adminCancellationRequests.map((request) => (
-                  <article className="admin-quote-card" key={request.id}>
-                    <div className="quote-row-heading"><h2>Réservation n°{request.booking}</h2><span className="quote-status sent">En attente</span></div>
-                    <p>{request.reason}</p>
-                    <small>Demandée le {new Date(request.requested_at).toLocaleString("fr-BE")}</small>
-                    <label className="cancellation-message">Réponse au client<textarea rows="3" maxLength="255" value={adminCancellationMessages[request.id] || ""} onChange={(event) => setAdminCancellationMessages((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Expliquez clairement le refus…" /></label>
-                    <button className="document-button danger-button" type="button" onClick={() => rejectCancellation(request)} disabled={adminCancellationPendingId === request.id}>{adminCancellationPendingId === request.id ? "Traitement…" : "Refuser la demande"}</button>
-                  </article>
-                ))}
+                {adminCancellationRequests.map((request) => {
+                  const requestPayments = adminPayments.filter((payment) => payment.booking === request.booking);
+                  const blockingPayments = requestPayments.filter((payment) => ["paid", "pending"].includes(payment.status));
+                  return (
+                    <article className="admin-quote-card" key={request.id}>
+                      <div className="quote-row-heading"><h2>Réservation n°{request.booking}</h2><span className="quote-status sent">En attente</span></div>
+                      <p>{request.reason}</p>
+                      <small>Demandée le {new Date(request.requested_at).toLocaleString("fr-BE")}</small>
+                      <div className="cancellation-payments">
+                        <strong>Paiements liés</strong>
+                        {requestPayments.map((payment) => <div key={payment.id}><span>Paiement n°{payment.id} · {formatEuro(payment.amount)}</span><span className={`invoice-status ${payment.status}`}>{payment.status === "paid" ? "Payé" : payment.status === "refunded" ? "Remboursé" : payment.status === "pending" ? "En attente" : "Échoué"}</span>{payment.status === "paid" && <button className="document-button" type="button" onClick={() => refundCancellationPayment(payment, request)} disabled={refundPendingId === payment.id}>{refundPendingId === payment.id ? "Remboursement…" : "Rembourser avec Stripe"}</button>}</div>)}
+                        {!requestPayments.length && <small>Aucun paiement encaissé pour cette réservation.</small>}
+                      </div>
+                      <div className="cancellation-admin-actions"><button className="primary-button" type="button" onClick={() => approveCancellation(request)} disabled={adminCancellationPendingId === request.id || blockingPayments.length > 0}>{adminCancellationPendingId === request.id ? "Annulation…" : blockingPayments.length ? "Remboursement requis" : "Accepter et annuler"}</button></div>
+                      <label className="cancellation-message">Réponse en cas de refus<textarea rows="3" maxLength="255" value={adminCancellationMessages[request.id] || ""} onChange={(event) => setAdminCancellationMessages((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Expliquez clairement le refus…" /></label>
+                      <button className="document-button danger-button" type="button" onClick={() => rejectCancellation(request)} disabled={adminCancellationPendingId === request.id}>{adminCancellationPendingId === request.id ? "Traitement…" : "Refuser la demande"}</button>
+                    </article>
+                  );
+                })}
                 {!adminCancellationRequests.length && <p className="invoice-empty">Aucune demande d'annulation en attente.</p>}
               </div>
             </div>
