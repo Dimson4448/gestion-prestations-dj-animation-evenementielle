@@ -13,7 +13,7 @@ L'application devra notamment permettre :
 - la création d'une demande de devis ;
 - la gestion des rendez-vous préparatoires pour les gros événements ;
 - la génération d'un contrat personnalisé ;
-- le paiement d'un acompte via un système de paiement (Stripe) ;
+- le paiement sécurisé de l'acompte et du solde via Stripe ;
 - le suivi de l'événement ;
 - la gestion des playlists, avis clients, langues et matériel.
 
@@ -218,10 +218,10 @@ sera créé qu'après fusion et validation finale.
 
 ## État du projet
 
-Le backend Django et le frontend React sont connectés progressivement aux
-fonctionnalités métier réelles. Le mapping relationnel comprend les devis,
-réservations, contrats, factures, paiements, matériel, playlists, avis clients
-et rendez-vous préparatoires.
+Le backend Django et le frontend React sont connectés aux principaux parcours
+métier réels. Le mapping relationnel comprend les devis, réservations,
+contrats, factures, paiements, matériel, playlists, avis clients, rendez-vous
+préparatoires et disponibilités des DJ.
 
 ## Parcours réel de demande de devis
 
@@ -234,7 +234,37 @@ Le formulaire React ne se limite plus à une simulation :
 5. Django vérifie la propriété du lieu et calcule tous les montants ;
 6. le devis et les préférences musicales sont enregistrés en base ;
 7. le client retrouve le devis et son statut dans son espace ;
-8. l'administrateur peut faire évoluer le statut depuis Django ou l'API.
+8. l'administrateur envoie le devis et affecte un DJ réellement disponible ;
+9. l'acceptation crée la réservation, le contrat et la facture d'acompte ;
+10. le client signe son contrat puis règle l'acompte avec Stripe Checkout.
+
+## Cycle réel de la prestation et de la facturation
+
+Une réservation confirmée poursuit son cycle dans les espaces React :
+
+1. le client prépare sa playlist et planifie, si nécessaire, un rendez-vous ;
+2. le DJ traite les demandes musicales et clôture les rendez-vous effectués ;
+3. après l'événement, le DJ ou l'administration marque la prestation réalisée ;
+4. Django calcule le montant restant après les factures déjà payées ;
+5. une facture de solde unique est créée et proposée dans l'espace client ;
+6. Stripe Checkout encaisse le solde et le webhook marque la réservation payée ;
+7. le client peut déposer un avis, ensuite modéré par l'administration.
+
+Les contrats et factures peuvent être téléchargés en PDF. Les écritures
+financières et les changements de statut sensibles sont contrôlés côté Django,
+même lorsque l'action est lancée depuis React.
+
+## Espaces utilisateurs
+
+- **Client** : devis, lieux, contrat, factures, paiements, rendez-vous,
+  playlist et avis ;
+- **DJ** : prestations affectées, rendez-vous, validation des chansons,
+  clôture de prestation et gestion de ses disponibilités ;
+- **Administration** : traitement des devis, affectation du DJ, suivi des
+  réservations et clôture des prestations.
+
+Les disponibilités disponibles sont publiques. Un DJ ne peut gérer que ses
+propres créneaux et ne peut ni modifier ni supprimer un créneau déjà réservé.
 
 Après récupération de cette version, appliquer les migrations :
 
