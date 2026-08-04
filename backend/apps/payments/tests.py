@@ -13,7 +13,7 @@ from apps.accounts.models import ClientProfile, DJProfile
 from apps.bookings.models import Booking, Quote, Venue
 from apps.catalog.models import EventType, Package
 
-from .models import Invoice, Payment
+from .models import Invoice, Payment, Refund
 
 
 @override_settings(
@@ -106,6 +106,25 @@ class DepositCheckoutTests(APITestCase):
             amount="180.00",
             currency="EUR",
         )
+
+    def test_enregistre_une_demande_de_remboursement_auditable(self):
+        payment = self.create_pending_payment()
+        payment.status = Payment.PAID
+        payment.stripe_payment_intent_id = "pi_test_refund_audit"
+        payment.paid_at = timezone.now()
+        payment.save(update_fields=["status", "stripe_payment_intent_id", "paid_at"])
+
+        refund = Refund.objects.create(
+            payment=payment,
+            amount=payment.amount,
+            currency=payment.currency,
+            reason=Refund.REQUESTED_BY_CUSTOMER,
+            internal_reason="Annulation validée par l'administration",
+        )
+
+        self.assertEqual(refund.status, Refund.PENDING)
+        self.assertIsNotNone(refund.idempotency_key)
+        self.assertIsNone(refund.stripe_refund_id)
 
     @patch("apps.payments.services.stripe.checkout.Session.create")
     def test_cree_une_session_checkout_depuis_la_facture(self, create_session):

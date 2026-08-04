@@ -510,6 +510,35 @@ CREATE TABLE `payments` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `refunds`
+--
+
+DROP TABLE IF EXISTS `refunds`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `refunds` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `stripe_refund_id` varchar(190) DEFAULT NULL,
+  `idempotency_key` uuid NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `currency` varchar(3) NOT NULL,
+  `reason` varchar(40) NOT NULL,
+  `internal_reason` varchar(255) NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `processed_at` datetime(6) DEFAULT NULL,
+  `payment_id` bigint(20) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idempotency_key` (`idempotency_key`),
+  UNIQUE KEY `stripe_refund_id` (`stripe_refund_id`),
+  KEY `refunds_payment_id_075bbbe0_fk_payments_id` (`payment_id`),
+  KEY `idx_refund_status_created` (`status`,`created_at`),
+  CONSTRAINT `refunds_payment_id_075bbbe0_fk_payments_id` FOREIGN KEY (`payment_id`) REFERENCES `payments` (`id`),
+  CONSTRAINT `refund_amount_positive` CHECK (`amount` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `playlist_songs`
 --
 
@@ -776,7 +805,8 @@ INSERT INTO `django_migrations` VALUES
 (28,'payments','0001_initial','2026-07-26 18:44:42.913616'),
 (29,'payments','0002_alter_invoice_options_alter_payment_options_and_more','2026-07-26 18:44:43.303634'),
 (30,'payments','0003_alter_payment_stripe_payment_intent_id','2026-07-26 18:44:43.406346'),
-(31,'sessions','0001_initial','2026-07-26 18:44:43.496656');
+(31,'sessions','0001_initial','2026-07-26 18:44:43.496656'),
+(32,'payments','0004_refund','2026-08-04 10:25:54.079081');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
