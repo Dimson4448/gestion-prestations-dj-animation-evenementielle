@@ -20,7 +20,7 @@ from apps.bookings.models import (
     Venue,
 )
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
-from apps.payments.models import Invoice, Payment
+from apps.payments.models import Invoice, Payment, Refund
 
 
 class CurrentUserSerializer(serializers.Serializer):
@@ -413,6 +413,30 @@ class PaymentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             "status",
             "paid_at",
             "liens",
+        ]
+        read_only_fields = fields
+
+
+class RefundRequestSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.01"), required=False)
+    reason = serializers.ChoiceField(choices=Refund.REASON_CHOICES, default=Refund.REQUESTED_BY_CUSTOMER)
+    internal_reason = serializers.CharField(max_length=255, min_length=5)
+
+
+class RefundSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Refund
+        fields = [
+            "id",
+            "payment",
+            "stripe_refund_id",
+            "amount",
+            "currency",
+            "reason",
+            "internal_reason",
+            "status",
+            "created_at",
+            "processed_at",
         ]
         read_only_fields = fields
 

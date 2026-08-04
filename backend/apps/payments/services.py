@@ -3,9 +3,10 @@ from decimal import Decimal, ROUND_HALF_UP
 import stripe
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
-from .models import Invoice, Payment
+from .models import Invoice, Payment, Refund
 
 
 class StripeConfigurationError(Exception):
@@ -14,6 +15,10 @@ class StripeConfigurationError(Exception):
 
 class StripeCheckoutError(Exception):
     """Stripe n'a pas pu créer la session Checkout."""
+
+
+class StripeRefundError(Exception):
+    """Stripe n'a pas pu créer le remboursement."""
 
 
 def amount_to_cents(amount: Decimal) -> int:
@@ -138,3 +143,84 @@ def fail_checkout_payment(session_id: str) -> bool:
     payment.status = Payment.FAILED
     payment.save(update_fields=["status"])
     return True
+
+
+@transaction.atomic
+def prepare_payment_refund(
+    payment_id: int,
+    amount: Decimal | None,
+    reason: str,
+    internal_reason: str,
+) -> Refund:
+    payment = Payment.objects.select_for_update().select_related("invoice").get(pk=payment_id)
+    if payment.status not in {Payment.PAID, Payment.REFUNDED}:
+        raise ValueError("Seul un paiement confirmé peut être remboursé.")
+    if not payment.stripe_payment_intent_id:
+        raise ValueError("Le paiement ne possède pas de PaymentIntent Stripe remboursable.")
+
+    reserved_amount = payment.refunds.exclude(status__in=[Refund.FAILED, Refund.CANCELLED]).aggregate(
+        total=Sum("amount"),
+    )["total"] or Decimal("0.00")
+    available_amount = payment.amount - reserved_amount
+    refund_amount = amount if amount is not None else available_amount
+    if refund_amount <= 0:
+        raise ValueError("Aucun montant ne reste disponible pour ce remboursement.")
+    if refund_amount > available_amount:
+        raise ValueError(f"Le montant remboursable restant est de {available_amount:.2f} {payment.currency}.")
+
+    return Refund.objects.create(
+        payment=payment,
+        amount=refund_amount,
+        currency=payment.currency,
+        reason=reason,
+        internal_reason=internal_reason,
+    )
+
+
+def create_payment_refund(
+    payment_id: int,
+    amount: Decimal | None,
+    reason: str,
+    internal_reason: str,
+) -> Refund:
+    if not settings.STRIPE_SECRET_KEY or not settings.STRIPE_SECRET_KEY.startswith("sk_test_"):
+        raise StripeConfigurationError("Une clé secrète Stripe de test est requise.")
+
+    refund = prepare_payment_refund(payment_id, amount, reason, internal_reason)
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    try:
+        stripe_refund = stripe.Refund.create(
+            payment_intent=refund.payment.stripe_payment_intent_id,
+            amount=amount_to_cents(refund.amount),
+            reason=refund.reason,
+            metadata={
+                "refund_id": str(refund.pk),
+                "payment_id": str(refund.payment_id),
+                "booking_id": str(refund.payment.booking_id),
+            },
+            idempotency_key=str(refund.idempotency_key),
+        )
+    except stripe.StripeError as exc:
+        Refund.objects.filter(pk=refund.pk).update(status=Refund.FAILED, processed_at=timezone.now())
+        raise StripeRefundError("Le remboursement Stripe n'a pas pu être créé.") from exc
+
+    stripe_status = getattr(stripe_refund, "status", None) or stripe_refund.get("status")
+    local_status = {
+        "succeeded": Refund.SUCCEEDED,
+        "failed": Refund.FAILED,
+        "canceled": Refund.CANCELLED,
+    }.get(stripe_status, Refund.PENDING)
+    refund.stripe_refund_id = getattr(stripe_refund, "id", None) or stripe_refund.get("id")
+    refund.status = local_status
+    if local_status != Refund.PENDING:
+        refund.processed_at = timezone.now()
+    refund.save(update_fields=["stripe_refund_id", "status", "processed_at"])
+
+    if refund.status == Refund.SUCCEEDED:
+        succeeded_amount = refund.payment.refunds.filter(status=Refund.SUCCEEDED).aggregate(total=Sum("amount"))["total"]
+        if succeeded_amount >= refund.payment.amount:
+            refund.payment.status = Payment.REFUNDED
+            refund.payment.save(update_fields=["status"])
+            refund.payment.invoice.status = Invoice.CANCELLED
+            refund.payment.invoice.save(update_fields=["status"])
+    return refund

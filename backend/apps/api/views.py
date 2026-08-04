@@ -24,7 +24,7 @@ from apps.bookings.services import BookingCompletionError, ContractSigningError,
 from apps.bookings.documents import build_contract_pdf, build_invoice_pdf
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
-from apps.payments.services import StripeCheckoutError, StripeConfigurationError, create_invoice_checkout
+from apps.payments.services import StripeCheckoutError, StripeConfigurationError, StripeRefundError, create_invoice_checkout, create_payment_refund
 
 from .permissions import AdministrationOuProprietaire, DJOuAdministration, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
 from .serializers import (
@@ -39,6 +39,8 @@ from .serializers import (
     MusicStyleSerializer,
     PackageSerializer,
     PaymentSerializer,
+    RefundRequestSerializer,
+    RefundSerializer,
     PlaylistSerializer,
     PlaylistSongSerializer,
     PreparatoryAppointmentSerializer,
@@ -394,9 +396,37 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ["status", "currency"]
     ordering_fields = ["paid_at", "amount"]
 
+    def get_permissions(self):
+        if self.action == "refund":
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
+
     def get_queryset(self):
         queryset = Payment.objects.select_related("booking", "booking__client", "booking__dj", "invoice").all()
         return filtrer_par_reservation(queryset, self.request.user)
+
+    @extend_schema(
+        request=RefundRequestSerializer,
+        responses={201: RefundSerializer},
+        summary="Rembourser totalement ou partiellement un paiement Stripe",
+    )
+    @action(detail=True, methods=["post"], url_path="refund")
+    def refund(self, request, pk=None):
+        payment = self.get_object()
+        serializer = RefundRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            refund = create_payment_refund(
+                payment.pk,
+                serializer.validated_data.get("amount"),
+                serializer.validated_data["reason"],
+                serializer.validated_data["internal_reason"],
+            )
+        except (ValueError, StripeConfigurationError) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except StripeRefundError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        return Response(RefundSerializer(refund).data, status=status.HTTP_201_CREATED)
 
 
 class PlaylistViewSet(ProtectedModelViewSet):

@@ -107,12 +107,18 @@ class DepositCheckoutTests(APITestCase):
             currency="EUR",
         )
 
-    def test_enregistre_une_demande_de_remboursement_auditable(self):
+    def create_paid_payment(self):
         payment = self.create_pending_payment()
         payment.status = Payment.PAID
-        payment.stripe_payment_intent_id = "pi_test_refund_audit"
+        payment.stripe_payment_intent_id = "pi_test_refund_001"
         payment.paid_at = timezone.now()
         payment.save(update_fields=["status", "stripe_payment_intent_id", "paid_at"])
+        self.invoice.status = Invoice.PAID
+        self.invoice.save(update_fields=["status"])
+        return payment
+
+    def test_enregistre_une_demande_de_remboursement_auditable(self):
+        payment = self.create_paid_payment()
 
         refund = Refund.objects.create(
             payment=payment,
@@ -124,6 +130,89 @@ class DepositCheckoutTests(APITestCase):
 
         self.assertEqual(refund.status, Refund.PENDING)
         self.assertIsNotNone(refund.idempotency_key)
+        self.assertIsNone(refund.stripe_refund_id)
+
+    @patch("apps.payments.services.stripe.Refund.create")
+    def test_admin_rembourse_partiellement_puis_totalement_un_paiement(self, create_refund):
+        payment = self.create_paid_payment()
+        admin = get_user_model().objects.create_superuser(
+            username="admin_refund",
+            email="admin-refund@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+
+        self.client.force_authenticate(self.client_user)
+        forbidden = self.client.post(
+            f"/api/v1/payments/{payment.pk}/refund/",
+            {"amount": "50.00", "internal_reason": "Annulation demandée par le client"},
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+        create_refund.side_effect = [
+            SimpleNamespace(id="re_test_partial", status="succeeded"),
+            SimpleNamespace(id="re_test_remaining", status="succeeded"),
+        ]
+        self.client.force_authenticate(admin)
+        partial = self.client.post(
+            f"/api/v1/payments/{payment.pk}/refund/",
+            {"amount": "50.00", "internal_reason": "Annulation demandée par le client"},
+            format="json",
+        )
+
+        self.assertEqual(partial.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(partial.data["amount"], "50.00")
+        self.assertEqual(partial.data["status"], Refund.SUCCEEDED)
+        stripe_parameters = create_refund.call_args_list[0].kwargs
+        self.assertEqual(stripe_parameters["payment_intent"], payment.stripe_payment_intent_id)
+        self.assertEqual(stripe_parameters["amount"], 5000)
+        self.assertTrue(stripe_parameters["idempotency_key"])
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.PAID)
+
+        excessive = self.client.post(
+            f"/api/v1/payments/{payment.pk}/refund/",
+            {"amount": "131.00", "internal_reason": "Montant supérieur au solde"},
+            format="json",
+        )
+        self.assertEqual(excessive.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(create_refund.call_count, 1)
+
+        remaining = self.client.post(
+            f"/api/v1/payments/{payment.pk}/refund/",
+            {"internal_reason": "Remboursement du montant restant"},
+            format="json",
+        )
+        self.assertEqual(remaining.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(remaining.data["amount"], "130.00")
+        payment.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(payment.status, Payment.REFUNDED)
+        self.assertEqual(self.invoice.status, Invoice.CANCELLED)
+
+    @patch("apps.payments.services.stripe.Refund.create")
+    def test_echec_stripe_conserve_la_trace_de_remboursement(self, create_refund):
+        import stripe
+
+        payment = self.create_paid_payment()
+        admin = get_user_model().objects.create_superuser(
+            username="admin_refund_failure",
+            email="admin-refund-failure@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        create_refund.side_effect = stripe.APIConnectionError("Stripe indisponible")
+        self.client.force_authenticate(admin)
+
+        response = self.client.post(
+            f"/api/v1/payments/{payment.pk}/refund/",
+            {"amount": "20.00", "internal_reason": "Test de panne réseau Stripe"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        refund = Refund.objects.get(payment=payment)
+        self.assertEqual(refund.status, Refund.FAILED)
+        self.assertIsNotNone(refund.processed_at)
         self.assertIsNone(refund.stripe_refund_id)
 
     @patch("apps.payments.services.stripe.checkout.Session.create")
