@@ -50,6 +50,7 @@ from .serializers import (
     EquipmentSerializer,
     EventTypeSerializer,
     EmailVerificationSerializer,
+    EmailVerificationResendSerializer,
     InvoiceSerializer,
     LogoutSerializer,
     PasswordResetConfirmSerializer,
@@ -124,13 +125,7 @@ def current_user(request):
     return Response(CurrentUserSerializer(request.user).data)
 
 
-@extend_schema(request=ClientRegistrationSerializer, responses={201: OpenApiResponse(description="Compte créé, vérification requise")}, summary="Créer un compte client")
-@api_view(["POST"])
-@permission_classes([permissions.AllowAny])
-def register_client(request):
-    serializer = ClientRegistrationSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    user = serializer.save()
+def send_verification_email(user):
     parameters = urlencode(
         {
             "verify_uid": urlsafe_base64_encode(force_bytes(user.pk)),
@@ -145,6 +140,16 @@ def register_client(request):
         [user.email],
         fail_silently=True,
     )
+
+
+@extend_schema(request=ClientRegistrationSerializer, responses={201: OpenApiResponse(description="Compte créé, vérification requise")}, summary="Créer un compte client")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def register_client(request):
+    serializer = ClientRegistrationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = serializer.save()
+    send_verification_email(user)
     return Response(
         {"detail": "Votre compte a été créé. Consultez votre e-mail pour l'activer avant de vous connecter."},
         status=status.HTTP_201_CREATED,
@@ -159,6 +164,21 @@ def verify_email(request):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(request=EmailVerificationResendSerializer, responses={200: OpenApiResponse(description="Demande traitée")}, summary="Renvoyer le lien de vérification")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def resend_verification_email(request):
+    serializer = EmailVerificationResendSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = get_user_model().objects.filter(
+        email__iexact=serializer.validated_data["email"],
+        is_active=False,
+    ).first()
+    if user:
+        send_verification_email(user)
+    return Response({"detail": "Si cette adresse correspond à un compte en attente, un nouveau lien vient d'être envoyé."})
 
 
 @extend_schema(request=PasswordResetRequestSerializer, responses={200: OpenApiResponse(description="Demande traitée")}, summary="Demander un nouveau mot de passe")

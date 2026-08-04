@@ -233,7 +233,9 @@ de robustesse au mot de passe, contrôle que le client est majeur, puis crée
 atomiquement l'utilisateur et son profil de facturation. Une session JWT est
 accessible uniquement après la confirmation de l'adresse e-mail avec le lien
 temporaire envoyé par Django. Le compte reste inactif jusque-là et le lien de
-confirmation ne peut être utilisé qu'une fois.
+confirmation ne peut être utilisé qu'une fois. Si le message est perdu ou si
+le lien expire, le formulaire de connexion permet d'en demander un nouveau
+sans révéler si l'adresse correspond réellement à un compte en attente.
 
 Le lien « Mot de passe oublié » envoie une URL temporaire à l'adresse du
 compte sans révéler publiquement si celle-ci existe. Après validation du lien,

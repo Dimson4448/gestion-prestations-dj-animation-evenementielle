@@ -199,6 +199,36 @@ class ApiUltimateDJTests(APITestCase):
         self.assertIn("username", duplicate.data)
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
+    def test_renvoi_verification_reste_discret_et_limite_aux_comptes_inactifs(self):
+        self.client_user.is_active = False
+        self.client_user.save(update_fields=["is_active"])
+        resent = self.client.post(
+            "/api/v1/auth/verify-email/resend/",
+            {"email": self.client_user.email},
+            format="json",
+        )
+        unknown = self.client.post(
+            "/api/v1/auth/verify-email/resend/",
+            {"email": "inconnu@example.com"},
+            format="json",
+        )
+        self.assertEqual(resent.status_code, status.HTTP_200_OK)
+        self.assertEqual(unknown.status_code, status.HTTP_200_OK)
+        self.assertEqual(resent.data, unknown.data)
+        self.assertEqual(len(mail.outbox), 1)
+
+        self.client_user.is_active = True
+        self.client_user.save(update_fields=["is_active"])
+        active = self.client.post(
+            "/api/v1/auth/verify-email/resend/",
+            {"email": self.client_user.email},
+            format="json",
+        )
+        self.assertEqual(active.status_code, status.HTTP_200_OK)
+        self.assertEqual(active.data, unknown.data)
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
     def test_reinitialisation_du_mot_de_passe_par_lien_email(self):
         authenticated = self.client.post(
             "/api/v1/auth/token/",

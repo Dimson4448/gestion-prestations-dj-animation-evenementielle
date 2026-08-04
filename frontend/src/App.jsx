@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, clearAuthentication, confirmPasswordReset, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, sessionExpiredEvent, verifyEmail } from "./api";
+import { apiClient, authenticate, clearAuthentication, confirmPasswordReset, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, sessionExpiredEvent, verifyEmail } from "./api";
 
 const fallbackPackages = [
   {
@@ -154,6 +154,10 @@ export default function App() {
   const [newPassword, setNewPassword] = useState("");
   const [passwordResetPending, setPasswordResetPending] = useState(false);
   const [passwordResetStatus, setPasswordResetStatus] = useState("");
+  const [verificationResendOpen, setVerificationResendOpen] = useState(false);
+  const [verificationResendEmail, setVerificationResendEmail] = useState("");
+  const [verificationResendPending, setVerificationResendPending] = useState(false);
+  const [verificationResendStatus, setVerificationResendStatus] = useState("");
   const [invoices, setInvoices] = useState([]);
   const [clientPayments, setClientPayments] = useState([]);
   const [contracts, setContracts] = useState([]);
@@ -880,6 +884,20 @@ export default function App() {
     }
   };
 
+  const handleVerificationResend = async (event) => {
+    event.preventDefault();
+    setVerificationResendPending(true);
+    setVerificationResendStatus("");
+    try {
+      const response = await resendVerificationEmail(verificationResendEmail);
+      setVerificationResendStatus(response.detail);
+    } catch {
+      setVerificationResendStatus("La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
+    } finally {
+      setVerificationResendPending(false);
+    }
+  };
+
   const handlePasswordResetConfirm = async (event) => {
     event.preventDefault();
     setPasswordResetPending(true);
@@ -1518,6 +1536,7 @@ export default function App() {
                     {loginStatus && <p className="form-message" role="status">{loginStatus}</p>}
                     <button className="primary-button" type="submit" disabled={loginPending}>{loginPending ? "Connexion…" : "Se connecter"}</button>
                     <button className="secondary-button" type="button" onClick={() => setRegistrationOpen((open) => !open)}>{registrationOpen ? "Fermer l’inscription" : "Créer un compte client"}</button>
+                    <button className="text-button" type="button" onClick={() => setVerificationResendOpen((open) => !open)}>Renvoyer l’e-mail d’activation</button>
                     <button className="text-button" type="button" onClick={() => setPasswordResetOpen((open) => !open)}>Mot de passe oublié ?</button>
                   </form>
                   {registrationOpen && <form className="account-card registration-card" onSubmit={handleRegistration}>
@@ -1546,6 +1565,12 @@ export default function App() {
                       : <label>Adresse e-mail du compte<input type="email" value={passwordResetEmail} onChange={(event) => setPasswordResetEmail(event.target.value)} autoComplete="email" required /></label>}
                     {passwordResetStatus && <p className="form-message" role="status">{passwordResetStatus}</p>}
                     <button className="primary-button" type="submit" disabled={passwordResetPending}>{passwordResetPending ? "Traitement…" : passwordResetCredentials.token ? "Enregistrer le mot de passe" : "Envoyer le lien"}</button>
+                  </form>}
+                  {verificationResendOpen && <form className="account-card password-reset-card" onSubmit={handleVerificationResend}>
+                    <ShieldCheck /><h2>Renvoyer le lien d’activation</h2>
+                    <label>Adresse e-mail du compte<input type="email" value={verificationResendEmail} onChange={(event) => setVerificationResendEmail(event.target.value)} autoComplete="email" required /></label>
+                    {verificationResendStatus && <p className="form-message" role="status">{verificationResendStatus}</p>}
+                    <button className="primary-button" type="submit" disabled={verificationResendPending}>{verificationResendPending ? "Envoi…" : "Renvoyer le lien"}</button>
                   </form>}
                 </>
               ) : (

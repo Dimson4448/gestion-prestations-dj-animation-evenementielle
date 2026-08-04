@@ -140,6 +140,10 @@ class EmailVerificationSerializer(serializers.Serializer):
         return user
 
 
+class EmailVerificationResendSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
