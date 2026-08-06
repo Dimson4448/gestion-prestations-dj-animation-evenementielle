@@ -341,3 +341,12 @@ Le workflow `.github/workflows/ci.yml` contrôle automatiquement les branches de
 fonctionnalité et les Pull Requests vers `main`. Il exécute les tests Django avec
 une base SQLite temporaire, vérifie les migrations, puis construit le frontend
 React avec `npm ci` et Vite. Les secrets locaux et MariaDB ne sont pas requis.
+
+## Sécurité du déploiement
+
+Le fichier `backend/.env.example` distingue le développement HTTP local d'un
+déploiement HTTPS. En production, il faut remplacer les domaines locaux dans
+`ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS` et `CSRF_TRUSTED_ORIGINS`, puis activer
+la redirection HTTPS, les cookies sécurisés et HSTS. `USE_X_FORWARDED_PROTO` ne
+doit être activé que si le proxy d'hébergement définit correctement l'en-tête
+`X-Forwarded-Proto`.

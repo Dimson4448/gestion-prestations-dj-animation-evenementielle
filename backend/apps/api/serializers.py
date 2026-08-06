@@ -114,6 +114,7 @@ class AccountDeletionRequestSerializer(serializers.ModelSerializer):
         fields = ["id", "client_email", "client_name", "reason", "status", "review_message", "requested_at", "reviewed_at"]
         read_only_fields = ["id", "client_email", "client_name", "status", "review_message", "requested_at", "reviewed_at"]
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_client_name(self, obj):
         return obj.client.user.get_full_name() or obj.client.user.username
 
@@ -663,10 +664,12 @@ class PaymentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     def _refunds(payment):
         return list(payment.refunds.all())
 
+    @extend_schema_field(serializers.DecimalField(max_digits=10, decimal_places=2))
     def get_refunded_amount(self, payment):
         total = sum((refund.amount for refund in self._refunds(payment) if refund.status == Refund.SUCCEEDED), Decimal("0.00"))
         return f"{total:.2f}"
 
+    @extend_schema_field(serializers.DecimalField(max_digits=10, decimal_places=2))
     def get_refundable_amount(self, payment):
         reserved = sum(
             (refund.amount for refund in self._refunds(payment) if refund.status not in {Refund.FAILED, Refund.CANCELLED}),
@@ -674,6 +677,7 @@ class PaymentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         )
         return f"{max(payment.amount - reserved, Decimal('0.00')):.2f}"
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_refund_status(self, payment):
         refunds = self._refunds(payment)
         if any(refund.status == Refund.PENDING for refund in refunds):

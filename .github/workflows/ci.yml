@@ -22,7 +22,7 @@ jobs:
         working-directory: backend
     env:
       DB_ENGINE: sqlite
-      SECRET_KEY: ci-only-secret-key-with-at-least-32-characters
+      SECRET_KEY: ci-Q7zT9pW4nK8xR2mV6bC3fH5jL1sD0gA9uE4yI8oP2qN6wZ3cF7hJ5
       DEBUG: "False"
     steps:
       - name: Récupérer le dépôt
@@ -37,6 +37,15 @@ jobs:
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - name: Vérifier Django et les migrations
         run: python manage.py check && python manage.py makemigrations --check --dry-run
+      - name: Auditer la configuration de production
+        env:
+          SECURE_SSL_REDIRECT: "True"
+          SESSION_COOKIE_SECURE: "True"
+          CSRF_COOKIE_SECURE: "True"
+          SECURE_HSTS_SECONDS: "31536000"
+          SECURE_HSTS_INCLUDE_SUBDOMAINS: "True"
+          SECURE_HSTS_PRELOAD: "True"
+        run: python manage.py check --deploy --fail-level WARNING
       - name: Exécuter les tests
         run: python manage.py test
 
