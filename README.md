@@ -340,7 +340,8 @@ un devis réel.
 Le workflow `.github/workflows/ci.yml` contrôle automatiquement les branches de
 fonctionnalité et les Pull Requests vers `main`. Il exécute les tests Django avec
 une base SQLite temporaire, vérifie les migrations, puis construit le frontend
-React avec `npm ci` et Vite. Les secrets locaux et MariaDB ne sont pas requis.
+React après l'exécution de `npm test`. Les secrets locaux et MariaDB ne sont pas
+requis.
 
 ## Sécurité du déploiement
 

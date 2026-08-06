@@ -65,6 +65,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - aucune migration Django manquante dans le code ;
 - migration `payments.0003` appliquée à la base locale ;
 - `pip check` sans dépendance Python cassée ;
+- tests unitaires frontend exécutés avec Node.js ;
 - build de production Vite réussi ;
 - audit npm sans vulnérabilité détectée ;
 - aucun secret Stripe réel versionné.

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
+import { formatEuro, hasBookingEnded } from "./utils/booking";
 
 const fallbackPackages = [
   {
@@ -71,14 +72,6 @@ const eventTypes = [
 ];
 
 const todayIso = new Date().toISOString().slice(0, 10);
-
-const formatEuro = (value) =>
-  new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(
-    Number(value || 0),
-  );
-
-const hasBookingEnded = (booking) =>
-  new Date(`${booking.event_date}T${booking.end_time || "23:59:59"}`) <= new Date();
 
 const quoteStatusLabels = {
   draft: "Brouillon",
