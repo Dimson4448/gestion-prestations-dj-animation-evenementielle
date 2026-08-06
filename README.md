@@ -334,3 +334,10 @@ cd backend
 Les données de démonstration du catalogue restent visibles uniquement lorsque
 l'API locale est indisponible. Elles ne peuvent pas être utilisées pour créer
 un devis réel.
+
+## Intégration continue
+
+Le workflow `.github/workflows/ci.yml` contrôle automatiquement les branches de
+fonctionnalité et les Pull Requests vers `main`. Il exécute les tests Django avec
+une base SQLite temporaire, vérifie les migrations, puis construit le frontend
+React avec `npm ci` et Vite. Les secrets locaux et MariaDB ne sont pas requis.
