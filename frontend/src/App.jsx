@@ -10,7 +10,6 @@ import {
   FileText,
   Headphones,
   MapPin,
-  Menu,
   Music2,
   Settings,
   Search,
@@ -22,6 +21,8 @@ import {
 } from "lucide-react";
 
 import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
+import SiteFooter from "./components/SiteFooter";
+import SiteHeader from "./components/SiteHeader";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded } from "./utils/booking";
 
 const fallbackPackages = [
@@ -1384,48 +1385,15 @@ export default function App() {
 
   return (
     <div className="site-shell">
-      <header className="site-header">
-        <button className="brand" type="button" onClick={() => navigate("accueil")} aria-label="Ultimate DJ, accueil">
-          <img src="/logo-ultimate-dj.png" alt="Ultimate DJ — Réserver. Mixer. Célébrer." />
-        </button>
-        <button
-          className="mobile-menu"
-          type="button"
-          onClick={() => setMobileNavOpen((open) => !open)}
-          aria-expanded={mobileNavOpen}
-          aria-label="Ouvrir le menu"
-        >
-          {mobileNavOpen ? <X /> : <Menu />}
-        </button>
-        <nav className={mobileNavOpen ? "main-nav open" : "main-nav"} aria-label="Navigation principale">
-          <button className={page === "accueil" ? "active" : ""} onClick={() => navigate("accueil")}>Accueil</button>
-          <button className={page === "offres" || page === "detail" ? "active" : ""} onClick={() => navigate("offres")}>Offres & DJs</button>
-          <button className={page === "devis" ? "active" : ""} onClick={() => navigate("devis")}>Demander un devis</button>
-          <button className={page === "compte" ? "active" : ""} onClick={() => navigate("compte")}>
-            <CircleUserRound aria-hidden="true" /> Mon compte
-          </button>
-          {currentUser?.is_staff && (
-            <button className={page === "administration" ? "active" : ""} onClick={() => navigate("administration")}>
-              <Settings aria-hidden="true" /> Espace administrateur
-            </button>
-          )}
-          {currentUser?.role === "dj" && (
-            <button className={page === "dj" ? "active" : ""} onClick={() => navigate("dj")}>
-              <Headphones aria-hidden="true" /> Espace DJ
-            </button>
-          )}
-          <a className="admin-link" href="http://127.0.0.1:8000/admin/" target="_blank" rel="noreferrer">
-            Django Admin
-          </a>
-          <div className="language-switcher" aria-label="Choix de la langue">
-            {["FR", "EN", "NL"].map((lang) => (
-              <button key={lang} className={language === lang ? "selected" : ""} onClick={() => setLanguage(lang)} aria-pressed={language === lang}>
-                {lang}
-              </button>
-            ))}
-          </div>
-        </nav>
-      </header>
+      <SiteHeader
+        currentUser={currentUser}
+        language={language}
+        mobileNavOpen={mobileNavOpen}
+        onLanguageChange={setLanguage}
+        onNavigate={navigate}
+        onToggleMenu={() => setMobileNavOpen((open) => !open)}
+        page={page}
+      />
 
       <main>
         {page === "accueil" && (
@@ -1886,7 +1854,7 @@ export default function App() {
         )}
       </main>
 
-      <footer><img src="/logo-ultimate-dj.png" alt="Ultimate DJ" /><p>Réserver. Mixer. Célébrer.</p><nav aria-label="Navigation de pied de page"><button onClick={() => navigate("offres")}>Offres</button><button onClick={() => navigate("devis")}>Devis</button><button onClick={() => navigate("compte")}>Mon compte</button><a href="http://127.0.0.1:8000/admin/" target="_blank" rel="noreferrer">Administration</a></nav><small>© 2026 Ultimate DJ · Version beta 0.2.0</small></footer>
+      <SiteFooter onNavigate={navigate} />
     </div>
   );
 }
