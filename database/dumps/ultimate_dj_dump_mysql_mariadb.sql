@@ -17,6 +17,30 @@
 /*M!100616 SET @OLD_NOTE_VERBOSITY=@@NOTE_VERBOSITY, NOTE_VERBOSITY=0 */;
 
 --
+-- Table structure for table `account_deletion_requests`
+--
+
+DROP TABLE IF EXISTS `account_deletion_requests`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `account_deletion_requests` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `reason` longtext NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `review_message` longtext NOT NULL,
+  `requested_at` datetime(6) NOT NULL,
+  `reviewed_at` datetime(6) DEFAULT NULL,
+  `client_id` bigint(20) NOT NULL,
+  `reviewed_by_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `account_deletion_req_client_id_e528c2c1_fk_client_pr` (`client_id`),
+  KEY `account_deletion_req_reviewed_by_id_a5573f4b_fk_auth_user` (`reviewed_by_id`),
+  CONSTRAINT `account_deletion_req_client_id_e528c2c1_fk_client_pr` FOREIGN KEY (`client_id`) REFERENCES `client_profiles` (`id`),
+  CONSTRAINT `account_deletion_req_reviewed_by_id_a5573f4b_fk_auth_user` FOREIGN KEY (`reviewed_by_id`) REFERENCES `auth_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `auth_group`
 --
 
@@ -65,7 +89,7 @@ CREATE TABLE `auth_permission` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `auth_permission_content_type_id_codename_01ab375a_uniq` (`content_type_id`,`codename`),
   CONSTRAINT `auth_permission_content_type_id_2f476e4b_fk_django_co` FOREIGN KEY (`content_type_id`) REFERENCES `django_content_type` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=105 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=125 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -191,6 +215,31 @@ CREATE TABLE `bookings` (
   CONSTRAINT `booking_end_after_start` CHECK (`end_time` > `start_time`),
   CONSTRAINT `booking_total_positive` CHECK (`total_amount` >= 0),
   CONSTRAINT `booking_deposit_positive` CHECK (`deposit_required` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `cancellation_requests`
+--
+
+DROP TABLE IF EXISTS `cancellation_requests`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cancellation_requests` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `reason` varchar(255) NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `requested_at` datetime(6) NOT NULL,
+  `reviewed_at` datetime(6) DEFAULT NULL,
+  `booking_id` bigint(20) NOT NULL,
+  `reviewed_by_id` int(11) DEFAULT NULL,
+  `review_message` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `cancellation_requests_booking_id_8edac695_fk_bookings_id` (`booking_id`),
+  KEY `cancellation_requests_reviewed_by_id_d1c90040_fk_auth_user_id` (`reviewed_by_id`),
+  KEY `idx_cancel_request_status` (`status`,`requested_at`),
+  CONSTRAINT `cancellation_requests_booking_id_8edac695_fk_bookings_id` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`),
+  CONSTRAINT `cancellation_requests_reviewed_by_id_d1c90040_fk_auth_user_id` FOREIGN KEY (`reviewed_by_id`) REFERENCES `auth_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -346,7 +395,7 @@ CREATE TABLE `django_content_type` (
   `model` varchar(100) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `django_content_type_app_label_model_76bd3d3b_uniq` (`app_label`,`model`)
-) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -362,7 +411,7 @@ CREATE TABLE `django_migrations` (
   `name` varchar(255) NOT NULL,
   `applied` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -506,6 +555,35 @@ CREATE TABLE `payments` (
   CONSTRAINT `payments_booking_id_fa2b6c3e_fk_bookings_id` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`),
   CONSTRAINT `payments_invoice_id_09b5e2bf_fk_invoices_id` FOREIGN KEY (`invoice_id`) REFERENCES `invoices` (`id`),
   CONSTRAINT `payment_amount_positive` CHECK (`amount` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `refunds`
+--
+
+DROP TABLE IF EXISTS `refunds`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `refunds` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `stripe_refund_id` varchar(190) DEFAULT NULL,
+  `idempotency_key` uuid NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `currency` varchar(3) NOT NULL,
+  `reason` varchar(40) NOT NULL,
+  `internal_reason` varchar(255) NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `processed_at` datetime(6) DEFAULT NULL,
+  `payment_id` bigint(20) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idempotency_key` (`idempotency_key`),
+  UNIQUE KEY `stripe_refund_id` (`stripe_refund_id`),
+  KEY `refunds_payment_id_075bbbe0_fk_payments_id` (`payment_id`),
+  KEY `idx_refund_status_created` (`status`,`created_at`),
+  CONSTRAINT `refunds_payment_id_075bbbe0_fk_payments_id` FOREIGN KEY (`payment_id`) REFERENCES `payments` (`id`),
+  CONSTRAINT `refund_amount_positive` CHECK (`amount` > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -682,6 +760,44 @@ CREATE TABLE `service_options` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `token_blacklist_blacklistedtoken`
+--
+
+DROP TABLE IF EXISTS `token_blacklist_blacklistedtoken`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `token_blacklist_blacklistedtoken` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `blacklisted_at` datetime(6) NOT NULL,
+  `token_id` bigint(20) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `token_id` (`token_id`),
+  CONSTRAINT `token_blacklist_blacklistedtoken_token_id_3cc7fe56_fk` FOREIGN KEY (`token_id`) REFERENCES `token_blacklist_outstandingtoken` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `token_blacklist_outstandingtoken`
+--
+
+DROP TABLE IF EXISTS `token_blacklist_outstandingtoken`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `token_blacklist_outstandingtoken` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `token` longtext NOT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `expires_at` datetime(6) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `jti` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `token_blacklist_outstandingtoken_jti_hex_d9bdf6f7_uniq` (`jti`),
+  KEY `token_blacklist_outs_user_id_83bc629a_fk_auth_user` (`user_id`),
+  CONSTRAINT `token_blacklist_outs_user_id_83bc629a_fk_auth_user` FOREIGN KEY (`user_id`) REFERENCES `auth_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `venues`
 --
 
@@ -776,7 +892,24 @@ INSERT INTO `django_migrations` VALUES
 (28,'payments','0001_initial','2026-07-26 18:44:42.913616'),
 (29,'payments','0002_alter_invoice_options_alter_payment_options_and_more','2026-07-26 18:44:43.303634'),
 (30,'payments','0003_alter_payment_stripe_payment_intent_id','2026-07-26 18:44:43.406346'),
-(31,'sessions','0001_initial','2026-07-26 18:44:43.496656');
+(31,'sessions','0001_initial','2026-07-26 18:44:43.496656'),
+(32,'payments','0004_refund','2026-08-04 10:25:54.079081'),
+(33,'bookings','0004_cancellationrequest','2026-08-04 10:51:26.225233'),
+(34,'bookings','0005_cancellationrequest_review_message','2026-08-04 11:01:04.353990'),
+(35,'token_blacklist','0001_initial','2026-08-04 15:16:34.110646'),
+(36,'token_blacklist','0002_outstandingtoken_jti_hex','2026-08-04 15:16:34.167522'),
+(37,'token_blacklist','0003_auto_20171017_2007','2026-08-04 15:16:34.192453'),
+(38,'token_blacklist','0004_auto_20171017_2013','2026-08-04 15:16:34.332677'),
+(39,'token_blacklist','0005_remove_outstandingtoken_jti','2026-08-04 15:16:34.393689'),
+(40,'token_blacklist','0006_auto_20171017_2113','2026-08-04 15:16:34.452472'),
+(41,'token_blacklist','0007_auto_20171017_2214','2026-08-04 15:16:34.993804'),
+(42,'token_blacklist','0008_migrate_to_bigautofield','2026-08-04 15:16:35.527970'),
+(43,'token_blacklist','0010_fix_migrate_to_bigautofield','2026-08-04 15:16:35.607439'),
+(44,'token_blacklist','0011_linearizes_history','2026-08-04 15:16:35.607439'),
+(45,'token_blacklist','0012_alter_outstandingtoken_user','2026-08-04 15:16:35.643536'),
+(46,'token_blacklist','0013_alter_blacklistedtoken_options_and_more','2026-08-04 15:16:35.656098'),
+(47,'accounts','0003_accountdeletionrequest','2026-08-04 16:23:38.295084'),
+(48,'accounts','0004_remove_accountdeletionrequest_unique_pending_account_deletion','2026-08-04 16:24:11.725422');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -789,6 +922,7 @@ LOCK TABLES `django_content_type` WRITE;
 /*!40000 ALTER TABLE `django_content_type` DISABLE KEYS */;
 set autocommit=0;
 INSERT INTO `django_content_type` VALUES
+(31,'accounts','accountdeletionrequest'),
 (7,'accounts','clientprofile'),
 (8,'accounts','djprofile'),
 (1,'admin','logentry'),
@@ -814,7 +948,11 @@ INSERT INTO `django_content_type` VALUES
 (5,'contenttypes','contenttype'),
 (25,'payments','invoice'),
 (26,'payments','payment'),
-(6,'sessions','session');
+(27,'payments','refund'),
+(6,'sessions','session'),
+(29,'token_blacklist','blacklistedtoken'),
+(30,'token_blacklist','outstandingtoken'),
+(28,'bookings','cancellationrequest');
 /*!40000 ALTER TABLE `django_content_type` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -930,7 +1068,27 @@ INSERT INTO `auth_permission` VALUES
 (101,'Can add paiement',26,'add_payment'),
 (102,'Can change paiement',26,'change_payment'),
 (103,'Can delete paiement',26,'delete_payment'),
-(104,'Can view paiement',26,'view_payment');
+(104,'Can view paiement',26,'view_payment'),
+(105,'Can add remboursement',27,'add_refund'),
+(106,'Can change remboursement',27,'change_refund'),
+(107,'Can delete remboursement',27,'delete_refund'),
+(108,'Can view remboursement',27,'view_refund'),
+(109,'Can add demande d\'annulation',28,'add_cancellationrequest'),
+(110,'Can change demande d\'annulation',28,'change_cancellationrequest'),
+(111,'Can delete demande d\'annulation',28,'delete_cancellationrequest'),
+(112,'Can view demande d\'annulation',28,'view_cancellationrequest'),
+(113,'Can add Blacklisted Token',29,'add_blacklistedtoken'),
+(114,'Can change Blacklisted Token',29,'change_blacklistedtoken'),
+(115,'Can delete Blacklisted Token',29,'delete_blacklistedtoken'),
+(116,'Can view Blacklisted Token',29,'view_blacklistedtoken'),
+(117,'Can add Outstanding Token',30,'add_outstandingtoken'),
+(118,'Can change Outstanding Token',30,'change_outstandingtoken'),
+(119,'Can delete Outstanding Token',30,'delete_outstandingtoken'),
+(120,'Can view Outstanding Token',30,'view_outstandingtoken'),
+(121,'Can add demande de suppression de compte',31,'add_accountdeletionrequest'),
+(122,'Can change demande de suppression de compte',31,'change_accountdeletionrequest'),
+(123,'Can delete demande de suppression de compte',31,'delete_accountdeletionrequest'),
+(124,'Can view demande de suppression de compte',31,'view_accountdeletionrequest');
 /*!40000 ALTER TABLE `auth_permission` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;

@@ -1,14 +1,28 @@
+from urllib.parse import urlencode
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
-from apps.accounts.models import DJProfile
+from apps.accounts.models import AccountDeletionRequest, DJProfile
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
@@ -20,25 +34,40 @@ from apps.bookings.models import (
     Review,
     Venue,
 )
-from apps.bookings.services import BookingCompletionError, ContractSigningError, QuoteAcceptanceError, accept_quote, complete_booking, sign_contract
+from apps.bookings.services import BookingCancellationError, BookingCompletionError, CancellationRequestError, ContractSigningError, QuoteAcceptanceError, accept_quote, cancel_booking, complete_booking, reject_booking_cancellation, request_booking_cancellation, sign_contract
 from apps.bookings.documents import build_contract_pdf, build_invoice_pdf
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
-from apps.payments.services import StripeCheckoutError, StripeConfigurationError, create_invoice_checkout
+from apps.payments.services import StripeCheckoutError, StripeConfigurationError, StripeRefundError, create_invoice_checkout, create_payment_refund
 
 from .permissions import AdministrationOuProprietaire, DJOuAdministration, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
 from .serializers import (
     BookingSerializer,
+    AccountDeletionRequestSerializer,
+    AccountDeletionReviewSerializer,
+    BookingCancellationSerializer,
+    CancellationRequestSerializer,
+    CancellationRequestReviewSerializer,
+    ClientRegistrationSerializer,
+    ClientProfileUpdateSerializer,
     ContractSerializer,
     CurrentUserSerializer,
     DJAvailabilitySerializer,
     DJProfileSerializer,
     EquipmentSerializer,
     EventTypeSerializer,
+    EmailVerificationSerializer,
+    EmailVerificationResendSerializer,
     InvoiceSerializer,
+    LogoutSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
+    PasswordChangeSerializer,
     MusicStyleSerializer,
     PackageSerializer,
     PaymentSerializer,
+    RefundRequestSerializer,
+    RefundSerializer,
     PlaylistSerializer,
     PlaylistSongSerializer,
     PreparatoryAppointmentSerializer,
@@ -102,6 +131,210 @@ def filtrer_par_reservation(queryset, user, prefix=""):
 @permission_classes([permissions.IsAuthenticated])
 def current_user(request):
     return Response(CurrentUserSerializer(request.user).data)
+
+
+@extend_schema(request=ClientProfileUpdateSerializer, responses={200: ClientProfileUpdateSerializer}, summary="Consulter ou modifier son profil client")
+@api_view(["GET", "PATCH"])
+@permission_classes([permissions.IsAuthenticated])
+def client_profile(request):
+    if not hasattr(request.user, "client_profile"):
+        raise PermissionDenied("Un profil client est requis pour cette opération.")
+    if request.method == "GET":
+        return Response(ClientProfileUpdateSerializer(request.user).data)
+    serializer = ClientProfileUpdateSerializer(request.user, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data)
+
+
+@extend_schema(request=AccountDeletionRequestSerializer, responses={200: AccountDeletionRequestSerializer(many=True), 201: AccountDeletionRequestSerializer}, summary="Consulter ou demander la suppression du compte")
+@api_view(["GET", "POST"])
+@permission_classes([permissions.IsAuthenticated])
+def account_deletion_requests(request):
+    if request.method == "GET":
+        if request.user.is_staff:
+            requests = AccountDeletionRequest.objects.select_related("client__user", "reviewed_by").all()
+        else:
+            client = getattr(request.user, "client_profile", None)
+            if not client:
+                raise PermissionDenied("Un profil client est requis pour cette opération.")
+            requests = AccountDeletionRequest.objects.filter(client=client)
+        return Response(AccountDeletionRequestSerializer(requests, many=True).data)
+    client = getattr(request.user, "client_profile", None)
+    if not client:
+        raise PermissionDenied("Un profil client est requis pour cette opération.")
+    serializer = AccountDeletionRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    with transaction.atomic():
+        locked_client = type(client).objects.select_for_update().get(pk=client.pk)
+        if AccountDeletionRequest.objects.filter(client=locked_client, status=AccountDeletionRequest.PENDING).exists():
+            raise ValidationError({"detail": "Une demande de suppression est déjà en attente."})
+        serializer.save(client=locked_client)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(request=None, responses={200: AccountDeletionRequestSerializer}, summary="Annuler une demande de suppression")
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def cancel_account_deletion_request(request, pk):
+    client = getattr(request.user, "client_profile", None)
+    deletion_request = get_object_or_404(AccountDeletionRequest, pk=pk, client=client)
+    if deletion_request.status != AccountDeletionRequest.PENDING:
+        raise ValidationError({"detail": "Seule une demande en attente peut être annulée."})
+    deletion_request.status = AccountDeletionRequest.CANCELLED
+    deletion_request.save(update_fields=["status"])
+    return Response(AccountDeletionRequestSerializer(deletion_request).data)
+
+
+@extend_schema(request=AccountDeletionReviewSerializer, responses={200: AccountDeletionRequestSerializer}, summary="Traiter une demande de suppression")
+@api_view(["POST"])
+@permission_classes([permissions.IsAdminUser])
+def review_account_deletion_request(request, pk):
+    serializer = AccountDeletionReviewSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    with transaction.atomic():
+        deletion_request = get_object_or_404(
+            AccountDeletionRequest.objects.select_for_update().select_related("client__user"),
+            pk=pk,
+        )
+        if deletion_request.status != AccountDeletionRequest.PENDING:
+            raise ValidationError({"detail": "Cette demande a déjà été traitée."})
+        deletion_request.status = serializer.validated_data["decision"]
+        deletion_request.review_message = serializer.validated_data["review_message"]
+        deletion_request.reviewed_by = request.user
+        deletion_request.reviewed_at = timezone.now()
+        deletion_request.save(update_fields=["status", "review_message", "reviewed_by", "reviewed_at"])
+
+        client_user = deletion_request.client.user
+        if deletion_request.status == AccountDeletionRequest.APPROVED:
+            client_user.is_active = False
+            client_user.save(update_fields=["is_active"])
+            for token in OutstandingToken.objects.filter(user=client_user):
+                BlacklistedToken.objects.get_or_create(token=token)
+
+    decision = "acceptée" if deletion_request.status == AccountDeletionRequest.APPROVED else "refusée"
+    send_mail(
+        f"Ultimate DJ - demande de suppression {decision}",
+        f"Votre demande de suppression a été {decision}.\n\nRéponse de l'administration : {deletion_request.review_message}",
+        settings.DEFAULT_FROM_EMAIL,
+        [client_user.email],
+        fail_silently=True,
+    )
+    return Response(AccountDeletionRequestSerializer(deletion_request).data)
+
+
+@extend_schema(request=PasswordChangeSerializer, responses={204: None}, summary="Modifier le mot de passe connecté")
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def change_password(request):
+    serializer = PasswordChangeSerializer(data=request.data, context={"request": request})
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def send_verification_email(user):
+    parameters = urlencode(
+        {
+            "verify_uid": urlsafe_base64_encode(force_bytes(user.pk)),
+            "verify_token": default_token_generator.make_token(user),
+        }
+    )
+    verification_url = f"{settings.FRONTEND_URL.rstrip('/')}?{parameters}"
+    send_mail(
+        "Ultimate DJ - confirmez votre adresse e-mail",
+        f"Bienvenue chez Ultimate DJ. Confirmez votre adresse e-mail avec ce lien :\n\n{verification_url}\n\nCe lien ne peut être utilisé qu'une fois.",
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        fail_silently=True,
+    )
+
+
+@extend_schema(request=ClientRegistrationSerializer, responses={201: OpenApiResponse(description="Compte créé, vérification requise")}, summary="Créer un compte client")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def register_client(request):
+    serializer = ClientRegistrationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = serializer.save()
+    send_verification_email(user)
+    return Response(
+        {"detail": "Votre compte a été créé. Consultez votre e-mail pour l'activer avant de vous connecter."},
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@extend_schema(request=EmailVerificationSerializer, responses={204: None}, summary="Confirmer une adresse e-mail")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def verify_email(request):
+    serializer = EmailVerificationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(request=EmailVerificationResendSerializer, responses={200: OpenApiResponse(description="Demande traitée")}, summary="Renvoyer le lien de vérification")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def resend_verification_email(request):
+    serializer = EmailVerificationResendSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = get_user_model().objects.filter(
+        email__iexact=serializer.validated_data["email"],
+        is_active=False,
+    ).first()
+    if user:
+        send_verification_email(user)
+    return Response({"detail": "Si cette adresse correspond à un compte en attente, un nouveau lien vient d'être envoyé."})
+
+
+@extend_schema(request=PasswordResetRequestSerializer, responses={200: OpenApiResponse(description="Demande traitée")}, summary="Demander un nouveau mot de passe")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def request_password_reset(request):
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = get_user_model().objects.filter(email__iexact=serializer.validated_data["email"], is_active=True).first()
+    if user:
+        parameters = urlencode(
+            {
+                "reset_uid": urlsafe_base64_encode(force_bytes(user.pk)),
+                "reset_token": default_token_generator.make_token(user),
+            }
+        )
+        reset_url = f"{settings.FRONTEND_URL.rstrip('/')}?{parameters}"
+        send_mail(
+            "Ultimate DJ - réinitialisation du mot de passe",
+            f"Utilisez ce lien pour choisir un nouveau mot de passe :\n\n{reset_url}\n\nIgnorez ce message si vous n'êtes pas à l'origine de cette demande.",
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=True,
+        )
+    return Response({"detail": "Si cette adresse correspond à un compte actif, un lien vient d'être envoyé."})
+
+
+@extend_schema(request=PasswordResetConfirmSerializer, responses={204: None}, summary="Confirmer un nouveau mot de passe")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def confirm_password_reset(request):
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(request=LogoutSerializer, responses={204: None}, summary="Révoquer la session JWT")
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def logout_user(request):
+    serializer = LogoutSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    try:
+        RefreshToken(serializer.validated_data["refresh"]).blacklist()
+    except TokenError:
+        return Response({"detail": "Le jeton de renouvellement est invalide ou déjà révoqué."}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PackageViewSet(AdminWritePublicReadViewSet):
@@ -261,6 +494,7 @@ class QuoteViewSet(ProtectedModelViewSet):
 
 
 class BookingViewSet(AdminManagedProtectedViewSet):
+    admin_only_actions = {"create", "update", "partial_update", "destroy", "cancel", "reject_cancellation"}
     serializer_class = BookingSerializer
     filterset_fields = ["status", "event_type", "package", "deposit_paid"]
     search_fields = ["client__user__email", "dj__stage_name", "venue__name"]
@@ -298,6 +532,70 @@ class BookingViewSet(AdminManagedProtectedViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    @extend_schema(
+        request=BookingCancellationSerializer,
+        responses={200: BookingSerializer},
+        summary="Annuler une réservation remboursée et libérer le créneau DJ",
+    )
+    @action(detail=True, methods=["post"], url_path="cancel")
+    def cancel(self, request, pk=None):
+        booking = self.get_object()
+        serializer = BookingCancellationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            booking = cancel_booking(booking.pk, request.user, serializer.validated_data["reason"])
+        except BookingCancellationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(BookingSerializer(booking, context={"request": request}).data)
+
+    @extend_schema(
+        request=BookingCancellationSerializer,
+        responses={201: CancellationRequestSerializer},
+        summary="Demander l'annulation d'une réservation en tant que client",
+    )
+    @action(detail=True, methods=["post"], url_path="request-cancellation")
+    def request_cancellation(self, request, pk=None):
+        booking = self.get_object()
+        serializer = BookingCancellationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            cancellation_request = request_booking_cancellation(
+                booking.pk, request.user, serializer.validated_data["reason"]
+            )
+        except CancellationRequestError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(CancellationRequestSerializer(cancellation_request).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        responses={200: CancellationRequestSerializer(many=True)},
+        summary="Consulter les demandes d'annulation d'une réservation",
+    )
+    @action(detail=True, methods=["get"], url_path="cancellation-requests")
+    def cancellation_requests(self, request, pk=None):
+        booking = self.get_object()
+        if not request.user.is_staff and booking.client.user_id != request.user.pk:
+            return Response({"detail": "Accès réservé au client concerné et à l'administration."}, status=status.HTTP_403_FORBIDDEN)
+        requests = booking.cancellation_requests.select_related("reviewed_by").all()
+        return Response(CancellationRequestSerializer(requests, many=True).data)
+
+    @extend_schema(
+        request=CancellationRequestReviewSerializer,
+        responses={200: CancellationRequestSerializer},
+        summary="Refuser une demande d'annulation en attente",
+    )
+    @action(detail=True, methods=["post"], url_path="reject-cancellation")
+    def reject_cancellation(self, request, pk=None):
+        booking = self.get_object()
+        serializer = CancellationRequestReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            cancellation_request = reject_booking_cancellation(
+                booking.pk, request.user, serializer.validated_data["message"]
+            )
+        except CancellationRequestError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(CancellationRequestSerializer(cancellation_request).data)
 
 class PreparatoryAppointmentViewSet(AdminManagedProtectedViewSet):
     admin_only_actions = {"destroy"}
@@ -394,9 +692,37 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ["status", "currency"]
     ordering_fields = ["paid_at", "amount"]
 
+    def get_permissions(self):
+        if self.action == "refund":
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
+
     def get_queryset(self):
-        queryset = Payment.objects.select_related("booking", "booking__client", "booking__dj", "invoice").all()
+        queryset = Payment.objects.select_related("booking", "booking__client", "booking__dj", "invoice").prefetch_related("refunds").all()
         return filtrer_par_reservation(queryset, self.request.user)
+
+    @extend_schema(
+        request=RefundRequestSerializer,
+        responses={201: RefundSerializer},
+        summary="Rembourser totalement ou partiellement un paiement Stripe",
+    )
+    @action(detail=True, methods=["post"], url_path="refund")
+    def refund(self, request, pk=None):
+        payment = self.get_object()
+        serializer = RefundRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            refund = create_payment_refund(
+                payment.pk,
+                serializer.validated_data.get("amount"),
+                serializer.validated_data["reason"],
+                serializer.validated_data["internal_reason"],
+            )
+        except (ValueError, StripeConfigurationError) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except StripeRefundError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        return Response(RefundSerializer(refund).data, status=status.HTTP_201_CREATED)
 
 
 class PlaylistViewSet(ProtectedModelViewSet):

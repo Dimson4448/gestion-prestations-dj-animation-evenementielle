@@ -5,9 +5,10 @@ from django.utils import timezone
 
 from apps.accounts.models import DJProfile
 from apps.availability.models import DJAvailability
-from apps.payments.models import Invoice
+from apps.payments.models import Invoice, Payment
 
-from .models import Booking, Contract, Quote
+from .models import Booking, CancellationRequest, Contract, PreparatoryAppointment, Quote
+from .notifications import notify_cancellation_requested, notify_cancellation_reviewed
 
 
 class QuoteAcceptanceError(Exception):
@@ -20,6 +21,14 @@ class ContractSigningError(Exception):
 
 class BookingCompletionError(Exception):
     """Erreur fonctionnelle empêchant la clôture d'une prestation."""
+
+
+class BookingCancellationError(Exception):
+    """Erreur fonctionnelle empêchant l'annulation d'une réservation."""
+
+
+class CancellationRequestError(Exception):
+    """Erreur fonctionnelle empêchant une demande d'annulation client."""
 
 
 def _event_end_time(quote):
@@ -168,3 +177,116 @@ def complete_booking(booking_id, actor):
     booking.status = Booking.PERFORMED
     booking.save(update_fields=["status"])
     return booking, invoice
+
+
+@transaction.atomic
+def cancel_booking(booking_id, actor, reason):
+    """Annule un dossier remboursé et libère toutes les ressources encore ouvertes."""
+    if not actor.is_staff:
+        raise BookingCancellationError("Seule l'administration peut confirmer l'annulation d'une réservation.")
+    reason = reason.strip()
+    if not reason:
+        raise BookingCancellationError("Un motif d'annulation est obligatoire.")
+
+    booking = (
+        Booking.objects.select_for_update()
+        .select_related("contract", "dj")
+        .get(pk=booking_id)
+    )
+    if booking.status not in {Booking.PREPARATORY_MEETING, Booking.CONFIRMED, Booking.PAID}:
+        raise BookingCancellationError("Cette réservation ne peut plus être annulée dans son état actuel.")
+    event_start = timezone.make_aware(datetime.combine(booking.event_date, booking.start_time))
+    if event_start <= timezone.now():
+        raise BookingCancellationError("Une prestation déjà commencée ne peut plus être annulée.")
+
+    blocking_payments = Payment.objects.select_for_update().filter(
+        booking=booking,
+        status__in=[Payment.PENDING, Payment.PAID],
+    )
+    if blocking_payments.exists():
+        raise BookingCancellationError(
+            "Tous les paiements en attente ou encaissés doivent être résolus et remboursés avant l'annulation."
+        )
+
+    booking.status = Booking.CANCELLED
+    booking.deposit_paid = False
+    booking.cancellation_reason = reason
+    booking.save(update_fields=["status", "deposit_paid", "cancellation_reason"])
+
+    if hasattr(booking, "contract") and booking.contract.status != Contract.CANCELLED:
+        booking.contract.status = Contract.CANCELLED
+        booking.contract.save(update_fields=["status"])
+    PreparatoryAppointment.objects.select_for_update().filter(
+        booking=booking,
+        status=PreparatoryAppointment.PLANNED,
+    ).update(status=PreparatoryAppointment.CANCELLED)
+    Invoice.objects.select_for_update().filter(
+        booking=booking,
+        status__in=[Invoice.DRAFT, Invoice.SENT],
+    ).update(status=Invoice.CANCELLED)
+    DJAvailability.objects.select_for_update().filter(
+        dj=booking.dj,
+        available_date=booking.event_date,
+        status=DJAvailability.RESERVED,
+        reason=f"Réservation #{booking.pk}",
+    ).update(status=DJAvailability.AVAILABLE, reason="")
+    pending_requests = list(CancellationRequest.objects.select_for_update().filter(
+        booking=booking,
+        status=CancellationRequest.PENDING,
+    ))
+    CancellationRequest.objects.filter(pk__in=[item.pk for item in pending_requests]).update(
+        status=CancellationRequest.APPROVED, reviewed_at=timezone.now(), reviewed_by=actor
+    )
+    for cancellation_request in pending_requests:
+        cancellation_request.status = CancellationRequest.APPROVED
+        cancellation_request.reviewed_at = timezone.now()
+        cancellation_request.reviewed_by = actor
+        cancellation_request.booking = booking
+        notify_cancellation_reviewed(cancellation_request)
+    return booking
+
+
+@transaction.atomic
+def request_booking_cancellation(booking_id, actor, reason):
+    """Enregistre une demande client sans annuler ni rembourser automatiquement."""
+    reason = reason.strip()
+    if not reason:
+        raise CancellationRequestError("Un motif d'annulation est obligatoire.")
+    booking = Booking.objects.select_for_update().select_related("client__user").get(pk=booking_id)
+    if actor.is_staff or booking.client.user_id != actor.pk:
+        raise CancellationRequestError("Seul le client concerné peut demander cette annulation.")
+    if booking.status not in {Booking.PREPARATORY_MEETING, Booking.CONFIRMED, Booking.PAID}:
+        raise CancellationRequestError("Cette réservation ne peut plus faire l'objet d'une demande d'annulation.")
+    event_start = timezone.make_aware(datetime.combine(booking.event_date, booking.start_time))
+    if event_start <= timezone.now():
+        raise CancellationRequestError("Une prestation déjà commencée ne peut plus être annulée.")
+    if CancellationRequest.objects.select_for_update().filter(booking=booking, status=CancellationRequest.PENDING).exists():
+        raise CancellationRequestError("Une demande d'annulation est déjà en attente pour cette réservation.")
+    cancellation_request = CancellationRequest.objects.create(booking=booking, reason=reason)
+    notify_cancellation_requested(cancellation_request)
+    return cancellation_request
+
+
+@transaction.atomic
+def reject_booking_cancellation(booking_id, actor, message):
+    """Refuse la demande en attente en conservant la réponse administrative."""
+    if not actor.is_staff:
+        raise CancellationRequestError("Seule l'administration peut traiter une demande d'annulation.")
+    message = message.strip()
+    if not message:
+        raise CancellationRequestError("Une réponse au client est obligatoire.")
+    cancellation_request = (
+        CancellationRequest.objects.select_for_update()
+        .filter(booking_id=booking_id, status=CancellationRequest.PENDING)
+        .order_by("-requested_at")
+        .first()
+    )
+    if cancellation_request is None:
+        raise CancellationRequestError("Aucune demande d'annulation en attente n'a été trouvée.")
+    cancellation_request.status = CancellationRequest.REJECTED
+    cancellation_request.reviewed_at = timezone.now()
+    cancellation_request.reviewed_by = actor
+    cancellation_request.review_message = message
+    cancellation_request.save(update_fields=["status", "reviewed_at", "reviewed_by", "review_message"])
+    notify_cancellation_reviewed(cancellation_request)
+    return cancellation_request

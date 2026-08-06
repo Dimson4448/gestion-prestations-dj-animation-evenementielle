@@ -1,4 +1,6 @@
+from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from apps.accounts.models import ClientProfile, DJProfile
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
@@ -157,6 +159,38 @@ class BookingEquipment(models.Model):
             models.UniqueConstraint(fields=["booking", "equipment"], name="unique_booking_equipment"),
             models.CheckConstraint(check=models.Q(quantity__gt=0), name="booking_equipment_quantity_positive"),
         ]
+
+
+class CancellationRequest(models.Model):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    STATUS_CHOICES = [(PENDING, "En attente"), (APPROVED, "Acceptée"), (REJECTED, "Refusée")]
+
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name="cancellation_requests", verbose_name="réservation")
+    reason = models.CharField("motif", max_length=255)
+    status = models.CharField("statut", max_length=20, choices=STATUS_CHOICES, default=PENDING)
+    requested_at = models.DateTimeField("demandée le", default=timezone.now)
+    reviewed_at = models.DateTimeField("traitée le", null=True, blank=True)
+    review_message = models.CharField("réponse administrative", max_length=255, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reviewed_cancellation_requests",
+        verbose_name="traitée par",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "cancellation_requests"
+        verbose_name = "demande d'annulation"
+        verbose_name_plural = "demandes d'annulation"
+        ordering = ["-requested_at"]
+        indexes = [models.Index(fields=["status", "requested_at"], name="idx_cancel_request_status")]
+
+    def __str__(self):
+        return f"Demande d'annulation #{self.pk} - réservation #{self.booking_id}"
 
 
 class PreparatoryAppointment(models.Model):

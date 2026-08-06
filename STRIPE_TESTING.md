@@ -36,7 +36,7 @@ Installer Stripe CLI, s'y connecter, puis conserver ce terminal ouvert :
 
 ```powershell
 stripe login
-stripe listen --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired --forward-to http://127.0.0.1:8000/api/v1/payments/webhook/
+stripe listen --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired,refund.created,refund.updated,refund.failed --forward-to http://127.0.0.1:8000/api/v1/payments/webhook/
 ```
 
 La commande affiche un secret commençant par `whsec_`. Le recopier dans
@@ -96,6 +96,12 @@ Dans l'administration Django :
 - `acompte payé` est activé sur la réservation ;
 - une réservation au stade préparatoire passe à `Confirmée`.
 
+Pour tester une annulation, le client envoie sa demande depuis son espace. Dans
+l'espace administrateur, rembourser chaque paiement encaissé avec Stripe. Le
+webhook met ensuite à jour le remboursement, le paiement et la facture. Le
+bouton d'annulation devient disponible uniquement lorsque tous les paiements
+sont régularisés.
+
 Relancer les validations automatisées avec :
 
 ```powershell
@@ -113,6 +119,7 @@ npm.cmd audit --omit=dev
 - le montant et la devise proviennent de Django, jamais du navigateur ;
 - les factures d'un autre client ne sont pas accessibles ;
 - les paiements ne peuvent pas être créés directement par l'API publique ;
+- les remboursements différés sont confirmés uniquement par un webhook signé ;
 - le corps brut et la signature du webhook sont vérifiés ;
 - les montants, devises et métadonnées incohérents sont rejetés ;
 - un même événement peut être reçu plusieurs fois sans doubler le paiement ;

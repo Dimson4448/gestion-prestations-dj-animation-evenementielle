@@ -212,6 +212,58 @@ enregistrée dans un commit distinct avant la création de la Release GitHub.
 Le protocole complet de configuration et de démonstration locale est disponible
 dans [`STRIPE_TESTING.md`](STRIPE_TESTING.md).
 
+Les notifications d'annulation, de paiement confirmé et de remboursement
+utilisent le système d'e-mail Django. En local,
+le backend `console` affiche les messages dans le terminal sans envoyer de
+courrier. Pour un déploiement réel, remplacer `EMAIL_BACKEND` par
+`django.core.mail.backends.smtp.EmailBackend` et renseigner dans
+`backend/.env` les paramètres `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`,
+`EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` et `DEFAULT_FROM_EMAIL`. Ces identifiants
+restent privés et ne doivent jamais être commités. La variable `SECRET_KEY`
+doit également rester privée et contenir au moins 32 caractères aléatoires,
+car elle signe notamment les jetons JWT Django.
+
+Les sessions JWT utilisent une rotation du jeton de renouvellement. Chaque
+ancien jeton est placé en liste noire et la déconnexion React révoque le dernier
+jeton côté Django avant de supprimer les informations locales.
+
+L'espace client permet également de créer un compte réel depuis React. Django
+vérifie l'unicité de l'identifiant et de l'adresse e-mail, applique ses règles
+de robustesse au mot de passe, contrôle que le client est majeur, puis crée
+atomiquement l'utilisateur et son profil de facturation. Une session JWT est
+accessible uniquement après la confirmation de l'adresse e-mail avec le lien
+temporaire envoyé par Django. Le compte reste inactif jusque-là et le lien de
+confirmation ne peut être utilisé qu'une fois. Si le message est perdu ou si
+le lien expire, le formulaire de connexion permet d'en demander un nouveau
+sans révéler si l'adresse correspond réellement à un compte en attente.
+
+Le lien « Mot de passe oublié » envoie une URL temporaire à l'adresse du
+compte sans révéler publiquement si celle-ci existe. Après validation du lien,
+Django applique les mêmes règles de robustesse au nouveau mot de passe et
+invalide les jetons JWT créés avec l'ancien mot de passe. En développement, le
+lien apparaît dans le terminal Django avec le backend d'e-mail `console`.
+
+Une fois connecté, le client peut consulter et corriger ses coordonnées
+personnelles et de facturation depuis React. L'API réserve cette ressource au
+propriétaire du profil, conserve l'adresse e-mail vérifiée en lecture seule et
+réapplique notamment le contrôle de majorité lors d'une modification.
+
+Le client peut également changer son mot de passe depuis ce profil après avoir
+confirmé le mot de passe actuel. Le jeton de renouvellement est placé en liste
+noire, les anciens jetons d'accès deviennent invalides et React ferme la session
+locale afin d'imposer une nouvelle authentification.
+
+La demande de suppression du compte est désormais enregistrée dans MariaDB au
+lieu d'être une simple confirmation visuelle. Le client consulte son historique,
+ne peut avoir qu'une demande en attente et peut l'annuler avant traitement.
+L'administration retrouve le dossier dans Django Admin afin de vérifier les
+obligations contractuelles et comptables avant toute suppression effective.
+Elle peut aussi le traiter depuis l'espace React : un refus conserve le compte
+avec une réponse motivée, tandis qu'une approbation désactive immédiatement
+l'utilisateur et place toutes ses sessions JWT en liste noire. Les écritures et
+documents restent conservés pour le suivi légal, et la décision est notifiée
+par e-mail.
+
 La note destinée à la publication GitHub se trouve dans
 [`RELEASE_BETA.md`](RELEASE_BETA.md). Le tag prévu est `v0.2.0-beta.1` et ne
 sera créé qu'après fusion et validation finale.

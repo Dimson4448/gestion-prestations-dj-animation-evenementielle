@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, clearAuthentication, getCurrentUser, getStoredAccessToken } from "./api";
+import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
 
 const fallbackPackages = [
   {
@@ -132,7 +132,50 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginStatus, setLoginStatus] = useState("");
   const [loginPending, setLoginPending] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
+  const [registrationPending, setRegistrationPending] = useState(false);
+  const [registrationStatus, setRegistrationStatus] = useState("");
+  const [registration, setRegistration] = useState({
+    username: "",
+    email: "",
+    password: "",
+    first_name: "",
+    last_name: "",
+    date_of_birth: "",
+    phone: "",
+    billing_address: "",
+    billing_city: "",
+    billing_postal_code: "",
+    preferred_language: "fr",
+  });
+  const [passwordResetOpen, setPasswordResetOpen] = useState(false);
+  const [passwordResetEmail, setPasswordResetEmail] = useState("");
+  const [passwordResetCredentials, setPasswordResetCredentials] = useState({ uid: "", token: "" });
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordResetPending, setPasswordResetPending] = useState(false);
+  const [passwordResetStatus, setPasswordResetStatus] = useState("");
+  const [verificationResendOpen, setVerificationResendOpen] = useState(false);
+  const [verificationResendEmail, setVerificationResendEmail] = useState("");
+  const [verificationResendPending, setVerificationResendPending] = useState(false);
+  const [verificationResendStatus, setVerificationResendStatus] = useState("");
+  const [clientProfile, setClientProfile] = useState(null);
+  const [clientProfileOpen, setClientProfileOpen] = useState(false);
+  const [clientProfilePending, setClientProfilePending] = useState(false);
+  const [clientProfileStatus, setClientProfileStatus] = useState("");
+  const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [changedPassword, setChangedPassword] = useState("");
+  const [passwordChangePending, setPasswordChangePending] = useState(false);
+  const [passwordChangeStatus, setPasswordChangeStatus] = useState("");
+  const [accountDeletionRequests, setAccountDeletionRequests] = useState([]);
+  const [accountDeletionReason, setAccountDeletionReason] = useState("");
+  const [accountDeletionPending, setAccountDeletionPending] = useState(false);
+  const [accountDeletionStatus, setAccountDeletionStatus] = useState("");
+  const [adminDeletionRequests, setAdminDeletionRequests] = useState([]);
+  const [adminDeletionMessages, setAdminDeletionMessages] = useState({});
+  const [adminDeletionPendingId, setAdminDeletionPendingId] = useState(null);
   const [invoices, setInvoices] = useState([]);
+  const [clientPayments, setClientPayments] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [contractStatus, setContractStatus] = useState("");
   const [contractPendingId, setContractPendingId] = useState(null);
@@ -165,6 +208,15 @@ export default function App() {
   const [availabilityStatus, setAvailabilityStatus] = useState("available");
   const [availabilityReason, setAvailabilityReason] = useState("");
   const [clientBookings, setClientBookings] = useState([]);
+  const [cancellationRequests, setCancellationRequests] = useState([]);
+  const [cancellationReasons, setCancellationReasons] = useState({});
+  const [cancellationPendingId, setCancellationPendingId] = useState(null);
+  const [cancellationStatus, setCancellationStatus] = useState("");
+  const [adminCancellationRequests, setAdminCancellationRequests] = useState([]);
+  const [adminCancellationMessages, setAdminCancellationMessages] = useState({});
+  const [adminCancellationPendingId, setAdminCancellationPendingId] = useState(null);
+  const [adminPayments, setAdminPayments] = useState([]);
+  const [refundPendingId, setRefundPendingId] = useState(null);
   const [playlists, setPlaylists] = useState([]);
   const [playlistSongs, setPlaylistSongs] = useState([]);
   const [musicStyles, setMusicStyles] = useState([]);
@@ -192,6 +244,16 @@ export default function App() {
   const [reviewComment, setReviewComment] = useState("");
 
   useEffect(() => {
+    const handleSessionExpired = () => {
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
+    };
+    window.addEventListener(sessionExpiredEvent, handleSessionExpired);
+    return () => window.removeEventListener(sessionExpiredEvent, handleSessionExpired);
+  }, []);
+
+  useEffect(() => {
     if (!isAuthenticated) {
       setCurrentUser(null);
       return;
@@ -210,6 +272,30 @@ export default function App() {
 
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
+    const verificationUid = parameters.get("verify_uid");
+    const verificationToken = parameters.get("verify_token");
+    if (verificationUid && verificationToken) {
+      setPage("compte");
+      setLoginStatus("Vérification de votre adresse e-mail…");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      verifyEmail(verificationUid, verificationToken)
+        .then(() => setLoginStatus("Votre adresse e-mail est confirmée. Vous pouvez maintenant vous connecter."))
+        .catch((error) => {
+          const details = error.response?.data;
+          const firstError = details && Object.values(details).flat()[0];
+          setLoginStatus(firstError || "Ce lien de vérification est invalide ou a expiré.");
+        });
+      return;
+    }
+    const resetUid = parameters.get("reset_uid");
+    const resetToken = parameters.get("reset_token");
+    if (resetUid && resetToken) {
+      setPage("compte");
+      setPasswordResetOpen(true);
+      setPasswordResetCredentials({ uid: resetUid, token: resetToken });
+      setPasswordResetStatus("Choisissez maintenant votre nouveau mot de passe.");
+      return;
+    }
     const paymentResult = parameters.get("payment");
     if (!paymentResult) return;
 
@@ -270,6 +356,7 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
       setInvoices([]);
+      setClientPayments([]);
       setClientQuotes([]);
       setVenues([]);
       setSelectedVenueId("new");
@@ -278,12 +365,16 @@ export default function App() {
 
     let mounted = true;
     setInvoiceStatus("Chargement de vos factures…");
-    apiClient
-      .get("/invoices/", { params: { ordering: "-issued_at" } })
-      .then((response) => {
+    Promise.all([
+      apiClient.get("/invoices/", { params: { ordering: "-issued_at" } }),
+      apiClient.get("/payments/", { params: { ordering: "-paid_at" } }),
+    ])
+      .then(([invoiceResponse, paymentResponse]) => {
         if (!mounted) return;
-        const invoices = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        const invoices = Array.isArray(invoiceResponse.data?.results) ? invoiceResponse.data.results : invoiceResponse.data;
+        const payments = Array.isArray(paymentResponse.data?.results) ? paymentResponse.data.results : paymentResponse.data;
         setInvoices(Array.isArray(invoices) ? invoices : []);
+        setClientPayments(Array.isArray(payments) ? payments : []);
         setInvoiceStatus(invoices?.length ? "" : "Aucune facture disponible.");
       })
       .catch((error) => {
@@ -300,6 +391,30 @@ export default function App() {
     return () => {
       mounted = false;
     };
+  }, [isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    if (!isAuthenticated || currentUser?.role !== "client") {
+      setAccountDeletionRequests([]);
+      return;
+    }
+    let mounted = true;
+    getAccountDeletionRequests()
+      .then((requests) => mounted && setAccountDeletionRequests(requests))
+      .catch(() => mounted && setAccountDeletionStatus("Impossible de charger vos demandes de suppression."));
+    return () => { mounted = false; };
+  }, [isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    if (!isAuthenticated || currentUser?.role !== "client") {
+      setClientProfile(null);
+      return;
+    }
+    let mounted = true;
+    getClientProfile()
+      .then((profile) => mounted && setClientProfile(profile))
+      .catch(() => mounted && setClientProfileStatus("Impossible de charger vos coordonnées."));
+    return () => { mounted = false; };
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
@@ -343,6 +458,7 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
       setClientBookings([]);
+      setCancellationRequests([]);
       setPlaylists([]);
       setPlaylistSongs([]);
       return;
@@ -355,7 +471,7 @@ export default function App() {
       apiClient.get("/playlist-songs/", { params: { ordering: "title" } }),
       apiClient.get("/music-styles/", { params: { ordering: "name" } }),
     ])
-      .then(([bookingsResponse, playlistsResponse, songsResponse, stylesResponse]) => {
+      .then(async ([bookingsResponse, playlistsResponse, songsResponse, stylesResponse]) => {
         if (!mounted) return;
         const records = (response) => Array.isArray(response.data?.results) ? response.data.results : (Array.isArray(response.data) ? response.data : []);
         const bookingRecords = records(bookingsResponse);
@@ -363,6 +479,11 @@ export default function App() {
         const songRecords = records(songsResponse);
         const styleRecords = records(stylesResponse);
         setClientBookings(bookingRecords);
+        const requestResponses = await Promise.all(
+          bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
+        );
+        if (!mounted) return;
+        setCancellationRequests(requestResponses.flatMap((response) => response.data));
         setPlaylists(playlistRecords);
         setPlaylistSongs(songRecords);
         setMusicStyles(styleRecords);
@@ -452,20 +573,32 @@ export default function App() {
   const loadAdminDashboard = async () => {
     setAdminStatus("Chargement des devis, réservations et DJs…");
     try {
-      const [quotesResponse, djsResponse, bookingsResponse] = await Promise.all([
+      const [quotesResponse, djsResponse, bookingsResponse, paymentsResponse, deletionResponse] = await Promise.all([
         apiClient.get("/quotes/", { params: { ordering: "-created_at" } }),
         apiClient.get("/djs/", { params: { ordering: "stage_name" } }),
         apiClient.get("/bookings/", { params: { ordering: "-event_date" } }),
+        apiClient.get("/payments/", { params: { ordering: "-paid_at" } }),
+        getAccountDeletionRequests(),
       ]);
       const quotes = Array.isArray(quotesResponse.data?.results) ? quotesResponse.data.results : quotesResponse.data;
       const djs = Array.isArray(djsResponse.data?.results) ? djsResponse.data.results : djsResponse.data;
       const bookings = Array.isArray(bookingsResponse.data?.results) ? bookingsResponse.data.results : bookingsResponse.data;
+      const payments = Array.isArray(paymentsResponse.data?.results) ? paymentsResponse.data.results : paymentsResponse.data;
+      const bookingRecords = Array.isArray(bookings) ? bookings : [];
+      const requestResponses = await Promise.all(
+        bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
+      );
       setAdminQuotes((Array.isArray(quotes) ? quotes : []).filter((item) => ["draft", "sent"].includes(item.status)));
       setAdminDjs(Array.isArray(djs) ? djs : []);
+      setAdminPayments(Array.isArray(payments) ? payments : []);
+      setAdminDeletionRequests((Array.isArray(deletionResponse) ? deletionResponse : []).filter((item) => item.status === "pending"));
       setAdminBookings(
-        (Array.isArray(bookings) ? bookings : []).filter(
+        bookingRecords.filter(
           (item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item),
         ),
+      );
+      setAdminCancellationRequests(
+        requestResponses.flatMap((response) => response.data).filter((item) => item.status === "pending"),
       );
       setAdminStatus("");
     } catch (error) {
@@ -697,8 +830,8 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    clearAuthentication();
+  const handleLogout = async () => {
+    await logout().catch(() => {});
     setIsAuthenticated(false);
     setCurrentUser(null);
     setAdminQuotes([]);
@@ -753,6 +886,246 @@ export default function App() {
       setAdminStatus(error.response?.data?.detail || "La prestation n’a pas pu être clôturée.");
     } finally {
       setCompletionPendingId(null);
+    }
+  };
+
+  const updateRegistration = (field, value) => {
+    setRegistration((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleRegistration = async (event) => {
+    event.preventDefault();
+    setRegistrationPending(true);
+    setRegistrationStatus("");
+    try {
+      const response = await registerClient(registration);
+      setUsername(registration.username);
+      setPassword("");
+      setRegistrationOpen(false);
+      setLoginStatus(response.detail);
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setRegistrationStatus(firstError || "L’inscription est impossible pour le moment.");
+    } finally {
+      setRegistrationPending(false);
+    }
+  };
+
+  const handlePasswordResetRequest = async (event) => {
+    event.preventDefault();
+    setPasswordResetPending(true);
+    setPasswordResetStatus("");
+    try {
+      const response = await requestPasswordReset(passwordResetEmail);
+      setPasswordResetStatus(response.detail);
+    } catch {
+      setPasswordResetStatus("La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
+    } finally {
+      setPasswordResetPending(false);
+    }
+  };
+
+  const handleVerificationResend = async (event) => {
+    event.preventDefault();
+    setVerificationResendPending(true);
+    setVerificationResendStatus("");
+    try {
+      const response = await resendVerificationEmail(verificationResendEmail);
+      setVerificationResendStatus(response.detail);
+    } catch {
+      setVerificationResendStatus("La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
+    } finally {
+      setVerificationResendPending(false);
+    }
+  };
+
+  const changeClientProfile = (field, value) => {
+    setClientProfile((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleClientProfileUpdate = async (event) => {
+    event.preventDefault();
+    setClientProfilePending(true);
+    setClientProfileStatus("");
+    try {
+      const profile = await updateClientProfile(clientProfile);
+      setClientProfile(profile);
+      setCurrentUser((current) => ({ ...current, first_name: profile.first_name, last_name: profile.last_name }));
+      setClientProfileStatus("Vos coordonnées ont été mises à jour.");
+      setClientProfileOpen(false);
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setClientProfileStatus(firstError || "Vos coordonnées n’ont pas pu être modifiées.");
+    } finally {
+      setClientProfilePending(false);
+    }
+  };
+
+  const handlePasswordChange = async (event) => {
+    event.preventDefault();
+    setPasswordChangePending(true);
+    setPasswordChangeStatus("");
+    try {
+      await changePassword(currentPassword, changedPassword);
+      clearAuthentication();
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      setClientProfile(null);
+      setCurrentPassword("");
+      setChangedPassword("");
+      setLoginStatus("Votre mot de passe a été modifié et votre ancienne session révoquée. Reconnectez-vous.");
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setPasswordChangeStatus(firstError || "Le mot de passe n’a pas pu être modifié.");
+    } finally {
+      setPasswordChangePending(false);
+    }
+  };
+
+  const handleAccountDeletionRequest = async (event) => {
+    event.preventDefault();
+    setAccountDeletionPending(true);
+    setAccountDeletionStatus("");
+    try {
+      const request = await createAccountDeletionRequest(accountDeletionReason);
+      setAccountDeletionRequests((current) => [request, ...current]);
+      setAccountDeletionReason("");
+      setAccountDeletionStatus("Votre demande de suppression a été enregistrée pour traitement administratif.");
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setAccountDeletionStatus(firstError || "La demande n’a pas pu être enregistrée.");
+    } finally {
+      setAccountDeletionPending(false);
+    }
+  };
+
+  const cancelAccountDeletion = async (requestId) => {
+    setAccountDeletionPending(true);
+    setAccountDeletionStatus("");
+    try {
+      const request = await cancelAccountDeletionRequest(requestId);
+      setAccountDeletionRequests((current) => current.map((item) => item.id === request.id ? request : item));
+      setAccountDeletionStatus("Votre demande de suppression a été annulée.");
+    } catch (error) {
+      setAccountDeletionStatus(error.response?.data?.detail || "La demande ne peut plus être annulée.");
+    } finally {
+      setAccountDeletionPending(false);
+    }
+  };
+
+  const reviewAccountDeletion = async (request, decision) => {
+    const message = (adminDeletionMessages[request.id] || "").trim();
+    if (message.length < 10) {
+      setAdminStatus("Expliquez la décision au client en au moins 10 caractères.");
+      return;
+    }
+    setAdminDeletionPendingId(request.id);
+    setAdminStatus("");
+    try {
+      const reviewed = await reviewAccountDeletionRequest(request.id, decision, message);
+      setAdminDeletionRequests((current) => current.filter((item) => item.id !== reviewed.id));
+      setAdminStatus(decision === "approved" ? `Le compte de ${request.client_email} a été désactivé et ses sessions révoquées.` : `La demande de ${request.client_email} a été refusée.`);
+    } catch (error) {
+      setAdminStatus(error.response?.data?.detail || "La demande de suppression n’a pas pu être traitée.");
+    } finally {
+      setAdminDeletionPendingId(null);
+    }
+  };
+
+  const handlePasswordResetConfirm = async (event) => {
+    event.preventDefault();
+    setPasswordResetPending(true);
+    setPasswordResetStatus("");
+    try {
+      await confirmPasswordReset(passwordResetCredentials.uid, passwordResetCredentials.token, newPassword);
+      setNewPassword("");
+      setPasswordResetCredentials({ uid: "", token: "" });
+      setPasswordResetOpen(false);
+      setLoginStatus("Votre mot de passe a été modifié. Vous pouvez maintenant vous connecter.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setPasswordResetStatus(firstError || "Ce lien est invalide ou a expiré.");
+    } finally {
+      setPasswordResetPending(false);
+    }
+  };
+
+  const requestCancellation = async (bookingId) => {
+    const reason = (cancellationReasons[bookingId] || "").trim();
+    if (reason.length < 5) {
+      setCancellationStatus("Expliquez le motif de votre demande en au moins 5 caractères.");
+      return;
+    }
+    setCancellationPendingId(bookingId);
+    setCancellationStatus("");
+    try {
+      const response = await apiClient.post(`/bookings/${bookingId}/request-cancellation/`, { reason });
+      setCancellationRequests((current) => [response.data, ...current]);
+      setCancellationReasons((current) => ({ ...current, [bookingId]: "" }));
+      setCancellationStatus(`Votre demande pour la réservation n°${bookingId} a été transmise à l'administration.`);
+    } catch (error) {
+      setCancellationStatus(error.response?.data?.detail || "La demande d'annulation n'a pas pu être envoyée.");
+    } finally {
+      setCancellationPendingId(null);
+    }
+  };
+
+  const rejectCancellation = async (request) => {
+    const message = (adminCancellationMessages[request.id] || "").trim();
+    if (message.length < 5) {
+      setAdminStatus("Rédigez une réponse au client en au moins 5 caractères.");
+      return;
+    }
+    setAdminCancellationPendingId(request.id);
+    setAdminStatus("");
+    try {
+      await apiClient.post(`/bookings/${request.booking}/reject-cancellation/`, { message });
+      setAdminCancellationRequests((current) => current.filter((item) => item.id !== request.id));
+      setAdminStatus(`La demande d'annulation n°${request.id} a été refusée et la réponse est disponible pour le client.`);
+    } catch (error) {
+      setAdminStatus(error.response?.data?.detail || "La demande d'annulation n'a pas pu être traitée.");
+    } finally {
+      setAdminCancellationPendingId(null);
+    }
+  };
+
+  const refundCancellationPayment = async (payment, request) => {
+    setRefundPendingId(payment.id);
+    setAdminStatus("");
+    try {
+      const response = await apiClient.post(`/payments/${payment.id}/refund/`, {
+        reason: "requested_by_customer",
+        internal_reason: `Demande d'annulation n°${request.id} : ${request.reason}`.slice(0, 255),
+      });
+      await loadAdminDashboard();
+      setAdminStatus(response.data.status === "succeeded" ? `Le paiement n°${payment.id} a été remboursé par Stripe.` : `Le remboursement Stripe n°${response.data.id} est en cours de traitement.`);
+    } catch (error) {
+      setAdminStatus(error.response?.data?.detail || "Le remboursement Stripe n'a pas pu être effectué.");
+    } finally {
+      setRefundPendingId(null);
+    }
+  };
+
+  const approveCancellation = async (request) => {
+    setAdminCancellationPendingId(request.id);
+    setAdminStatus("");
+    try {
+      await apiClient.post(`/bookings/${request.booking}/cancel/`, {
+        reason: `Demande client acceptée : ${request.reason}`.slice(0, 255),
+      });
+      setAdminCancellationRequests((current) => current.filter((item) => item.id !== request.id));
+      setAdminPayments((current) => current.filter((payment) => payment.booking !== request.booking));
+      setAdminStatus(`La réservation n°${request.booking} a été annulée et le créneau du DJ a été libéré.`);
+    } catch (error) {
+      setAdminStatus(error.response?.data?.detail || "L'annulation n'a pas pu être confirmée.");
+    } finally {
+      setAdminCancellationPendingId(null);
     }
   };
 
@@ -1144,7 +1517,7 @@ export default function App() {
           <section className="section-wrap admin-page">
             <div className="page-heading"><p className="eyebrow dark">Espace administrateur</p><h1>Traiter les demandes de devis</h1><p>Envoyez le devis au client, choisissez un DJ réellement disponible, puis créez automatiquement la réservation, le contrat et la facture d’acompte.</p></div>
             <div className="admin-toolbar"><div><strong>{adminQuotes.length}</strong><span> devis à traiter</span></div><button className="secondary-button" type="button" onClick={loadAdminDashboard}>Actualiser</button></div>
-            {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") || adminStatus.includes("clôturée") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
+            {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") || adminStatus.includes("clôturée") || adminStatus.includes("refusée") || adminStatus.includes("remboursé") || adminStatus.includes("annulée") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
             <div className="admin-quote-grid">
               {adminQuotes.map((item) => {
                 const itemPackage = packages.find((entry) => String(entry.id) === String(item.package));
@@ -1167,6 +1540,38 @@ export default function App() {
                 );
               })}
               {!adminStatus && !adminQuotes.length && <p className="invoice-empty">Aucun devis en attente de traitement.</p>}
+            </div>
+            <div className="admin-booking-panel cancellation-panel">
+              <div className="playlist-heading"><div><h2>Demandes d'annulation</h2><p>Consultez le motif du client et répondez avant toute opération de remboursement ou d'annulation.</p></div><FileText /></div>
+              <div className="admin-quote-grid">
+                {adminCancellationRequests.map((request) => {
+                  const requestPayments = adminPayments.filter((payment) => payment.booking === request.booking);
+                  const blockingPayments = requestPayments.filter((payment) => ["paid", "pending"].includes(payment.status));
+                  return (
+                    <article className="admin-quote-card" key={request.id}>
+                      <div className="quote-row-heading"><h2>Réservation n°{request.booking}</h2><span className="quote-status sent">En attente</span></div>
+                      <p>{request.reason}</p>
+                      <small>Demandée le {new Date(request.requested_at).toLocaleString("fr-BE")}</small>
+                      <div className="cancellation-payments">
+                        <strong>Paiements liés</strong>
+                        {requestPayments.map((payment) => <div key={payment.id}><span>Paiement n°{payment.id} · {formatEuro(payment.amount)}<small>Remboursé : {formatEuro(payment.refunded_amount)} · Restant : {formatEuro(payment.refundable_amount)}</small></span><span className={`invoice-status ${payment.refund_status === "pending" ? "pending" : payment.status}`}>{payment.refund_status === "pending" ? "Remboursement en cours" : payment.refund_status === "partial" ? "Partiellement remboursé" : payment.refund_status === "failed" ? "Remboursement échoué" : payment.status === "paid" ? "Payé" : payment.status === "refunded" ? "Remboursé" : payment.status === "pending" ? "En attente" : "Échoué"}</span>{payment.status === "paid" && payment.refund_status !== "pending" && Number(payment.refundable_amount) > 0 && <button className="document-button" type="button" onClick={() => refundCancellationPayment(payment, request)} disabled={refundPendingId === payment.id}>{refundPendingId === payment.id ? "Remboursement…" : `Rembourser ${formatEuro(payment.refundable_amount)}`}</button>}</div>)}
+                        {!requestPayments.length && <small>Aucun paiement encaissé pour cette réservation.</small>}
+                      </div>
+                      <div className="cancellation-admin-actions"><button className="primary-button" type="button" onClick={() => approveCancellation(request)} disabled={adminCancellationPendingId === request.id || blockingPayments.length > 0}>{adminCancellationPendingId === request.id ? "Annulation…" : blockingPayments.length ? "Remboursement requis" : "Accepter et annuler"}</button></div>
+                      <label className="cancellation-message">Réponse en cas de refus<textarea rows="3" maxLength="255" value={adminCancellationMessages[request.id] || ""} onChange={(event) => setAdminCancellationMessages((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Expliquez clairement le refus…" /></label>
+                      <button className="document-button danger-button" type="button" onClick={() => rejectCancellation(request)} disabled={adminCancellationPendingId === request.id}>{adminCancellationPendingId === request.id ? "Traitement…" : "Refuser la demande"}</button>
+                    </article>
+                  );
+                })}
+                {!adminCancellationRequests.length && <p className="invoice-empty">Aucune demande d'annulation en attente.</p>}
+              </div>
+            </div>
+            <div className="admin-booking-panel account-deletion-panel">
+              <div className="playlist-heading"><div><h2>Suppressions de compte</h2><p>Vérifiez les obligations de conservation avant de désactiver un compte et de révoquer ses sessions.</p></div><CircleUserRound /></div>
+              <div className="admin-quote-grid">
+                {adminDeletionRequests.map((request) => <article className="admin-quote-card" key={request.id}><div className="quote-row-heading"><h2>{request.client_name}</h2><span className="quote-status sent">En attente</span></div><p>{request.client_email}</p><p>{request.reason}</p><small>Demandée le {new Date(request.requested_at).toLocaleString("fr-BE")}</small><label className="cancellation-message">Réponse au client<textarea rows="3" value={adminDeletionMessages[request.id] || ""} onChange={(event) => setAdminDeletionMessages((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Décision motivée…" required /></label><div className="cancellation-admin-actions"><button className="primary-button" type="button" onClick={() => reviewAccountDeletion(request, "approved")} disabled={adminDeletionPendingId === request.id}>{adminDeletionPendingId === request.id ? "Traitement…" : "Approuver et désactiver"}</button><button className="document-button danger-button" type="button" onClick={() => reviewAccountDeletion(request, "rejected")} disabled={adminDeletionPendingId === request.id}>Refuser</button></div></article>)}
+                {!adminDeletionRequests.length && <p className="invoice-empty">Aucune demande de suppression en attente.</p>}
+              </div>
             </div>
             <div className="admin-booking-panel">
               <div className="playlist-heading"><div><h2>Clôturer les prestations</h2><p>Une clôture confirme la prestation réalisée et émet automatiquement la facture de solde.</p></div><Check /></div>
@@ -1268,13 +1673,51 @@ export default function App() {
             {paymentReturnStatus && <p className="payment-return-message" role="status"><ShieldCheck /> {paymentReturnStatus}</p>}
             <div className="account-grid">
               {!isAuthenticated ? (
-                <form className="account-card" onSubmit={handleLogin}>
-                  <CircleUserRound /><h2>Connexion</h2>
-                  <label>Identifiant Django<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
-                  <label>Mot de passe<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
-                  {loginStatus && <p className="form-message" role="status">{loginStatus}</p>}
-                  <button className="primary-button" type="submit" disabled={loginPending}>{loginPending ? "Connexion…" : "Se connecter"}</button>
-                </form>
+                <>
+                  <form className="account-card" onSubmit={handleLogin}>
+                    <CircleUserRound /><h2>Connexion</h2>
+                    <label>Identifiant Django<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
+                    <label>Mot de passe<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
+                    {loginStatus && <p className="form-message" role="status">{loginStatus}</p>}
+                    <button className="primary-button" type="submit" disabled={loginPending}>{loginPending ? "Connexion…" : "Se connecter"}</button>
+                    <button className="secondary-button" type="button" onClick={() => setRegistrationOpen((open) => !open)}>{registrationOpen ? "Fermer l’inscription" : "Créer un compte client"}</button>
+                    <button className="text-button" type="button" onClick={() => setVerificationResendOpen((open) => !open)}>Renvoyer l’e-mail d’activation</button>
+                    <button className="text-button" type="button" onClick={() => setPasswordResetOpen((open) => !open)}>Mot de passe oublié ?</button>
+                  </form>
+                  {registrationOpen && <form className="account-card registration-card" onSubmit={handleRegistration}>
+                    <UsersRound /><h2>Créer mon compte</h2>
+                    <div className="registration-grid">
+                      <label>Prénom<input value={registration.first_name} onChange={(event) => updateRegistration("first_name", event.target.value)} autoComplete="given-name" required /></label>
+                      <label>Nom<input value={registration.last_name} onChange={(event) => updateRegistration("last_name", event.target.value)} autoComplete="family-name" required /></label>
+                      <label>Identifiant<input value={registration.username} onChange={(event) => updateRegistration("username", event.target.value)} autoComplete="username" required /></label>
+                      <label>E-mail<input type="email" value={registration.email} onChange={(event) => updateRegistration("email", event.target.value)} autoComplete="email" required /></label>
+                      <label className="full-field">Mot de passe<input type="password" minLength="8" value={registration.password} onChange={(event) => updateRegistration("password", event.target.value)} autoComplete="new-password" required /></label>
+                      <label>Date de naissance<input type="date" max={todayIso} value={registration.date_of_birth} onChange={(event) => updateRegistration("date_of_birth", event.target.value)} required /></label>
+                      <label>Téléphone<input type="tel" value={registration.phone} onChange={(event) => updateRegistration("phone", event.target.value)} autoComplete="tel" required /></label>
+                      <label className="full-field">Adresse de facturation<input value={registration.billing_address} onChange={(event) => updateRegistration("billing_address", event.target.value)} autoComplete="street-address" required /></label>
+                      <label>Code postal<input value={registration.billing_postal_code} onChange={(event) => updateRegistration("billing_postal_code", event.target.value)} autoComplete="postal-code" required /></label>
+                      <label>Ville<input value={registration.billing_city} onChange={(event) => updateRegistration("billing_city", event.target.value)} autoComplete="address-level2" required /></label>
+                      <label>Langue<select value={registration.preferred_language} onChange={(event) => updateRegistration("preferred_language", event.target.value)}><option value="fr">Français</option><option value="en">Anglais</option><option value="nl">Néerlandais</option></select></label>
+                    </div>
+                    <p className="secure-note"><ShieldCheck /> Le client doit être majeur et le mot de passe respecte les règles Django.</p>
+                    {registrationStatus && <p className="form-message" role="alert">{registrationStatus}</p>}
+                    <button className="primary-button" type="submit" disabled={registrationPending}>{registrationPending ? "Création…" : "Créer mon compte"}</button>
+                  </form>}
+                  {passwordResetOpen && <form className="account-card password-reset-card" onSubmit={passwordResetCredentials.token ? handlePasswordResetConfirm : handlePasswordResetRequest}>
+                    <ShieldCheck /><h2>{passwordResetCredentials.token ? "Nouveau mot de passe" : "Réinitialiser le mot de passe"}</h2>
+                    {passwordResetCredentials.token
+                      ? <label>Nouveau mot de passe<input type="password" minLength="8" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" required /></label>
+                      : <label>Adresse e-mail du compte<input type="email" value={passwordResetEmail} onChange={(event) => setPasswordResetEmail(event.target.value)} autoComplete="email" required /></label>}
+                    {passwordResetStatus && <p className="form-message" role="status">{passwordResetStatus}</p>}
+                    <button className="primary-button" type="submit" disabled={passwordResetPending}>{passwordResetPending ? "Traitement…" : passwordResetCredentials.token ? "Enregistrer le mot de passe" : "Envoyer le lien"}</button>
+                  </form>}
+                  {verificationResendOpen && <form className="account-card password-reset-card" onSubmit={handleVerificationResend}>
+                    <ShieldCheck /><h2>Renvoyer le lien d’activation</h2>
+                    <label>Adresse e-mail du compte<input type="email" value={verificationResendEmail} onChange={(event) => setVerificationResendEmail(event.target.value)} autoComplete="email" required /></label>
+                    {verificationResendStatus && <p className="form-message" role="status">{verificationResendStatus}</p>}
+                    <button className="primary-button" type="submit" disabled={verificationResendPending}>{verificationResendPending ? "Envoi…" : "Renvoyer le lien"}</button>
+                  </form>}
+                </>
               ) : (
                 <div className="account-card connected-card">
                   <div className="confirmation-icon"><Check /></div><h2>Session active</h2>
@@ -1283,6 +1726,36 @@ export default function App() {
                   {currentUser?.is_staff && <button className="primary-button" type="button" onClick={() => navigate("administration")}><Settings /> Ouvrir l’espace administrateur</button>}
                   {currentUser?.role === "dj" && <button className="primary-button" type="button" onClick={() => navigate("dj")}><Headphones /> Ouvrir l’espace DJ</button>}
                   {currentUser?.role === "client" && <>
+                  <div className="profile-panel">
+                    <div className="playlist-heading"><div><h3>Mes coordonnées</h3><p>{clientProfile ? `${clientProfile.first_name} ${clientProfile.last_name} · ${clientProfile.email} · ${clientProfile.billing_city}` : "Chargement de vos coordonnées…"}</p></div><CircleUserRound /></div>
+                    <button className="document-button" type="button" onClick={() => setClientProfileOpen((open) => !open)} disabled={!clientProfile}>{clientProfileOpen ? "Fermer" : "Modifier mes coordonnées"}</button>
+                    <button className="document-button" type="button" onClick={() => setPasswordChangeOpen((open) => !open)}>{passwordChangeOpen ? "Fermer le mot de passe" : "Changer mon mot de passe"}</button>
+                    {clientProfileStatus && <p className={clientProfileStatus.includes("mises à jour") ? "form-message success" : "form-message"} role="status">{clientProfileStatus}</p>}
+                    {clientProfileOpen && clientProfile && <form className="registration-grid profile-form" onSubmit={handleClientProfileUpdate}>
+                      <label>Prénom<input value={clientProfile.first_name} onChange={(event) => changeClientProfile("first_name", event.target.value)} required /></label>
+                      <label>Nom<input value={clientProfile.last_name} onChange={(event) => changeClientProfile("last_name", event.target.value)} required /></label>
+                      <label className="full-field">E-mail vérifié<input type="email" value={clientProfile.email} readOnly /></label>
+                      <label>Date de naissance<input type="date" max={todayIso} value={clientProfile.date_of_birth} onChange={(event) => changeClientProfile("date_of_birth", event.target.value)} required /></label>
+                      <label>Téléphone<input type="tel" value={clientProfile.phone} onChange={(event) => changeClientProfile("phone", event.target.value)} required /></label>
+                      <label className="full-field">Adresse de facturation<input value={clientProfile.billing_address} onChange={(event) => changeClientProfile("billing_address", event.target.value)} required /></label>
+                      <label>Code postal<input value={clientProfile.billing_postal_code} onChange={(event) => changeClientProfile("billing_postal_code", event.target.value)} required /></label>
+                      <label>Ville<input value={clientProfile.billing_city} onChange={(event) => changeClientProfile("billing_city", event.target.value)} required /></label>
+                      <label>Langue<select value={clientProfile.preferred_language} onChange={(event) => changeClientProfile("preferred_language", event.target.value)}><option value="fr">Français</option><option value="en">Anglais</option><option value="nl">Néerlandais</option></select></label>
+                      <button className="primary-button" type="submit" disabled={clientProfilePending}>{clientProfilePending ? "Enregistrement…" : "Enregistrer"}</button>
+                    </form>}
+                    {passwordChangeOpen && <form className="password-change-form" onSubmit={handlePasswordChange}>
+                      <label>Mot de passe actuel<input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" required /></label>
+                      <label>Nouveau mot de passe<input type="password" minLength="8" value={changedPassword} onChange={(event) => setChangedPassword(event.target.value)} autoComplete="new-password" required /></label>
+                      {passwordChangeStatus && <p className="form-message" role="alert">{passwordChangeStatus}</p>}
+                      <button className="primary-button" type="submit" disabled={passwordChangePending}>{passwordChangePending ? "Modification…" : "Modifier et me déconnecter"}</button>
+                    </form>}
+                  </div>
+                  <div className="account-deletion-panel">
+                    <div className="playlist-heading"><div><h3>Suppression du compte</h3><p>La demande est examinée avant toute suppression afin de préserver les documents comptables et contractuels obligatoires.</p></div><X /></div>
+                    {accountDeletionRequests.map((request) => <article className="deletion-request-row" key={request.id}><div><strong>Demande n°{request.id}</strong><span>{request.reason}</span>{request.review_message && <small>Réponse : {request.review_message}</small>}</div><div><span className={`deletion-status ${request.status}`}>{request.status === "pending" ? "En attente" : request.status === "cancelled" ? "Annulée" : request.status === "approved" ? "Approuvée" : "Refusée"}</span>{request.status === "pending" && <button className="document-button" type="button" onClick={() => cancelAccountDeletion(request.id)} disabled={accountDeletionPending}>Annuler la demande</button>}</div></article>)}
+                    {!accountDeletionRequests.some((request) => request.status === "pending") && <form className="password-change-form" onSubmit={handleAccountDeletionRequest}><label>Motif de la demande<textarea rows="3" minLength="10" value={accountDeletionReason} onChange={(event) => setAccountDeletionReason(event.target.value)} required /></label><button className="document-button danger-button" type="submit" disabled={accountDeletionPending}>{accountDeletionPending ? "Enregistrement…" : "Demander la suppression"}</button></form>}
+                    {accountDeletionStatus && <p className={accountDeletionStatus.includes("enregistrée") || accountDeletionStatus.includes("annulée") ? "form-message success" : "form-message"} role="status">{accountDeletionStatus}</p>}
+                  </div>
                   <div className="quote-list">
                     <h3>Mes demandes de devis</h3>
                     {quoteListStatus && <p className="invoice-empty" role="status">{quoteListStatus}</p>}
@@ -1299,6 +1772,24 @@ export default function App() {
                         </article>
                       );
                     })}
+                  </div>
+                  <div className="cancellation-panel client-cancellation-panel">
+                    <div className="playlist-heading"><div><h3>Mes demandes d'annulation</h3><p>Une demande n'annule pas automatiquement la prestation et ne déclenche aucun remboursement.</p></div><FileText /></div>
+                    {cancellationStatus && <p className={cancellationStatus.includes("transmise") ? "form-message success" : "form-message"} role="status">{cancellationStatus}</p>}
+                    <div className="cancellation-list">
+                      {clientBookings.filter((booking) => ["preparatory_meeting", "confirmed", "paid"].includes(booking.status)).map((booking) => {
+                        const bookingRequests = cancellationRequests.filter((request) => request.booking === booking.id);
+                        const pendingRequest = bookingRequests.find((request) => request.status === "pending");
+                        return (
+                          <article key={booking.id}>
+                            <div className="quote-row-heading"><strong>Réservation n°{booking.id}</strong><span>{new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")}</span></div>
+                            {bookingRequests.map((request) => <div className="cancellation-history" key={request.id}><span className={`cancellation-request-status ${request.status}`}>{request.status === "pending" ? "En attente" : request.status === "approved" ? "Acceptée" : "Refusée"}</span><p>{request.reason}</p>{request.review_message && <small>Réponse : {request.review_message}</small>}</div>)}
+                            {!pendingRequest && <div className="cancellation-form"><label>Motif<textarea rows="3" maxLength="255" value={cancellationReasons[booking.id] || ""} onChange={(event) => setCancellationReasons((current) => ({ ...current, [booking.id]: event.target.value }))} placeholder="Expliquez la raison de votre demande…" /></label><button className="document-button danger-button" type="button" onClick={() => requestCancellation(booking.id)} disabled={cancellationPendingId === booking.id}>{cancellationPendingId === booking.id ? "Envoi…" : "Demander l'annulation"}</button></div>}
+                          </article>
+                        );
+                      })}
+                      {!clientBookings.some((booking) => ["preparatory_meeting", "confirmed", "paid"].includes(booking.status)) && <p className="invoice-empty">Aucune réservation ne peut actuellement faire l'objet d'une demande.</p>}
+                    </div>
                   </div>
                   <div className="contract-list">
                     <h3>Mes contrats</h3>
@@ -1319,21 +1810,24 @@ export default function App() {
                     <h3>Mes factures</h3>
                     {invoiceStatus && <p className="invoice-empty" role="status">{invoiceStatus}</p>}
                     {checkoutStatus && <p className="form-message" role="alert">{checkoutStatus}</p>}
-                    {invoices.map((invoice) => (
-                      <article className="invoice-row" key={invoice.id}>
-                        <div><strong>{invoice.invoice_number}</strong><span>{invoice.invoice_type === "deposit" ? "Acompte" : invoice.invoice_type === "balance" ? "Solde" : "Facture complète"} · Échéance : {new Date(invoice.due_at).toLocaleDateString("fr-BE")}</span></div>
-                        <div className="invoice-actions">
-                          <strong>{formatEuro(invoice.amount)}</strong>
-                          <span className={`invoice-status ${invoice.status}`}>{invoice.status === "paid" ? "Payée" : invoice.status === "sent" ? "À payer" : invoice.status}</span>
-                          <button className="document-button" type="button" onClick={() => downloadDocument("invoices", invoice.id, invoice.invoice_number)} disabled={downloadPending === `invoices-${invoice.id}`}><Download /> {downloadPending === `invoices-${invoice.id}` ? "Préparation…" : "Télécharger le PDF"}</button>
-                          {invoice.status === "sent" && (
-                            <button className="primary-button payment-button" type="button" onClick={() => startInvoiceCheckout(invoice)} disabled={checkoutPendingId === invoice.id}>
-                              <CreditCard /> {checkoutPendingId === invoice.id ? "Redirection…" : invoice.invoice_type === "deposit" ? "Payer l’acompte" : "Payer le solde"}
-                            </button>
-                          )}
-                        </div>
-                      </article>
-                    ))}
+                    {invoices.map((invoice) => {
+                      const invoicePayments = clientPayments.filter((payment) => payment.invoice === invoice.id);
+                      return (
+                        <article className="invoice-row" key={invoice.id}>
+                          <div><strong>{invoice.invoice_number}</strong><span>{invoice.invoice_type === "deposit" ? "Acompte" : invoice.invoice_type === "balance" ? "Solde" : "Facture complète"} · Échéance : {new Date(invoice.due_at).toLocaleDateString("fr-BE")}</span>{invoicePayments.map((payment) => <div className="client-payment-trace" key={payment.id}><span>Paiement n°{payment.id} · {formatEuro(payment.amount)}</span>{payment.refund_status !== "none" && <small>{payment.refund_status === "pending" ? "Remboursement en cours chez Stripe" : payment.refund_status === "partial" ? `Remboursé partiellement : ${formatEuro(payment.refunded_amount)}` : payment.refund_status === "succeeded" ? `Remboursé : ${formatEuro(payment.refunded_amount)}` : "Le remboursement a échoué — l'administration doit le relancer."}</small>}</div>)}</div>
+                          <div className="invoice-actions">
+                            <strong>{formatEuro(invoice.amount)}</strong>
+                            <span className={`invoice-status ${invoice.status}`}>{invoice.status === "paid" ? "Payée" : invoice.status === "sent" ? "À payer" : invoice.status === "cancelled" ? "Annulée" : invoice.status}</span>
+                            <button className="document-button" type="button" onClick={() => downloadDocument("invoices", invoice.id, invoice.invoice_number)} disabled={downloadPending === `invoices-${invoice.id}`}><Download /> {downloadPending === `invoices-${invoice.id}` ? "Préparation…" : "Télécharger le PDF"}</button>
+                            {invoice.status === "sent" && (
+                              <button className="primary-button payment-button" type="button" onClick={() => startInvoiceCheckout(invoice)} disabled={checkoutPendingId === invoice.id}>
+                                <CreditCard /> {checkoutPendingId === invoice.id ? "Redirection…" : invoice.invoice_type === "deposit" ? "Payer l’acompte" : "Payer le solde"}
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                   <div className="appointment-panel">
                     <div className="playlist-heading"><div><h3>Rendez-vous préparatoire</h3><p>Planifiez la préparation avec votre DJ avant le jour de l’événement.</p></div><CalendarDays /></div>

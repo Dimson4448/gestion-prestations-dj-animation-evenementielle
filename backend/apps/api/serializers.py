@@ -3,14 +3,24 @@ from decimal import Decimal
 
 from rest_framework import serializers
 from rest_framework.reverse import reverse
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.utils import timezone
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.accounts.models import DJProfile
+from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJProfile, validate_adult
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
+    CancellationRequest,
     Contract,
     Playlist,
     PlaylistSong,
@@ -20,7 +30,7 @@ from apps.bookings.models import (
     Venue,
 )
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
-from apps.payments.models import Invoice, Payment
+from apps.payments.models import Invoice, Payment, Refund
 
 
 class CurrentUserSerializer(serializers.Serializer):
@@ -41,6 +51,237 @@ class CurrentUserSerializer(serializers.Serializer):
         if hasattr(user, "client_profile"):
             return "client"
         return "user"
+
+
+class ClientProfileUpdateSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    email = serializers.EmailField(read_only=True)
+    date_of_birth = serializers.DateField()
+    phone = serializers.CharField(max_length=30)
+    billing_address = serializers.CharField(max_length=255)
+    billing_city = serializers.CharField(max_length=80)
+    billing_postal_code = serializers.CharField(max_length=20)
+    preferred_language = serializers.ChoiceField(choices=ClientProfile._meta.get_field("preferred_language").choices)
+
+    def validate_date_of_birth(self, value):
+        try:
+            validate_adult(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages)) from exc
+        return value
+
+    def to_representation(self, user):
+        profile = user.client_profile
+        return {
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "date_of_birth": profile.date_of_birth,
+            "phone": profile.phone,
+            "billing_address": profile.billing_address,
+            "billing_city": profile.billing_city,
+            "billing_postal_code": profile.billing_postal_code,
+            "preferred_language": profile.preferred_language,
+        }
+
+    @transaction.atomic
+    def update(self, user, validated_data):
+        user_fields = []
+        for field in ("first_name", "last_name"):
+            if field in validated_data:
+                setattr(user, field, validated_data.pop(field))
+                user_fields.append(field)
+        if user_fields:
+            user.save(update_fields=user_fields)
+
+        profile = user.client_profile
+        profile_fields = []
+        for field, value in validated_data.items():
+            setattr(profile, field, value)
+            profile_fields.append(field)
+        if profile_fields:
+            profile.save(update_fields=profile_fields)
+        return user
+
+
+class AccountDeletionRequestSerializer(serializers.ModelSerializer):
+    client_email = serializers.EmailField(source="client.user.email", read_only=True)
+    client_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AccountDeletionRequest
+        fields = ["id", "client_email", "client_name", "reason", "status", "review_message", "requested_at", "reviewed_at"]
+        read_only_fields = ["id", "client_email", "client_name", "status", "review_message", "requested_at", "reviewed_at"]
+
+    def get_client_name(self, obj):
+        return obj.client.user.get_full_name() or obj.client.user.username
+
+    def validate_reason(self, value):
+        value = value.strip()
+        if len(value) < 10:
+            raise serializers.ValidationError("Expliquez votre demande en au moins 10 caractères.")
+        return value
+
+
+class AccountDeletionReviewSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=[AccountDeletionRequest.APPROVED, AccountDeletionRequest.REJECTED])
+    review_message = serializers.CharField(min_length=10)
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(write_only=True, trim_whitespace=False)
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    refresh = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        if not user.check_password(attrs["current_password"]):
+            raise serializers.ValidationError({"current_password": "Le mot de passe actuel est incorrect."})
+        try:
+            validate_password(attrs["new_password"], user=user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"new_password": list(exc.messages)}) from exc
+        try:
+            refresh = RefreshToken(attrs["refresh"])
+        except TokenError as exc:
+            raise serializers.ValidationError({"refresh": "Le jeton de renouvellement est invalide ou révoqué."}) from exc
+        if str(refresh.get("user_id")) != str(user.pk):
+            raise serializers.ValidationError({"refresh": "Ce jeton n'appartient pas à la session connectée."})
+        attrs["refresh_token"] = refresh
+        return attrs
+
+    @transaction.atomic
+    def save(self):
+        user = self.context["request"].user
+        self.validated_data["refresh_token"].blacklist()
+        user.set_password(self.validated_data["new_password"])
+        user.save(update_fields=["password"])
+        return user
+
+
+class ClientRegistrationSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    date_of_birth = serializers.DateField()
+    phone = serializers.CharField(max_length=30)
+    billing_address = serializers.CharField(max_length=255)
+    billing_city = serializers.CharField(max_length=80)
+    billing_postal_code = serializers.CharField(max_length=20)
+    preferred_language = serializers.ChoiceField(choices=ClientProfile._meta.get_field("preferred_language").choices, default="fr")
+
+    def validate_username(self, value):
+        if get_user_model().objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError("Cet identifiant est déjà utilisé.")
+        return value
+
+    def validate_email(self, value):
+        value = get_user_model().objects.normalize_email(value)
+        if get_user_model().objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("Cette adresse e-mail est déjà utilisée.")
+        return value
+
+    def validate_date_of_birth(self, value):
+        try:
+            validate_adult(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages)) from exc
+        return value
+
+    def validate(self, attrs):
+        candidate = get_user_model()(
+            username=attrs["username"],
+            email=attrs["email"],
+            first_name=attrs["first_name"],
+            last_name=attrs["last_name"],
+        )
+        try:
+            validate_password(attrs["password"], user=candidate)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)}) from exc
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        profile_fields = {
+            key: validated_data.pop(key)
+            for key in (
+                "date_of_birth",
+                "phone",
+                "billing_address",
+                "billing_city",
+                "billing_postal_code",
+                "preferred_language",
+            )
+        }
+        password = validated_data.pop("password")
+        user = get_user_model().objects.create_user(password=password, is_active=False, **validated_data)
+        ClientProfile.objects.create(user=user, **profile_fields)
+        return user
+
+
+class EmailVerificationSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+
+    def validate(self, attrs):
+        try:
+            user_id = force_str(urlsafe_base64_decode(attrs["uid"]))
+            user = get_user_model().objects.get(pk=user_id)
+        except (ValueError, TypeError, OverflowError, get_user_model().DoesNotExist) as exc:
+            raise serializers.ValidationError({"token": "Ce lien de vérification est invalide ou expiré."}) from exc
+        if user.is_active or not default_token_generator.check_token(user, attrs["token"]):
+            raise serializers.ValidationError({"token": "Ce lien de vérification est invalide ou expiré."})
+        attrs["user"] = user
+        return attrs
+
+    def save(self):
+        user = self.validated_data["user"]
+        user.is_active = True
+        user.save(update_fields=["is_active"])
+        return user
+
+
+class EmailVerificationResendSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        try:
+            user_id = force_str(urlsafe_base64_decode(attrs["uid"]))
+            user = get_user_model().objects.get(pk=user_id, is_active=True)
+        except (ValueError, TypeError, OverflowError, get_user_model().DoesNotExist) as exc:
+            raise serializers.ValidationError({"token": "Ce lien de réinitialisation est invalide ou expiré."}) from exc
+        if not default_token_generator.check_token(user, attrs["token"]):
+            raise serializers.ValidationError({"token": "Ce lien de réinitialisation est invalide ou expiré."})
+        try:
+            validate_password(attrs["password"], user=user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)}) from exc
+        attrs["user"] = user
+        return attrs
+
+    def save(self):
+        user = self.validated_data["user"]
+        user.set_password(self.validated_data["password"])
+        user.save(update_fields=["password"])
+        return user
 
 
 class LiensHypermediaMixin(serializers.Serializer):
@@ -314,6 +555,21 @@ class BookingSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         extra_kwargs = {"client": {"required": False}}
 
 
+class BookingCancellationSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=255, min_length=5)
+
+
+class CancellationRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CancellationRequest
+        fields = ["id", "booking", "reason", "status", "requested_at", "reviewed_at", "reviewed_by", "review_message"]
+        read_only_fields = fields
+
+
+class CancellationRequestReviewSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=255, min_length=5)
+
+
 class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "appointment"
 
@@ -399,6 +655,36 @@ class InvoiceSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
 
 class PaymentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "payment"
+    refunded_amount = serializers.SerializerMethodField()
+    refundable_amount = serializers.SerializerMethodField()
+    refund_status = serializers.SerializerMethodField()
+
+    @staticmethod
+    def _refunds(payment):
+        return list(payment.refunds.all())
+
+    def get_refunded_amount(self, payment):
+        total = sum((refund.amount for refund in self._refunds(payment) if refund.status == Refund.SUCCEEDED), Decimal("0.00"))
+        return f"{total:.2f}"
+
+    def get_refundable_amount(self, payment):
+        reserved = sum(
+            (refund.amount for refund in self._refunds(payment) if refund.status not in {Refund.FAILED, Refund.CANCELLED}),
+            Decimal("0.00"),
+        )
+        return f"{max(payment.amount - reserved, Decimal('0.00')):.2f}"
+
+    def get_refund_status(self, payment):
+        refunds = self._refunds(payment)
+        if any(refund.status == Refund.PENDING for refund in refunds):
+            return "pending"
+        if payment.status == Payment.REFUNDED:
+            return "succeeded"
+        if any(refund.status == Refund.SUCCEEDED for refund in refunds):
+            return "partial"
+        if any(refund.status == Refund.FAILED for refund in refunds):
+            return "failed"
+        return "none"
 
     class Meta:
         model = Payment
@@ -411,8 +697,35 @@ class PaymentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             "amount",
             "currency",
             "status",
+            "refund_status",
+            "refunded_amount",
+            "refundable_amount",
             "paid_at",
             "liens",
+        ]
+        read_only_fields = fields
+
+
+class RefundRequestSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.01"), required=False)
+    reason = serializers.ChoiceField(choices=Refund.REASON_CHOICES, default=Refund.REQUESTED_BY_CUSTOMER)
+    internal_reason = serializers.CharField(max_length=255, min_length=5)
+
+
+class RefundSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Refund
+        fields = [
+            "id",
+            "payment",
+            "stripe_refund_id",
+            "amount",
+            "currency",
+            "reason",
+            "internal_reason",
+            "status",
+            "created_at",
+            "processed_at",
         ]
         read_only_fields = fields
 

@@ -1,15 +1,19 @@
 from datetime import date, timedelta
+from urllib.parse import parse_qs, urlparse
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core import mail
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.accounts.models import ClientProfile, DJProfile
+from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJProfile
 from apps.availability.models import DJAvailability
-from apps.bookings.models import Booking, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Review, Venue
+from apps.bookings.models import Booking, CancellationRequest, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Review, Venue
 from apps.catalog.models import EventType, MusicStyle, Package
-from apps.payments.models import Invoice
+from apps.payments.models import Invoice, Payment, Refund
 from apps.bookings.services import accept_quote
 
 
@@ -66,6 +70,424 @@ class ApiUltimateDJTests(APITestCase):
         }
         payload.update(overrides)
         return payload
+
+    def test_renouvelle_la_session_jwt_et_accede_au_profil(self):
+        authenticated = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "MotDePasseTest2026!"},
+            format="json",
+        )
+        self.assertEqual(authenticated.status_code, status.HTTP_200_OK)
+
+        refreshed = self.client.post(
+            "/api/v1/auth/token/refresh/",
+            {"refresh": authenticated.data["refresh"]},
+            format="json",
+        )
+        self.assertEqual(refreshed.status_code, status.HTTP_200_OK)
+        self.assertTrue(refreshed.data["access"])
+        self.assertTrue(refreshed.data["refresh"])
+
+        old_refresh_rejected = self.client.post(
+            "/api/v1/auth/token/refresh/",
+            {"refresh": authenticated.data["refresh"]},
+            format="json",
+        )
+        self.assertEqual(old_refresh_rejected.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refreshed.data['access']}")
+        profile = self.client.get("/api/v1/auth/me/")
+        self.assertEqual(profile.status_code, status.HTTP_200_OK)
+        self.assertEqual(profile.data["email"], self.client_user.email)
+
+        logout = self.client.post(
+            "/api/v1/auth/logout/",
+            {"refresh": refreshed.data["refresh"]},
+            format="json",
+        )
+        self.assertEqual(logout.status_code, status.HTTP_204_NO_CONTENT)
+        revoked_refresh = self.client.post(
+            "/api/v1/auth/token/refresh/",
+            {"refresh": refreshed.data["refresh"]},
+            format="json",
+        )
+        self.assertEqual(revoked_refresh.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_client_consulte_et_modifie_ses_coordonnees(self):
+        self.client.force_authenticate(user=self.client_user)
+        profile = self.client.get("/api/v1/auth/profile/")
+        self.assertEqual(profile.status_code, status.HTTP_200_OK)
+        self.assertEqual(profile.data["email"], self.client_user.email)
+        self.assertEqual(profile.data["billing_city"], "Bruxelles")
+
+        updated = self.client.patch(
+            "/api/v1/auth/profile/",
+            {
+                "first_name": "Vianney",
+                "phone": "+32479999999",
+                "billing_address": "Avenue de la Musique 44",
+                "billing_city": "Mons",
+                "billing_postal_code": "7000",
+                "preferred_language": "nl",
+                "email": "tentative@example.com",
+            },
+            format="json",
+        )
+        self.assertEqual(updated.status_code, status.HTTP_200_OK)
+        self.client_user.refresh_from_db()
+        self.client_profile.refresh_from_db()
+        self.assertEqual(self.client_user.first_name, "Vianney")
+        self.assertEqual(self.client_user.email, "client@example.com")
+        self.assertEqual(self.client_profile.billing_city, "Mons")
+        self.assertEqual(self.client_profile.preferred_language, "nl")
+
+    def test_profil_client_refuse_mineur_et_utilisateur_sans_profil(self):
+        self.client.force_authenticate(user=self.client_user)
+        minor = self.client.patch(
+            "/api/v1/auth/profile/",
+            {"date_of_birth": str(date.today() - timedelta(days=365 * 10))},
+            format="json",
+        )
+        self.assertEqual(minor.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("date_of_birth", minor.data)
+
+        user_without_profile = get_user_model().objects.create_user(
+            username="utilisateur_sans_profil",
+            password="MotDePasseSansProfil2026!",
+        )
+        self.client.force_authenticate(user=user_without_profile)
+        forbidden = self.client.get("/api/v1/auth/profile/")
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_client_change_mot_de_passe_et_revoque_sa_session(self):
+        tokens = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "MotDePasseTest2026!"},
+            format="json",
+        ).data
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+
+        wrong = self.client.post(
+            "/api/v1/auth/password-change/",
+            {
+                "current_password": "MotDePasseIncorrect2026!",
+                "new_password": "NouveauMotDePasse2026!",
+                "refresh": tokens["refresh"],
+            },
+            format="json",
+        )
+        self.assertEqual(wrong.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("current_password", wrong.data)
+
+        changed = self.client.post(
+            "/api/v1/auth/password-change/",
+            {
+                "current_password": "MotDePasseTest2026!",
+                "new_password": "NouveauMotDePasse2026!",
+                "refresh": tokens["refresh"],
+            },
+            format="json",
+        )
+        self.assertEqual(changed.status_code, status.HTTP_204_NO_CONTENT)
+        self.client_user.refresh_from_db()
+        self.assertTrue(self.client_user.check_password("NouveauMotDePasse2026!"))
+
+        old_access = self.client.get("/api/v1/auth/me/")
+        self.assertEqual(old_access.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.client.credentials()
+        revoked_refresh = self.client.post(
+            "/api/v1/auth/token/refresh/",
+            {"refresh": tokens["refresh"]},
+            format="json",
+        )
+        self.assertEqual(revoked_refresh.status_code, status.HTTP_401_UNAUTHORIZED)
+        new_login = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "NouveauMotDePasse2026!"},
+            format="json",
+        )
+        self.assertEqual(new_login.status_code, status.HTTP_200_OK)
+
+    def test_client_enregistre_et_annule_une_demande_suppression(self):
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post(
+            "/api/v1/auth/deletion-requests/",
+            {"reason": "Je souhaite fermer définitivement mon espace client."},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["status"], AccountDeletionRequest.PENDING)
+        self.assertEqual(AccountDeletionRequest.objects.get().client, self.client_profile)
+
+        duplicate = self.client.post(
+            "/api/v1/auth/deletion-requests/",
+            {"reason": "Une seconde demande ne doit pas être créée."},
+            format="json",
+        )
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(AccountDeletionRequest.objects.count(), 1)
+
+        listed = self.client.get("/api/v1/auth/deletion-requests/")
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(listed.data), 1)
+
+        cancelled = self.client.post(f"/api/v1/auth/deletion-requests/{created.data['id']}/cancel/")
+        self.assertEqual(cancelled.status_code, status.HTTP_200_OK)
+        self.assertEqual(cancelled.data["status"], AccountDeletionRequest.CANCELLED)
+
+    def test_client_ne_peut_pas_annuler_la_demande_suppression_d_un_autre(self):
+        deletion_request = AccountDeletionRequest.objects.create(
+            client=self.client_profile,
+            reason="Demande appartenant au premier client.",
+        )
+        other_user = get_user_model().objects.create_user(
+            username="autre_suppression",
+            email="autre-suppression@example.com",
+            password="MotDePasseAutre2026!",
+        )
+        ClientProfile.objects.create(
+            user=other_user,
+            date_of_birth=date(1991, 1, 1),
+            phone="+32473333333",
+            billing_address="Rue Autre 3",
+            billing_city="Charleroi",
+            billing_postal_code="6000",
+        )
+        self.client.force_authenticate(user=other_user)
+        forbidden = self.client.post(f"/api/v1/auth/deletion-requests/{deletion_request.pk}/cancel/")
+        self.assertEqual(forbidden.status_code, status.HTTP_404_NOT_FOUND)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_administrateur_refuse_une_demande_suppression_avec_reponse(self):
+        deletion_request = AccountDeletionRequest.objects.create(
+            client=self.client_profile,
+            reason="Je souhaite fermer mon compte après mon événement.",
+        )
+        self.client.force_authenticate(user=self.client_user)
+        forbidden = self.client.post(
+            f"/api/v1/auth/deletion-requests/{deletion_request.pk}/review/",
+            {"decision": "rejected", "review_message": "Le dossier financier doit encore être clôturé."},
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+        admin = get_user_model().objects.create_superuser(
+            username="admin_suppression",
+            email="admin-suppression@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+        reviewed = self.client.post(
+            f"/api/v1/auth/deletion-requests/{deletion_request.pk}/review/",
+            {"decision": "rejected", "review_message": "Le dossier financier doit encore être clôturé."},
+            format="json",
+        )
+        self.assertEqual(reviewed.status_code, status.HTTP_200_OK)
+        self.assertEqual(reviewed.data["status"], AccountDeletionRequest.REJECTED)
+        self.assertEqual(reviewed.data["client_email"], self.client_user.email)
+        self.assertEqual(len(mail.outbox), 1)
+        self.client_user.refresh_from_db()
+        self.assertTrue(self.client_user.is_active)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_approbation_suppression_desactive_compte_et_revoque_sessions(self):
+        tokens = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "MotDePasseTest2026!"},
+            format="json",
+        ).data
+        deletion_request = AccountDeletionRequest.objects.create(
+            client=self.client_profile,
+            reason="Je confirme la fermeture de mon compte client.",
+        )
+        admin = get_user_model().objects.create_superuser(
+            username="admin_approbation_suppression",
+            email="admin-approbation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+        approved = self.client.post(
+            f"/api/v1/auth/deletion-requests/{deletion_request.pk}/review/",
+            {"decision": "approved", "review_message": "Le compte est désactivé, les pièces légales sont conservées."},
+            format="json",
+        )
+        self.assertEqual(approved.status_code, status.HTTP_200_OK)
+        self.assertEqual(approved.data["status"], AccountDeletionRequest.APPROVED)
+        self.client_user.refresh_from_db()
+        self.assertFalse(self.client_user.is_active)
+
+        self.client.force_authenticate(user=None)
+        revoked = self.client.post("/api/v1/auth/token/refresh/", {"refresh": tokens["refresh"]}, format="json")
+        self.assertEqual(revoked.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
+    def test_inscription_cree_un_profil_inactif_puis_verifie_email(self):
+        response = self.client.post(
+            "/api/v1/auth/register/",
+            {
+                "username": "nouveau_client",
+                "email": "nouveau@example.com",
+                "password": "MotDePasseNouveau2026!",
+                "first_name": "Nouveau",
+                "last_name": "Client",
+                "date_of_birth": "1992-06-18",
+                "phone": "+32471111111",
+                "billing_address": "Rue du Test 4",
+                "billing_city": "Namur",
+                "billing_postal_code": "5000",
+                "preferred_language": "fr",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user = get_user_model().objects.get(username="nouveau_client")
+        self.assertTrue(user.check_password("MotDePasseNouveau2026!"))
+        self.assertEqual(user.client_profile.billing_city, "Namur")
+        self.assertFalse(user.is_active)
+        self.assertEqual(len(mail.outbox), 1)
+
+        blocked_login = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": "nouveau_client", "password": "MotDePasseNouveau2026!"},
+            format="json",
+        )
+        self.assertEqual(blocked_login.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        verification_url = next(line for line in mail.outbox[0].body.splitlines() if line.startswith("http://"))
+        parameters = parse_qs(urlparse(verification_url).query)
+        verification_payload = {
+            "uid": parameters["verify_uid"][0],
+            "token": parameters["verify_token"][0],
+        }
+        verified = self.client.post("/api/v1/auth/verify-email/", verification_payload, format="json")
+        self.assertEqual(verified.status_code, status.HTTP_204_NO_CONTENT)
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+
+        authenticated = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": "nouveau_client", "password": "MotDePasseNouveau2026!"},
+            format="json",
+        )
+        self.assertEqual(authenticated.status_code, status.HTTP_200_OK)
+        replayed = self.client.post("/api/v1/auth/verify-email/", verification_payload, format="json")
+        self.assertEqual(replayed.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_inscription_refuse_doublon_mot_de_passe_faible_et_mineur(self):
+        base_payload = {
+            "username": "client_invalide",
+            "email": "autre@example.com",
+            "password": "court",
+            "first_name": "Petit",
+            "last_name": "Client",
+            "date_of_birth": str(date.today() - timedelta(days=365 * 10)),
+            "phone": "+32472222222",
+            "billing_address": "Rue du Refus 2",
+            "billing_city": "Liège",
+            "billing_postal_code": "4000",
+            "preferred_language": "fr",
+        }
+        response = self.client.post("/api/v1/auth/register/", base_payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("date_of_birth", response.data)
+        self.assertFalse(get_user_model().objects.filter(email="autre@example.com").exists())
+
+        base_payload["date_of_birth"] = "1990-01-01"
+        weak_password = self.client.post("/api/v1/auth/register/", base_payload, format="json")
+        self.assertEqual(weak_password.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", weak_password.data)
+
+        base_payload.update(
+            username=self.client_user.username,
+            password="MotDePasseValide2026!",
+        )
+        duplicate = self.client.post("/api/v1/auth/register/", base_payload, format="json")
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("username", duplicate.data)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
+    def test_renvoi_verification_reste_discret_et_limite_aux_comptes_inactifs(self):
+        self.client_user.is_active = False
+        self.client_user.save(update_fields=["is_active"])
+        resent = self.client.post(
+            "/api/v1/auth/verify-email/resend/",
+            {"email": self.client_user.email},
+            format="json",
+        )
+        unknown = self.client.post(
+            "/api/v1/auth/verify-email/resend/",
+            {"email": "inconnu@example.com"},
+            format="json",
+        )
+        self.assertEqual(resent.status_code, status.HTTP_200_OK)
+        self.assertEqual(unknown.status_code, status.HTTP_200_OK)
+        self.assertEqual(resent.data, unknown.data)
+        self.assertEqual(len(mail.outbox), 1)
+
+        self.client_user.is_active = True
+        self.client_user.save(update_fields=["is_active"])
+        active = self.client.post(
+            "/api/v1/auth/verify-email/resend/",
+            {"email": self.client_user.email},
+            format="json",
+        )
+        self.assertEqual(active.status_code, status.HTTP_200_OK)
+        self.assertEqual(active.data, unknown.data)
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
+    def test_reinitialisation_du_mot_de_passe_par_lien_email(self):
+        authenticated = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "MotDePasseTest2026!"},
+            format="json",
+        )
+        requested = self.client.post(
+            "/api/v1/auth/password-reset/",
+            {"email": self.client_user.email},
+            format="json",
+        )
+        self.assertEqual(requested.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        reset_url = next(line for line in mail.outbox[0].body.splitlines() if line.startswith("http://"))
+        parameters = parse_qs(urlparse(reset_url).query)
+
+        confirmed = self.client.post(
+            "/api/v1/auth/password-reset/confirm/",
+            {
+                "uid": parameters["reset_uid"][0],
+                "token": parameters["reset_token"][0],
+                "password": "NouveauMotDePasse2026!",
+            },
+            format="json",
+        )
+        self.assertEqual(confirmed.status_code, status.HTTP_204_NO_CONTENT)
+        self.client_user.refresh_from_db()
+        self.assertTrue(self.client_user.check_password("NouveauMotDePasse2026!"))
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {authenticated.data['access']}")
+        revoked_session = self.client.get("/api/v1/auth/me/")
+        self.assertEqual(revoked_session.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.client.credentials()
+
+        replayed = self.client.post(
+            "/api/v1/auth/password-reset/confirm/",
+            {
+                "uid": parameters["reset_uid"][0],
+                "token": parameters["reset_token"][0],
+                "password": "EncoreUnMotDePasse2026!",
+            },
+            format="json",
+        )
+        self.assertEqual(replayed.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_demande_mot_de_passe_ne_revele_pas_les_comptes(self):
+        existing = self.client.post("/api/v1/auth/password-reset/", {"email": self.client_user.email}, format="json")
+        unknown = self.client.post("/api/v1/auth/password-reset/", {"email": "inconnu@example.com"}, format="json")
+        self.assertEqual(existing.status_code, status.HTTP_200_OK)
+        self.assertEqual(unknown.status_code, status.HTTP_200_OK)
+        self.assertEqual(existing.data, unknown.data)
+        self.assertEqual(len(mail.outbox), 1)
 
     def create_available_dj(self):
         dj_user = get_user_model().objects.create_user(
@@ -534,6 +956,48 @@ class ApiUltimateDJTests(APITestCase):
         self.assertIn(contract.contract_number, contract_response["Content-Disposition"])
         self.assertIn(invoice.invoice_number, invoice_response["Content-Disposition"])
 
+    def test_documents_pdf_restent_disponibles_apres_remboursement_et_annulation(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        invoice = booking.invoices.get(invoice_type=Invoice.DEPOSIT)
+        payment = Payment.objects.create(
+            booking=booking,
+            invoice=invoice,
+            stripe_session_id="cs_test_pdf_cancelled",
+            stripe_payment_intent_id="pi_test_pdf_cancelled",
+            amount=invoice.amount,
+            currency="EUR",
+            status=Payment.REFUNDED,
+            paid_at=timezone.now(),
+        )
+        Refund.objects.create(
+            payment=payment,
+            stripe_refund_id="re_test_pdf_cancelled",
+            amount=payment.amount,
+            currency=payment.currency,
+            internal_reason="Annulation confirmée et remboursée",
+            status=Refund.SUCCEEDED,
+            processed_at=timezone.now(),
+        )
+        invoice.status = Invoice.CANCELLED
+        invoice.save(update_fields=["status"])
+        booking.status = Booking.CANCELLED
+        booking.cancellation_reason = "Événement annulé à la demande du client"
+        booking.save(update_fields=["status", "cancellation_reason"])
+        contract.status = Contract.CANCELLED
+        contract.save(update_fields=["status"])
+        self.client.force_authenticate(user=self.client_user)
+
+        contract_response = self.client.get(f"/api/v1/contracts/{contract.pk}/pdf/")
+        invoice_response = self.client.get(f"/api/v1/invoices/{invoice.pk}/pdf/")
+
+        self.assertEqual(contract_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(invoice_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(contract_response.content.startswith(b"%PDF-"))
+        self.assertTrue(invoice_response.content.startswith(b"%PDF-"))
+        self.assertGreater(len(contract_response.content), 2500)
+        self.assertGreater(len(invoice_response.content), 2500)
+
     def test_client_ne_peut_pas_fabriquer_reservation_contrat_ou_facture(self):
         self.client.force_authenticate(user=self.client_user)
 
@@ -822,3 +1286,234 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(balance.amount, booking.total_amount - deposit_invoice.amount)
         self.assertEqual(balance.status, Invoice.SENT)
         self.assertEqual(Invoice.objects.filter(booking=booking, invoice_type=Invoice.BALANCE).count(), 1)
+
+    def test_admin_annule_un_dossier_sans_paiement_et_libere_le_dj(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        availability = DJAvailability.objects.get(dj=booking.dj, available_date=booking.event_date)
+        appointment = PreparatoryAppointment.objects.create(
+            booking=booking,
+            scheduled_at=timezone.now() + timedelta(days=7),
+            status=PreparatoryAppointment.PLANNED,
+        )
+
+        self.client.force_authenticate(user=self.client_user)
+        client_attempt = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Annulation demandée par le client"},
+            format="json",
+        )
+        self.client.force_authenticate(user=booking.dj.user)
+        dj_attempt = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Indisponibilité communiquée par le DJ"},
+            format="json",
+        )
+        self.assertEqual(client_attempt.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(dj_attempt.status_code, status.HTTP_403_FORBIDDEN)
+
+        admin = get_user_model().objects.create_superuser(
+            username="admin_cancellation",
+            email="admin-cancellation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+        response = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Annulation confirmée avec le client"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        booking.refresh_from_db()
+        contract.refresh_from_db()
+        appointment.refresh_from_db()
+        availability.refresh_from_db()
+        self.assertEqual(booking.status, Booking.CANCELLED)
+        self.assertFalse(booking.deposit_paid)
+        self.assertEqual(booking.cancellation_reason, "Annulation confirmée avec le client")
+        self.assertEqual(contract.status, Contract.CANCELLED)
+        self.assertEqual(appointment.status, PreparatoryAppointment.CANCELLED)
+        self.assertEqual(availability.status, DJAvailability.AVAILABLE)
+        self.assertEqual(availability.reason, "")
+        self.assertFalse(Invoice.objects.filter(booking=booking).exclude(status=Invoice.CANCELLED).exists())
+
+    def test_client_demande_annulation_puis_admin_la_confirme(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        self.client.force_authenticate(user=self.client_user)
+
+        response = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/request-cancellation/",
+            {"reason": "Un imprévu familial empêche la tenue de l'événement"},
+            format="json",
+        )
+        duplicate = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/request-cancellation/",
+            {"reason": "Nouvelle demande identique"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        cancellation_request = CancellationRequest.objects.get(booking=booking)
+        self.assertEqual(cancellation_request.status, CancellationRequest.PENDING)
+        booking.refresh_from_db()
+        self.assertNotEqual(booking.status, Booking.CANCELLED)
+
+        admin = get_user_model().objects.create_superuser(
+            username="admin_request_cancellation",
+            email="admin-request-cancellation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+        cancelled = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Demande client vérifiée et acceptée"},
+            format="json",
+        )
+        self.assertEqual(cancelled.status_code, status.HTTP_200_OK)
+        cancellation_request.refresh_from_db()
+        self.assertEqual(cancellation_request.status, CancellationRequest.APPROVED)
+        self.assertEqual(cancellation_request.reviewed_by, admin)
+        self.assertIsNotNone(cancellation_request.reviewed_at)
+
+    def test_dj_ne_peut_pas_creer_la_demande_annulation_du_client(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        self.client.force_authenticate(user=booking.dj.user)
+
+        response = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/request-cancellation/",
+            {"reason": "Tentative de demande au nom du client"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(CancellationRequest.objects.filter(booking=booking).exists())
+
+    def test_admin_refuse_une_demande_et_le_client_consulte_la_reponse(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/request-cancellation/",
+            {"reason": "Je souhaite déplacer la fête à une autre année"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+
+        admin = get_user_model().objects.create_superuser(
+            username="admin_reject_cancellation",
+            email="admin-reject-cancellation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+        rejected = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/reject-cancellation/",
+            {"message": "Le délai contractuel est dépassé ; contactez-nous pour déplacer la date."},
+            format="json",
+        )
+        duplicate = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/reject-cancellation/",
+            {"message": "Deuxième traitement impossible"},
+            format="json",
+        )
+        self.assertEqual(rejected.status_code, status.HTTP_200_OK)
+        self.assertEqual(rejected.data["status"], CancellationRequest.REJECTED)
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=self.client_user)
+        history = self.client.get(f"/api/v1/bookings/{booking.pk}/cancellation-requests/")
+        self.assertEqual(history.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(history.data), 1)
+        self.assertEqual(history.data[0]["review_message"], rejected.data["review_message"])
+        booking.refresh_from_db()
+        self.assertNotEqual(booking.status, Booking.CANCELLED)
+
+        self.client.force_authenticate(user=booking.dj.user)
+        forbidden = self.client.get(f"/api/v1/bookings/{booking.pk}/cancellation-requests/")
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("apps.bookings.notifications.send_mail")
+    def test_notifications_email_pour_demande_et_decision_annulation(self, send_mail):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        admin = get_user_model().objects.create_superuser(
+            username="admin_email_cancellation",
+            email="admin-email-cancellation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=self.client_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            requested = self.client.post(
+                f"/api/v1/bookings/{booking.pk}/request-cancellation/",
+                {"reason": "Un motif suffisamment détaillé pour prévenir l'administration"},
+                format="json",
+            )
+
+        self.assertEqual(requested.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(send_mail.call_count, 1)
+        self.assertIn("demande d'annulation", send_mail.call_args.args[0])
+        self.assertIn(admin.email, send_mail.call_args.args[3])
+
+        self.client.force_authenticate(user=admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            rejected = self.client.post(
+                f"/api/v1/bookings/{booking.pk}/reject-cancellation/",
+                {"message": "Le délai prévu au contrat ne permet pas cette annulation."},
+                format="json",
+            )
+
+        self.assertEqual(rejected.status_code, status.HTTP_200_OK)
+        self.assertEqual(send_mail.call_count, 2)
+        self.assertIn("refusée", send_mail.call_args.args[0])
+        self.assertEqual(send_mail.call_args.args[3], [self.client_user.email])
+
+    def test_admin_ne_peut_annuler_avant_le_remboursement_integral(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        invoice = booking.invoices.get(invoice_type=Invoice.DEPOSIT)
+        payment = Payment.objects.create(
+            booking=booking,
+            invoice=invoice,
+            stripe_session_id="cs_test_cancel_booking",
+            stripe_payment_intent_id="pi_test_cancel_booking",
+            amount=invoice.amount,
+            currency="EUR",
+            status=Payment.PAID,
+            paid_at=timezone.now(),
+        )
+        invoice.status = Invoice.PAID
+        invoice.save(update_fields=["status"])
+        booking.status = Booking.CONFIRMED
+        booking.deposit_paid = True
+        booking.save(update_fields=["status", "deposit_paid"])
+        admin = get_user_model().objects.create_superuser(
+            username="admin_cancellation_refund",
+            email="admin-cancellation-refund@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+
+        blocked = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Le client demande une annulation"},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Booking.CONFIRMED)
+
+        payment.status = Payment.REFUNDED
+        payment.save(update_fields=["status"])
+        invoice.status = Invoice.CANCELLED
+        invoice.save(update_fields=["status"])
+        cancelled = self.client.post(
+            f"/api/v1/bookings/{booking.pk}/cancel/",
+            {"reason": "Paiement remboursé, annulation confirmée"},
+            format="json",
+        )
+        self.assertEqual(cancelled.status_code, status.HTTP_200_OK)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Booking.CANCELLED)
