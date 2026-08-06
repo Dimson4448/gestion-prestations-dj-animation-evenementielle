@@ -11,7 +11,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
 from rest_framework.exceptions import ValidationError
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
@@ -20,6 +20,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from apps.accounts.models import AccountDeletionRequest, DJProfile
@@ -41,6 +42,7 @@ from apps.payments.models import Invoice, Payment
 from apps.payments.services import StripeCheckoutError, StripeConfigurationError, StripeRefundError, create_invoice_checkout, create_payment_refund
 
 from .permissions import AdministrationOuProprietaire, DJOuAdministration, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
+from .throttles import AccountActionRateThrottle, LoginRateThrottle
 from .serializers import (
     BookingSerializer,
     AccountDeletionRequestSerializer,
@@ -84,6 +86,10 @@ from .serializers import (
 
 class PublicReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.AllowAny]
+
+
+class ThrottledTokenObtainPairView(TokenObtainPairView):
+    throttle_classes = [LoginRateThrottle]
 
 
 class AdminWritePublicReadViewSet(viewsets.ModelViewSet):
@@ -253,6 +259,7 @@ def send_verification_email(user):
 @extend_schema(request=ClientRegistrationSerializer, responses={201: OpenApiResponse(description="Compte créé, vérification requise")}, summary="Créer un compte client")
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([AccountActionRateThrottle])
 def register_client(request):
     serializer = ClientRegistrationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -267,6 +274,7 @@ def register_client(request):
 @extend_schema(request=EmailVerificationSerializer, responses={204: None}, summary="Confirmer une adresse e-mail")
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([AccountActionRateThrottle])
 def verify_email(request):
     serializer = EmailVerificationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -277,6 +285,7 @@ def verify_email(request):
 @extend_schema(request=EmailVerificationResendSerializer, responses={200: OpenApiResponse(description="Demande traitée")}, summary="Renvoyer le lien de vérification")
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([AccountActionRateThrottle])
 def resend_verification_email(request):
     serializer = EmailVerificationResendSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -292,6 +301,7 @@ def resend_verification_email(request):
 @extend_schema(request=PasswordResetRequestSerializer, responses={200: OpenApiResponse(description="Demande traitée")}, summary="Demander un nouveau mot de passe")
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([AccountActionRateThrottle])
 def request_password_reset(request):
     serializer = PasswordResetRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -317,6 +327,7 @@ def request_password_reset(request):
 @extend_schema(request=PasswordResetConfirmSerializer, responses={204: None}, summary="Confirmer un nouveau mot de passe")
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([AccountActionRateThrottle])
 def confirm_password_reset(request):
     serializer = PasswordResetConfirmSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)

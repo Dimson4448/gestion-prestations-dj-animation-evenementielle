@@ -144,6 +144,10 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_RATES": {
+        "login": config("AUTH_LOGIN_RATE", default="10/minute"),
+        "account_action": config("AUTH_ACCOUNT_ACTION_RATE", default="5/minute"),
+    },
 }
 
 SIMPLE_JWT = {

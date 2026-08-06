@@ -35,6 +35,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 
 - URL du backend configurable avec `VITE_API_BASE_URL` ;
 - authentification réelle avec rotation des jetons JWT, renouvellement automatique et révocation à la déconnexion ;
+- limitation par adresse IP des connexions et actions sensibles d'authentification ;
 - inscription réelle d'un client avec validation Django et création de son profil ;
 - activation du compte par lien temporaire de vérification de l'adresse e-mail ;
 - renvoi confidentiel du lien d'activation pour les comptes encore inactifs ;

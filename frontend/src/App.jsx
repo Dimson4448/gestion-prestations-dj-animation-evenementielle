@@ -821,7 +821,9 @@ export default function App() {
       );
     } catch (error) {
       setLoginStatus(
-        error.response?.status === 401
+        error.response?.status === 429
+          ? "Trop de tentatives. Patientez une minute avant de réessayer."
+          : error.response?.status === 401
           ? "Identifiant ou mot de passe incorrect."
           : "Connexion impossible. Vérifiez que le backend Django est démarré.",
       );
@@ -919,8 +921,8 @@ export default function App() {
     try {
       const response = await requestPasswordReset(passwordResetEmail);
       setPasswordResetStatus(response.detail);
-    } catch {
-      setPasswordResetStatus("La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
+    } catch (error) {
+      setPasswordResetStatus(error.response?.status === 429 ? "Trop de demandes. Patientez une minute avant de réessayer." : "La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
     } finally {
       setPasswordResetPending(false);
     }
@@ -933,8 +935,8 @@ export default function App() {
     try {
       const response = await resendVerificationEmail(verificationResendEmail);
       setVerificationResendStatus(response.detail);
-    } catch {
-      setVerificationResendStatus("La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
+    } catch (error) {
+      setVerificationResendStatus(error.response?.status === 429 ? "Trop de demandes. Patientez une minute avant de réessayer." : "La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
     } finally {
       setVerificationResendPending(false);
     }

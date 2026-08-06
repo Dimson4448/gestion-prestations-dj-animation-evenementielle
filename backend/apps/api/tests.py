@@ -3,6 +3,7 @@ from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core import mail
 from django.test import override_settings
 from django.utils import timezone
@@ -19,6 +20,7 @@ from apps.bookings.services import accept_quote
 
 class ApiUltimateDJTests(APITestCase):
     def setUp(self):
+        cache.clear()
         self.package = Package.objects.create(
             name="Formule Essentielle",
             description="Prestation DJ pour soirée privée.",
@@ -112,6 +114,36 @@ class ApiUltimateDJTests(APITestCase):
             format="json",
         )
         self.assertEqual(revoked_refresh.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_connexion_est_limitee_apres_trop_de_tentatives(self):
+        for _ in range(10):
+            response = self.client.post(
+                "/api/v1/auth/token/",
+                {"username": self.client_user.username, "password": "MotDePasseIncorrect!"},
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        blocked = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "MotDePasseIncorrect!"},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_demandes_sensibles_sont_limitees_par_adresse_ip(self):
+        for index in range(5):
+            response = self.client.post(
+                "/api/v1/auth/password-reset/",
+                {"email": f"inconnu-{index}@example.com"},
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        blocked = self.client.post(
+            "/api/v1/auth/password-reset/",
+            {"email": "inconnu-bloque@example.com"},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
     def test_client_consulte_et_modifie_ses_coordonnees(self):
         self.client.force_authenticate(user=self.client_user)
