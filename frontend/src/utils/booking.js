@@ -11,3 +11,21 @@ export const hasBookingEnded = (booking, now = new Date()) => {
   const end = new Date(`${booking.event_date}T${booking.end_time || "23:59:59"}`);
   return !Number.isNaN(end.getTime()) && end <= now;
 };
+
+const safeNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+};
+
+export const calculateQuoteEstimate = ({ basePrice, includedHours, durationHours, distanceKm }) => {
+  const base = Math.max(safeNumber(basePrice), 0);
+  const duration = Math.max(safeNumber(durationHours), 0);
+  const included = Math.max(safeNumber(includedHours), 0);
+  const distance = Math.max(safeNumber(distanceKm), 0);
+  const extraHours = Math.max(duration - included, 0);
+  const subtotal = base + extraHours * 95;
+  const travel = distance * 0.65;
+  const total = subtotal + travel;
+
+  return { subtotal, travel, total, deposit: total * 0.3 };
+};

@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
-import { formatEuro, hasBookingEnded } from "./utils/booking";
+import { calculateQuoteEstimate, formatEuro, hasBookingEnded } from "./utils/booking";
 
 const fallbackPackages = [
   {
@@ -664,11 +664,12 @@ export default function App() {
   );
 
   const quote = useMemo(() => {
-    const base = Number(selectedPackage?.base_price || 0);
-    const extraHours = Math.max(Number(durationHours) - Number(selectedPackage?.included_hours || 0), 0);
-    const subtotal = base + extraHours * 95;
-    const travel = Number(distanceKm) * 0.65;
-    return { subtotal, travel, total: subtotal + travel, deposit: (subtotal + travel) * 0.3 };
+    return calculateQuoteEstimate({
+      basePrice: selectedPackage?.base_price,
+      includedHours: selectedPackage?.included_hours,
+      durationHours,
+      distanceKm,
+    });
   }, [distanceKm, durationHours, selectedPackage]);
 
   const navigate = (target) => {
