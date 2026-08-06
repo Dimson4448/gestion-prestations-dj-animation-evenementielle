@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
-import { calculateQuoteEstimate, formatEuro, hasBookingEnded } from "./utils/booking";
+import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded } from "./utils/booking";
 
 const fallbackPackages = [
   {
@@ -645,23 +645,16 @@ export default function App() {
 
   const availableEventTypes = eventTypeRecords.length ? eventTypeRecords.map((item) => item.name) : eventTypes;
   const playlistBookingIds = new Set(playlists.map((item) => item.booking));
-  const eligiblePlaylistBookings = clientBookings.filter(
-    (item) => item.deposit_paid && ["confirmed", "performed", "paid"].includes(item.status) && !playlistBookingIds.has(item.id),
-  );
+  const eligiblePlaylistBookings = clientBookings.filter((item) => canCreatePlaylist(item, playlistBookingIds));
   const plannedAppointmentBookingIds = new Set(
     appointments.filter((item) => item.status === "planned").map((item) => item.booking),
   );
   const eligibleAppointmentBookings = clientBookings.filter((item) => {
     const type = eventTypeRecords.find((record) => record.id === item.event_type);
-    return item.deposit_paid
-      && ["confirmed", "performed", "paid"].includes(item.status)
-      && type?.requires_preparatory_meeting
-      && !plannedAppointmentBookingIds.has(item.id);
+    return canPlanAppointment(item, type, plannedAppointmentBookingIds);
   });
   const reviewedBookingIds = new Set(reviews.map((item) => item.booking));
-  const eligibleReviewBookings = clientBookings.filter(
-    (item) => ["performed", "paid"].includes(item.status) && !reviewedBookingIds.has(item.id),
-  );
+  const eligibleReviewBookings = clientBookings.filter((item) => canSubmitReview(item, reviewedBookingIds));
 
   const quote = useMemo(() => {
     return calculateQuoteEstimate({

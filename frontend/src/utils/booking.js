@@ -29,3 +29,27 @@ export const calculateQuoteEstimate = ({ basePrice, includedHours, durationHours
 
   return { subtotal, travel, total, deposit: total * 0.3 };
 };
+
+const preparedBookingStatuses = new Set(["confirmed", "performed", "paid"]);
+const completedBookingStatuses = new Set(["performed", "paid"]);
+
+export const canCreatePlaylist = (booking, existingBookingIds = new Set()) =>
+  Boolean(
+    booking?.deposit_paid
+      && preparedBookingStatuses.has(booking.status)
+      && !existingBookingIds.has(booking.id),
+  );
+
+export const canPlanAppointment = (booking, eventType, plannedBookingIds = new Set()) =>
+  Boolean(
+    booking?.deposit_paid
+      && preparedBookingStatuses.has(booking.status)
+      && eventType?.requires_preparatory_meeting
+      && !plannedBookingIds.has(booking.id),
+  );
+
+export const canSubmitReview = (booking, reviewedBookingIds = new Set()) =>
+  Boolean(
+    completedBookingStatuses.has(booking?.status)
+      && !reviewedBookingIds.has(booking.id),
+  );

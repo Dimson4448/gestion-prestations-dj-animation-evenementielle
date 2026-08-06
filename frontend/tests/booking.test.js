@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { calculateQuoteEstimate, formatEuro, hasBookingEnded } from "../src/utils/booking.js";
+import {
+  calculateQuoteEstimate,
+  canCreatePlaylist,
+  canPlanAppointment,
+  canSubmitReview,
+  formatEuro,
+  hasBookingEnded,
+} from "../src/utils/booking.js";
 
 test("formatEuro formate un montant en euros sans décimales", () => {
   const formatted = formatEuro("1190.00").replaceAll("\u00a0", " ").replaceAll("\u202f", " ");
@@ -68,4 +75,29 @@ test("calculateQuoteEstimate neutralise les valeurs invalides ou négatives", ()
   });
 
   assert.deepEqual(estimate, { subtotal: 0, travel: 0, total: 0, deposit: 0 });
+});
+
+test("canCreatePlaylist exige un acompte et évite les doublons", () => {
+  const booking = { id: 12, status: "confirmed", deposit_paid: true };
+
+  assert.equal(canCreatePlaylist(booking), true);
+  assert.equal(canCreatePlaylist({ ...booking, deposit_paid: false }), false);
+  assert.equal(canCreatePlaylist(booking, new Set([12])), false);
+});
+
+test("canPlanAppointment respecte le type d'événement et les rendez-vous existants", () => {
+  const booking = { id: 18, status: "confirmed", deposit_paid: true };
+  const requiredType = { requires_preparatory_meeting: true };
+
+  assert.equal(canPlanAppointment(booking, requiredType), true);
+  assert.equal(canPlanAppointment(booking, { requires_preparatory_meeting: false }), false);
+  assert.equal(canPlanAppointment(booking, requiredType, new Set([18])), false);
+});
+
+test("canSubmitReview attend la réalisation et évite un second avis", () => {
+  const performed = { id: 25, status: "performed" };
+
+  assert.equal(canSubmitReview(performed), true);
+  assert.equal(canSubmitReview({ ...performed, status: "confirmed" }), false);
+  assert.equal(canSubmitReview(performed, new Set([25])), false);
 });
