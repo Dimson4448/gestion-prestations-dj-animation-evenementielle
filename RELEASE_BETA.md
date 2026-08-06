@@ -49,6 +49,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - redirection contrôlée vers le domaine Stripe Checkout ;
 - messages de retour après succès ou annulation ;
 - confirmation finale laissée au webhook, et non au navigateur ;
+- écran de récupération en cas d'erreur React inattendue ;
 - identification visuelle de la version beta.
 
 ### Documentation
