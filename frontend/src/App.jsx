@@ -671,6 +671,9 @@ export default function App() {
     setMobileNavOpen(false);
     setQuoteSubmitted(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    window.requestAnimationFrame(() => {
+      document.getElementById("main-content")?.focus({ preventScroll: true });
+    });
   };
 
   const openDetail = (item, dj = selectedDj) => {
@@ -1395,7 +1398,7 @@ export default function App() {
         page={page}
       />
 
-      <main>
+      <main id="main-content" tabIndex="-1">
         {page === "accueil" && (
           <>
             <section className="hero">

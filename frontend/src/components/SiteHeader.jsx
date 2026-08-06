@@ -13,6 +13,7 @@ export default function SiteHeader({
 }) {
   return (
     <header className="site-header">
+      <a className="skip-link" href="#main-content">Aller au contenu principal</a>
       <button className="brand" type="button" onClick={() => onNavigate("accueil")} aria-label="Ultimate DJ, accueil">
         <img src="/logo-ultimate-dj.png" alt="Ultimate DJ — Réserver. Mixer. Célébrer." />
       </button>
@@ -26,19 +27,19 @@ export default function SiteHeader({
         {mobileNavOpen ? <X /> : <Menu />}
       </button>
       <nav className={mobileNavOpen ? "main-nav open" : "main-nav"} aria-label="Navigation principale">
-        <button className={page === "accueil" ? "active" : ""} onClick={() => onNavigate("accueil")}>Accueil</button>
-        <button className={page === "offres" || page === "detail" ? "active" : ""} onClick={() => onNavigate("offres")}>Offres & DJs</button>
-        <button className={page === "devis" ? "active" : ""} onClick={() => onNavigate("devis")}>Demander un devis</button>
-        <button className={page === "compte" ? "active" : ""} onClick={() => onNavigate("compte")}>
+        <button type="button" className={page === "accueil" ? "active" : ""} aria-current={page === "accueil" ? "page" : undefined} onClick={() => onNavigate("accueil")}>Accueil</button>
+        <button type="button" className={page === "offres" || page === "detail" ? "active" : ""} aria-current={page === "offres" || page === "detail" ? "page" : undefined} onClick={() => onNavigate("offres")}>Offres & DJs</button>
+        <button type="button" className={page === "devis" ? "active" : ""} aria-current={page === "devis" ? "page" : undefined} onClick={() => onNavigate("devis")}>Demander un devis</button>
+        <button type="button" className={page === "compte" ? "active" : ""} aria-current={page === "compte" ? "page" : undefined} onClick={() => onNavigate("compte")}>
           <CircleUserRound aria-hidden="true" /> Mon compte
         </button>
         {currentUser?.is_staff && (
-          <button className={page === "administration" ? "active" : ""} onClick={() => onNavigate("administration")}>
+          <button type="button" className={page === "administration" ? "active" : ""} aria-current={page === "administration" ? "page" : undefined} onClick={() => onNavigate("administration")}>
             <Settings aria-hidden="true" /> Espace administrateur
           </button>
         )}
         {currentUser?.role === "dj" && (
-          <button className={page === "dj" ? "active" : ""} onClick={() => onNavigate("dj")}>
+          <button type="button" className={page === "dj" ? "active" : ""} aria-current={page === "dj" ? "page" : undefined} onClick={() => onNavigate("dj")}>
             <Headphones aria-hidden="true" /> Espace DJ
           </button>
         )}
@@ -48,6 +49,7 @@ export default function SiteHeader({
         <div className="language-switcher" aria-label="Choix de la langue">
           {languages.map((item) => (
             <button
+              type="button"
               key={item}
               className={language === item ? "selected" : ""}
               onClick={() => onLanguageChange(item)}

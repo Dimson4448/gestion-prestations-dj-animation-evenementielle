@@ -50,6 +50,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - messages de retour après succès ou annulation ;
 - confirmation finale laissée au webhook, et non au navigateur ;
 - écran de récupération en cas d'erreur React inattendue ;
+- navigation au clavier améliorée avec lien d'évitement et indication de page active ;
 - identification visuelle de la version beta.
 
 ### Documentation
