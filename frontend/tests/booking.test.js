@@ -8,6 +8,7 @@ import {
   canSubmitReview,
   formatEuro,
   hasBookingEnded,
+  mapAvailableDjs,
 } from "../src/utils/booking.js";
 
 test("formatEuro formate un montant en euros sans décimales", () => {
@@ -100,4 +101,30 @@ test("canSubmitReview attend la réalisation et évite un second avis", () => {
   assert.equal(canSubmitReview(performed), true);
   assert.equal(canSubmitReview({ ...performed, status: "confirmed" }), false);
   assert.equal(canSubmitReview(performed, new Set([25])), false);
+});
+
+test("mapAvailableDjs transforme les créneaux Django sans dupliquer un DJ", () => {
+  const dj = {
+    id: 7,
+    stage_name: "DJ Réel",
+    music_styles: [{ id: 1, name: "House" }, { id: 2, name: "Disco" }],
+  };
+  const records = mapAvailableDjs([
+    { id: 10, dj, start_time: "18:00:00", end_time: "23:30:00" },
+    { id: 11, dj, start_time: "20:00:00", end_time: "23:59:00" },
+  ]);
+
+  assert.deepEqual(records, [{
+    id: 7,
+    name: "DJ Réel",
+    styles: "House · Disco",
+    slot: "18:00–23:30",
+    rating: null,
+    reviews: 0,
+  }]);
+});
+
+test("mapAvailableDjs ignore les créneaux incomplets et accepte une réponse invalide", () => {
+  assert.deepEqual(mapAvailableDjs(null), []);
+  assert.deepEqual(mapAvailableDjs([{ id: 1, dj: null }]), []);
 });

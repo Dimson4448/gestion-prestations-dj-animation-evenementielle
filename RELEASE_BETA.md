@@ -46,6 +46,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - récupération sécurisée du mot de passe par lien temporaire envoyé par e-mail ;
 - affichage des factures d'acompte du client ;
 - bouton de paiement réservé aux factures envoyées ;
+- recherche des DJs réellement disponibles à la date choisie via l'API Django ;
 - redirection contrôlée vers le domaine Stripe Checkout ;
 - messages de retour après succès ou annulation ;
 - confirmation finale laissée au webhook, et non au navigateur ;

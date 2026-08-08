@@ -23,7 +23,7 @@ import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, 
 import SiteFooter from "./components/SiteFooter";
 import SiteHeader from "./components/SiteHeader";
 import HomePage from "./pages/HomePage";
-import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded } from "./utils/booking";
+import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 
 const fallbackPackages = [
   {
@@ -64,6 +64,15 @@ const djProfiles = [
   { id: 3, name: "DJ Éclipse", styles: "Rock · Années 80 · Généraliste", slot: "17:00–01:00", rating: "4,7", reviews: 31 },
 ];
 
+const unassignedDj = {
+  id: null,
+  name: "DJ à confirmer",
+  styles: "Sélectionnez un créneau disponible",
+  slot: "À confirmer avec l’administration",
+  rating: null,
+  reviews: 0,
+};
+
 const eventTypes = [
   "Mariage",
   "Anniversaire adulte",
@@ -96,9 +105,11 @@ export default function App() {
   const [packages, setPackages] = useState(fallbackPackages);
   const [catalogueStatus, setCatalogueStatus] = useState("Catalogue de démonstration affiché");
   const [catalogueReady, setCatalogueReady] = useState(false);
+  const [availableDjs, setAvailableDjs] = useState(djProfiles);
+  const [publicAvailabilityStatus, setPublicAvailabilityStatus] = useState("Créneaux de démonstration affichés");
   const [eventTypeRecords, setEventTypeRecords] = useState([]);
   const [selectedPackageId, setSelectedPackageId] = useState("mariage");
-  const [selectedDj, setSelectedDj] = useState(djProfiles[0]);
+  const [selectedDj, setSelectedDj] = useState(unassignedDj);
   const [eventType, setEventType] = useState("Mariage");
   const [eventDate, setEventDate] = useState("2026-09-12");
   const [startTime, setStartTime] = useState("18:00");
@@ -328,6 +339,36 @@ export default function App() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!eventDate) return undefined;
+
+    let mounted = true;
+    setPublicAvailabilityStatus("Recherche des créneaux disponibles…");
+    apiClient
+      .get("/availability/", { params: { date: eventDate } })
+      .then((response) => {
+        if (!mounted) return;
+        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        const slots = Array.isArray(data) ? data : [];
+        const records = mapAvailableDjs(slots);
+        setAvailableDjs(records);
+        setPublicAvailabilityStatus(
+          records.length
+            ? "Disponibilités synchronisées avec Django"
+            : "Aucun DJ disponible à cette date",
+        );
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setAvailableDjs(djProfiles);
+        setPublicAvailabilityStatus("Créneaux de démonstration · API locale hors ligne");
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [eventDate]);
 
   useEffect(() => {
     let mounted = true;
@@ -1425,8 +1466,9 @@ export default function App() {
                 <label>Budget<select defaultValue="1500"><option value="700">Moins de 700 €</option><option value="1500">700 € – 1 500 €</option><option value="more">Plus de 1 500 €</option></select></label>
                 <fieldset><legend>Services</legend><label className="check-row"><input type="checkbox" defaultChecked /> Sonorisation</label><label className="check-row"><input type="checkbox" defaultChecked /> Éclairage</label><label className="check-row"><input type="checkbox" /> Animation micro</label></fieldset>
               </aside>
-              <div className="results"><div className="results-heading"><div><h2>DJs disponibles à {location}</h2><p>{djProfiles.length} résultats · {catalogueStatus}</p></div><span className="status-pill"><span /> Créneaux disponibles</span></div>
-                {djProfiles.map((dj, index) => { const item = packages[index % packages.length]; return <article className="dj-card" key={dj.id}><div className={`dj-avatar avatar-${index + 1}`}><Headphones /></div><div className="dj-copy"><div className="dj-title"><h3>{dj.name}</h3><span><Star /> {dj.rating} ({dj.reviews} avis)</span></div><p>{dj.styles}</p><p className="availability"><Clock3 /> Disponible {dj.slot}</p><strong>À partir de {formatEuro(item.base_price)}</strong></div><button className="primary-button" onClick={() => openDetail(item, dj)}>Voir le détail <ChevronRight /></button></article>; })}
+              <div className="results"><div className="results-heading"><div><h2>DJs disponibles à {location}</h2><p>{availableDjs.length} résultat{availableDjs.length > 1 ? "s" : ""} · {publicAvailabilityStatus}</p></div><span className="status-pill"><span /> {catalogueStatus}</span></div>
+                {availableDjs.map((dj, index) => { const item = packages[index % packages.length]; return <article className="dj-card" key={dj.id}><div className={`dj-avatar avatar-${index + 1}`}><Headphones /></div><div className="dj-copy"><div className="dj-title"><h3>{dj.name}</h3><span><Star /> {dj.rating ? `${dj.rating} (${dj.reviews} avis)` : "Profil vérifié"}</span></div><p>{dj.styles}</p><p className="availability"><Clock3 /> Disponible {dj.slot}</p><strong>À partir de {formatEuro(item.base_price)}</strong></div><button className="primary-button" type="button" onClick={() => openDetail(item, dj)}>Voir le détail <ChevronRight /></button></article>; })}
+                {!availableDjs.length && <p className="invoice-empty">Modifiez la date pour rechercher un autre créneau.</p>}
               </div>
             </div>
           </section>

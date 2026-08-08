@@ -53,3 +53,22 @@ export const canSubmitReview = (booking, reviewedBookingIds = new Set()) =>
     completedBookingStatuses.has(booking?.status)
       && !reviewedBookingIds.has(booking.id),
   );
+
+export const mapAvailableDjs = (slots) => {
+  if (!Array.isArray(slots)) return [];
+
+  const djsById = new Map();
+  slots.forEach((slot) => {
+    if (!slot?.dj || djsById.has(slot.dj.id)) return;
+    djsById.set(slot.dj.id, {
+      id: slot.dj.id,
+      name: slot.dj.stage_name,
+      styles: slot.dj.music_styles?.map((style) => style.name).join(" · ") || "Généraliste",
+      slot: `${String(slot.start_time).slice(0, 5)}–${String(slot.end_time).slice(0, 5)}`,
+      rating: null,
+      reviews: 0,
+    });
+  });
+
+  return Array.from(djsById.values());
+};
