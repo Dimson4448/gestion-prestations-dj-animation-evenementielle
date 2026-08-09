@@ -635,6 +635,57 @@ class ApiUltimateDJTests(APITestCase):
         self.assertIn("ressource", premier_resultat["liens"])
         self.assertIn("calculer_devis", premier_resultat["liens"])
 
+    def test_note_publique_du_dj_utilise_uniquement_les_avis_publies(self):
+        dj, _ = self.create_available_dj()
+        bookings = []
+        for index in range(3):
+            quote = Quote.objects.create(
+                client=self.client_profile,
+                event_type=self.event_type,
+                package=self.package,
+                venue=self.venue,
+                event_date=date.today() + timedelta(days=40 + index),
+                start_time="18:00:00",
+                duration_hours="5.0",
+                guest_count=60,
+                total_amount="500.00",
+                deposit_amount="150.00",
+            )
+            bookings.append(Booking.objects.create(
+                quote=quote,
+                client=self.client_profile,
+                dj=dj,
+                event_type=self.event_type,
+                package=self.package,
+                venue=self.venue,
+                event_date=quote.event_date,
+                start_time="18:00:00",
+                end_time="23:00:00",
+                status=Booking.PERFORMED,
+                total_amount="500.00",
+                deposit_required="150.00",
+            ))
+
+        Review.objects.create(
+            booking=bookings[0], client=self.client_profile, dj=dj,
+            rating=5, comment="Excellent", status=Review.PUBLISHED,
+        )
+        Review.objects.create(
+            booking=bookings[1], client=self.client_profile, dj=dj,
+            rating=3, comment="Très bien", status=Review.PUBLISHED,
+        )
+        Review.objects.create(
+            booking=bookings[2], client=self.client_profile, dj=dj,
+            rating=1, comment="En attente de modération", status=Review.PENDING,
+        )
+
+        response = self.client.get("/api/v1/djs/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        public_dj = next(item for item in response.data["results"] if item["id"] == dj.pk)
+        self.assertEqual(public_dj["average_rating"], 4.0)
+        self.assertEqual(public_dj["review_count"], 2)
+
     def test_calcul_de_devis_informatif(self):
         response = self.client.post(
             "/api/v1/quotes/calculate/",

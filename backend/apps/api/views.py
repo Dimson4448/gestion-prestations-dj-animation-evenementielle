@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models import Avg, Count, Q
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.utils.encoding import force_bytes
@@ -385,7 +386,15 @@ class MusicStyleViewSet(AdminWritePublicReadViewSet):
 
 
 class DJProfileViewSet(PublicReadOnlyViewSet):
-    queryset = DJProfile.objects.filter(is_available=True).prefetch_related("music_styles").order_by("stage_name")
+    queryset = (
+        DJProfile.objects.filter(is_available=True)
+        .annotate(
+            average_rating=Avg("reviews__rating", filter=Q(reviews__status=Review.PUBLISHED)),
+            review_count=Count("reviews", filter=Q(reviews__status=Review.PUBLISHED), distinct=True),
+        )
+        .prefetch_related("music_styles")
+        .order_by("stage_name")
+    )
     serializer_class = DJProfileSerializer
     search_fields = ["stage_name", "bio", "music_styles__name"]
     ordering_fields = ["stage_name", "years_experience", "base_hourly_rate"]

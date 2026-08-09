@@ -108,6 +108,8 @@ test("mapAvailableDjs transforme les créneaux Django sans dupliquer un DJ", () 
     id: 7,
     stage_name: "DJ Réel",
     music_styles: [{ id: 1, name: "House" }, { id: 2, name: "Disco" }],
+    average_rating: 4.5,
+    review_count: 8,
   };
   const records = mapAvailableDjs([
     { id: 10, dj, start_time: "18:00:00", end_time: "23:30:00" },
@@ -119,9 +121,21 @@ test("mapAvailableDjs transforme les créneaux Django sans dupliquer un DJ", () 
     name: "DJ Réel",
     styles: "House · Disco",
     slot: "18:00–23:30",
-    rating: null,
-    reviews: 0,
+    rating: "4,5",
+    reviews: 8,
   }]);
+});
+
+test("mapAvailableDjs conserve un profil sans avis publié", () => {
+  const records = mapAvailableDjs([{
+    id: 12,
+    dj: { id: 9, stage_name: "DJ Début", music_styles: [], average_rating: null, review_count: 0 },
+    start_time: "19:00:00",
+    end_time: "23:00:00",
+  }]);
+
+  assert.equal(records[0].rating, null);
+  assert.equal(records[0].reviews, 0);
 });
 
 test("mapAvailableDjs ignore les créneaux incomplets et accepte une réponse invalide", () => {

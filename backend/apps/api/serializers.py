@@ -355,6 +355,8 @@ class EquipmentSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
 class DJProfileSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "dj"
     music_styles = MusicStyleSerializer(many=True, read_only=True)
+    average_rating = serializers.FloatField(read_only=True)
+    review_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = DJProfile
@@ -367,6 +369,8 @@ class DJProfileSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             "travel_rate_per_km",
             "years_experience",
             "is_available",
+            "average_rating",
+            "review_count",
             "liens",
         ]
 
