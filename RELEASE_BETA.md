@@ -35,6 +35,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 
 - URL du backend configurable avec `VITE_API_BASE_URL` ;
 - authentification réelle avec rotation des jetons JWT, renouvellement automatique et révocation à la déconnexion ;
+- limitation par adresse IP des connexions et actions sensibles d'authentification ;
 - inscription réelle d'un client avec validation Django et création de son profil ;
 - activation du compte par lien temporaire de vérification de l'adresse e-mail ;
 - renvoi confidentiel du lien d'activation pour les comptes encore inactifs ;
@@ -45,15 +46,19 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - récupération sécurisée du mot de passe par lien temporaire envoyé par e-mail ;
 - affichage des factures d'acompte du client ;
 - bouton de paiement réservé aux factures envoyées ;
+- recherche des DJs réellement disponibles à la date choisie via l'API Django ;
 - redirection contrôlée vers le domaine Stripe Checkout ;
 - messages de retour après succès ou annulation ;
 - confirmation finale laissée au webhook, et non au navigateur ;
+- écran de récupération en cas d'erreur React inattendue ;
+- navigation au clavier améliorée avec lien d'évitement et indication de page active ;
 - identification visuelle de la version beta.
 
 ### Documentation
 
 - plan de développement beta dans `BETA_PLAN.md` ;
 - procédure de test reproductible dans `STRIPE_TESTING.md` ;
+- validation automatique des tests Django et du build React avec GitHub Actions ;
 - exemples de configuration sans clé réelle dans les fichiers `.env.example`.
 
 ## Validation effectuée
@@ -63,6 +68,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - aucune migration Django manquante dans le code ;
 - migration `payments.0003` appliquée à la base locale ;
 - `pip check` sans dépendance Python cassée ;
+- tests unitaires frontend exécutés avec Node.js ;
 - build de production Vite réussi ;
 - audit npm sans vulnérabilité détectée ;
 - aucun secret Stripe réel versionné.

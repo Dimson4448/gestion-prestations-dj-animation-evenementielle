@@ -10,10 +10,8 @@ import {
   FileText,
   Headphones,
   MapPin,
-  Menu,
   Music2,
   Settings,
-  Search,
   ShieldCheck,
   Sparkles,
   Star,
@@ -22,6 +20,10 @@ import {
 } from "lucide-react";
 
 import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
+import SiteFooter from "./components/SiteFooter";
+import SiteHeader from "./components/SiteHeader";
+import HomePage from "./pages/HomePage";
+import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 
 const fallbackPackages = [
   {
@@ -62,6 +64,15 @@ const djProfiles = [
   { id: 3, name: "DJ Éclipse", styles: "Rock · Années 80 · Généraliste", slot: "17:00–01:00", rating: "4,7", reviews: 31 },
 ];
 
+const unassignedDj = {
+  id: null,
+  name: "DJ à confirmer",
+  styles: "Sélectionnez un créneau disponible",
+  slot: "À confirmer avec l’administration",
+  rating: null,
+  reviews: 0,
+};
+
 const eventTypes = [
   "Mariage",
   "Anniversaire adulte",
@@ -71,14 +82,6 @@ const eventTypes = [
 ];
 
 const todayIso = new Date().toISOString().slice(0, 10);
-
-const formatEuro = (value) =>
-  new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(
-    Number(value || 0),
-  );
-
-const hasBookingEnded = (booking) =>
-  new Date(`${booking.event_date}T${booking.end_time || "23:59:59"}`) <= new Date();
 
 const quoteStatusLabels = {
   draft: "Brouillon",
@@ -102,9 +105,11 @@ export default function App() {
   const [packages, setPackages] = useState(fallbackPackages);
   const [catalogueStatus, setCatalogueStatus] = useState("Catalogue de démonstration affiché");
   const [catalogueReady, setCatalogueReady] = useState(false);
+  const [availableDjs, setAvailableDjs] = useState(djProfiles);
+  const [publicAvailabilityStatus, setPublicAvailabilityStatus] = useState("Créneaux de démonstration affichés");
   const [eventTypeRecords, setEventTypeRecords] = useState([]);
   const [selectedPackageId, setSelectedPackageId] = useState("mariage");
-  const [selectedDj, setSelectedDj] = useState(djProfiles[0]);
+  const [selectedDj, setSelectedDj] = useState(unassignedDj);
   const [eventType, setEventType] = useState("Mariage");
   const [eventDate, setEventDate] = useState("2026-09-12");
   const [startTime, setStartTime] = useState("18:00");
@@ -334,6 +339,36 @@ export default function App() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!eventDate) return undefined;
+
+    let mounted = true;
+    setPublicAvailabilityStatus("Recherche des créneaux disponibles…");
+    apiClient
+      .get("/availability/", { params: { date: eventDate } })
+      .then((response) => {
+        if (!mounted) return;
+        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
+        const slots = Array.isArray(data) ? data : [];
+        const records = mapAvailableDjs(slots);
+        setAvailableDjs(records);
+        setPublicAvailabilityStatus(
+          records.length
+            ? "Disponibilités synchronisées avec Django"
+            : "Aucun DJ disponible à cette date",
+        );
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setAvailableDjs(djProfiles);
+        setPublicAvailabilityStatus("Créneaux de démonstration · API locale hors ligne");
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [eventDate]);
 
   useEffect(() => {
     let mounted = true;
@@ -652,30 +687,24 @@ export default function App() {
 
   const availableEventTypes = eventTypeRecords.length ? eventTypeRecords.map((item) => item.name) : eventTypes;
   const playlistBookingIds = new Set(playlists.map((item) => item.booking));
-  const eligiblePlaylistBookings = clientBookings.filter(
-    (item) => item.deposit_paid && ["confirmed", "performed", "paid"].includes(item.status) && !playlistBookingIds.has(item.id),
-  );
+  const eligiblePlaylistBookings = clientBookings.filter((item) => canCreatePlaylist(item, playlistBookingIds));
   const plannedAppointmentBookingIds = new Set(
     appointments.filter((item) => item.status === "planned").map((item) => item.booking),
   );
   const eligibleAppointmentBookings = clientBookings.filter((item) => {
     const type = eventTypeRecords.find((record) => record.id === item.event_type);
-    return item.deposit_paid
-      && ["confirmed", "performed", "paid"].includes(item.status)
-      && type?.requires_preparatory_meeting
-      && !plannedAppointmentBookingIds.has(item.id);
+    return canPlanAppointment(item, type, plannedAppointmentBookingIds);
   });
   const reviewedBookingIds = new Set(reviews.map((item) => item.booking));
-  const eligibleReviewBookings = clientBookings.filter(
-    (item) => ["performed", "paid"].includes(item.status) && !reviewedBookingIds.has(item.id),
-  );
+  const eligibleReviewBookings = clientBookings.filter((item) => canSubmitReview(item, reviewedBookingIds));
 
   const quote = useMemo(() => {
-    const base = Number(selectedPackage?.base_price || 0);
-    const extraHours = Math.max(Number(durationHours) - Number(selectedPackage?.included_hours || 0), 0);
-    const subtotal = base + extraHours * 95;
-    const travel = Number(distanceKm) * 0.65;
-    return { subtotal, travel, total: subtotal + travel, deposit: (subtotal + travel) * 0.3 };
+    return calculateQuoteEstimate({
+      basePrice: selectedPackage?.base_price,
+      includedHours: selectedPackage?.included_hours,
+      durationHours,
+      distanceKm,
+    });
   }, [distanceKm, durationHours, selectedPackage]);
 
   const navigate = (target) => {
@@ -683,6 +712,9 @@ export default function App() {
     setMobileNavOpen(false);
     setQuoteSubmitted(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    window.requestAnimationFrame(() => {
+      document.getElementById("main-content")?.focus({ preventScroll: true });
+    });
   };
 
   const openDetail = (item, dj = selectedDj) => {
@@ -821,7 +853,9 @@ export default function App() {
       );
     } catch (error) {
       setLoginStatus(
-        error.response?.status === 401
+        error.response?.status === 429
+          ? "Trop de tentatives. Patientez une minute avant de réessayer."
+          : error.response?.status === 401
           ? "Identifiant ou mot de passe incorrect."
           : "Connexion impossible. Vérifiez que le backend Django est démarré.",
       );
@@ -919,8 +953,8 @@ export default function App() {
     try {
       const response = await requestPasswordReset(passwordResetEmail);
       setPasswordResetStatus(response.detail);
-    } catch {
-      setPasswordResetStatus("La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
+    } catch (error) {
+      setPasswordResetStatus(error.response?.status === 429 ? "Trop de demandes. Patientez une minute avant de réessayer." : "La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
     } finally {
       setPasswordResetPending(false);
     }
@@ -933,8 +967,8 @@ export default function App() {
     try {
       const response = await resendVerificationEmail(verificationResendEmail);
       setVerificationResendStatus(response.detail);
-    } catch {
-      setVerificationResendStatus("La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
+    } catch (error) {
+      setVerificationResendStatus(error.response?.status === 429 ? "Trop de demandes. Patientez une minute avant de réessayer." : "La demande n’a pas pu être envoyée. Vérifiez que Django est démarré.");
     } finally {
       setVerificationResendPending(false);
     }
@@ -1395,91 +1429,30 @@ export default function App() {
 
   return (
     <div className="site-shell">
-      <header className="site-header">
-        <button className="brand" type="button" onClick={() => navigate("accueil")} aria-label="Ultimate DJ, accueil">
-          <img src="/logo-ultimate-dj.png" alt="Ultimate DJ — Réserver. Mixer. Célébrer." />
-        </button>
-        <button
-          className="mobile-menu"
-          type="button"
-          onClick={() => setMobileNavOpen((open) => !open)}
-          aria-expanded={mobileNavOpen}
-          aria-label="Ouvrir le menu"
-        >
-          {mobileNavOpen ? <X /> : <Menu />}
-        </button>
-        <nav className={mobileNavOpen ? "main-nav open" : "main-nav"} aria-label="Navigation principale">
-          <button className={page === "accueil" ? "active" : ""} onClick={() => navigate("accueil")}>Accueil</button>
-          <button className={page === "offres" || page === "detail" ? "active" : ""} onClick={() => navigate("offres")}>Offres & DJs</button>
-          <button className={page === "devis" ? "active" : ""} onClick={() => navigate("devis")}>Demander un devis</button>
-          <button className={page === "compte" ? "active" : ""} onClick={() => navigate("compte")}>
-            <CircleUserRound aria-hidden="true" /> Mon compte
-          </button>
-          {currentUser?.is_staff && (
-            <button className={page === "administration" ? "active" : ""} onClick={() => navigate("administration")}>
-              <Settings aria-hidden="true" /> Espace administrateur
-            </button>
-          )}
-          {currentUser?.role === "dj" && (
-            <button className={page === "dj" ? "active" : ""} onClick={() => navigate("dj")}>
-              <Headphones aria-hidden="true" /> Espace DJ
-            </button>
-          )}
-          <a className="admin-link" href="http://127.0.0.1:8000/admin/" target="_blank" rel="noreferrer">
-            Django Admin
-          </a>
-          <div className="language-switcher" aria-label="Choix de la langue">
-            {["FR", "EN", "NL"].map((lang) => (
-              <button key={lang} className={language === lang ? "selected" : ""} onClick={() => setLanguage(lang)} aria-pressed={language === lang}>
-                {lang}
-              </button>
-            ))}
-          </div>
-        </nav>
-      </header>
+      <SiteHeader
+        currentUser={currentUser}
+        language={language}
+        mobileNavOpen={mobileNavOpen}
+        onLanguageChange={setLanguage}
+        onNavigate={navigate}
+        onToggleMenu={() => setMobileNavOpen((open) => !open)}
+        page={page}
+      />
 
-      <main>
+      <main id="main-content" tabIndex="-1">
         {page === "accueil" && (
-          <>
-            <section className="hero">
-              <div className="hero-content">
-                <p className="eyebrow">Votre événement, votre ambiance</p>
-                <h1>Réservez le DJ parfait.</h1>
-                <p className="hero-lead">Devis, contrat, acompte et playlist réunis dans un parcours simple et sécurisé.</p>
-                <form className="quick-search" onSubmit={(event) => { event.preventDefault(); navigate("offres"); }}>
-                  <label><span>Événement</span><select value={eventType} onChange={(event) => setEventType(event.target.value)}>{availableEventTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
-                  <label><span>Date</span><input type="date" value={eventDate} min="2026-07-19" onChange={(event) => setEventDate(event.target.value)} /></label>
-                  <label><span>Lieu</span><input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
-                  <button className="primary-button" type="submit"><Search aria-hidden="true" /> Trouver un DJ</button>
-                </form>
-                <p className="search-note"><Check aria-hidden="true" /> Disponibilités vérifiées avant confirmation</p>
-              </div>
-            </section>
-
-            <section className="trust-strip" aria-label="Nos garanties">
-              <article><CalendarDays /><div><strong>Créneaux vérifiés</strong><span>Une disponibilité claire, sans mauvaise surprise.</span></div></article>
-              <article><ShieldCheck /><div><strong>Acompte sécurisé</strong><span>Le paiement confirme et bloque votre créneau.</span></div></article>
-              <article><Music2 /><div><strong>Playlist client</strong><span>Vos styles et chansons réunis avec le DJ.</span></div></article>
-            </section>
-
-            <section className="section-wrap">
-              <div className="section-title"><div><p className="eyebrow dark">Des offres adaptées</p><h2>Choisissez votre formule</h2></div><button className="text-link" onClick={() => navigate("offres")}>Voir toutes les offres <ChevronRight /></button></div>
-              <div className="package-grid">
-                {packages.slice(0, 3).map((item) => (
-                  <article className={`package-card ${item.accent || "cyan"}`} key={item.id}>
-                    <div className="card-icon"><Headphones /></div><p className="card-kicker">{item.event || "Prestation DJ"}</p><h3>{item.name}</h3><p>{item.description}</p>
-                    <div className="card-meta"><span><Clock3 /> {Number(item.included_hours).toLocaleString("fr-BE")} h</span><span><Star /> {item.rating || "4,8"}</span></div>
-                    <div className="card-footer"><div><small>À partir de</small><strong>{formatEuro(item.base_price)}</strong></div><button onClick={() => openDetail(item)}>Découvrir <ChevronRight /></button></div>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className="journey-section">
-              <p className="eyebrow">Un parcours guidé</p><h2>De votre idée à la piste de danse</h2>
-              <ol className="journey-list">{["Décrivez votre événement", "Choisissez l’offre et le DJ", "Validez devis et contrat", "Payez l’acompte", "Préparez votre playlist"].map((step, index) => <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>)}</ol>
-            </section>
-          </>
+          <HomePage
+            availableEventTypes={availableEventTypes}
+            eventDate={eventDate}
+            eventType={eventType}
+            location={location}
+            onEventDateChange={setEventDate}
+            onEventTypeChange={setEventType}
+            onLocationChange={setLocation}
+            onNavigate={navigate}
+            onOpenDetail={openDetail}
+            packages={packages}
+          />
         )}
 
         {page === "offres" && (
@@ -1493,8 +1466,9 @@ export default function App() {
                 <label>Budget<select defaultValue="1500"><option value="700">Moins de 700 €</option><option value="1500">700 € – 1 500 €</option><option value="more">Plus de 1 500 €</option></select></label>
                 <fieldset><legend>Services</legend><label className="check-row"><input type="checkbox" defaultChecked /> Sonorisation</label><label className="check-row"><input type="checkbox" defaultChecked /> Éclairage</label><label className="check-row"><input type="checkbox" /> Animation micro</label></fieldset>
               </aside>
-              <div className="results"><div className="results-heading"><div><h2>DJs disponibles à {location}</h2><p>{djProfiles.length} résultats · {catalogueStatus}</p></div><span className="status-pill"><span /> Créneaux disponibles</span></div>
-                {djProfiles.map((dj, index) => { const item = packages[index % packages.length]; return <article className="dj-card" key={dj.id}><div className={`dj-avatar avatar-${index + 1}`}><Headphones /></div><div className="dj-copy"><div className="dj-title"><h3>{dj.name}</h3><span><Star /> {dj.rating} ({dj.reviews} avis)</span></div><p>{dj.styles}</p><p className="availability"><Clock3 /> Disponible {dj.slot}</p><strong>À partir de {formatEuro(item.base_price)}</strong></div><button className="primary-button" onClick={() => openDetail(item, dj)}>Voir le détail <ChevronRight /></button></article>; })}
+              <div className="results"><div className="results-heading"><div><h2>DJs disponibles à {location}</h2><p>{availableDjs.length} résultat{availableDjs.length > 1 ? "s" : ""} · {publicAvailabilityStatus}</p></div><span className="status-pill"><span /> {catalogueStatus}</span></div>
+                {availableDjs.map((dj, index) => { const item = packages[index % packages.length]; return <article className="dj-card" key={dj.id}><div className={`dj-avatar avatar-${index + 1}`}><Headphones /></div><div className="dj-copy"><div className="dj-title"><h3>{dj.name}</h3><span><Star /> {dj.rating ? `${dj.rating} (${dj.reviews} avis)` : "Profil vérifié"}</span></div><p>{dj.styles}</p><p className="availability"><Clock3 /> Disponible {dj.slot}</p><strong>À partir de {formatEuro(item.base_price)}</strong></div><button className="primary-button" type="button" onClick={() => openDetail(item, dj)}>Voir le détail <ChevronRight /></button></article>; })}
+                {!availableDjs.length && <p className="invoice-empty">Modifiez la date pour rechercher un autre créneau.</p>}
               </div>
             </div>
           </section>
@@ -1897,7 +1871,7 @@ export default function App() {
         )}
       </main>
 
-      <footer><img src="/logo-ultimate-dj.png" alt="Ultimate DJ" /><p>Réserver. Mixer. Célébrer.</p><nav aria-label="Navigation de pied de page"><button onClick={() => navigate("offres")}>Offres</button><button onClick={() => navigate("devis")}>Devis</button><button onClick={() => navigate("compte")}>Mon compte</button><a href="http://127.0.0.1:8000/admin/" target="_blank" rel="noreferrer">Administration</a></nav><small>© 2026 Ultimate DJ · Version beta 0.2.0</small></footer>
+      <SiteFooter onNavigate={navigate} />
     </div>
   );
 }

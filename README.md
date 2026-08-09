@@ -227,6 +227,12 @@ Les sessions JWT utilisent une rotation du jeton de renouvellement. Chaque
 ancien jeton est placé en liste noire et la déconnexion React révoque le dernier
 jeton côté Django avant de supprimer les informations locales.
 
+Les points d'entrée d'authentification sont limités par adresse IP afin de
+réduire les tentatives automatisées : dix connexions par minute et cinq actions
+sensibles par minute pour l'inscription, l'activation et la récupération du mot
+de passe. Ces seuils sont configurables avec `AUTH_LOGIN_RATE` et
+`AUTH_ACCOUNT_ACTION_RATE`.
+
 L'espace client permet également de créer un compte réel depuis React. Django
 vérifie l'unicité de l'identifiant et de l'adresse e-mail, applique ses règles
 de robustesse au mot de passe, contrôle que le client est majeur, puis crée
@@ -328,3 +334,20 @@ cd backend
 Les données de démonstration du catalogue restent visibles uniquement lorsque
 l'API locale est indisponible. Elles ne peuvent pas être utilisées pour créer
 un devis réel.
+
+## Intégration continue
+
+Le workflow `.github/workflows/ci.yml` contrôle automatiquement les branches de
+fonctionnalité et les Pull Requests vers `main`. Il exécute les tests Django avec
+une base SQLite temporaire, vérifie les migrations, puis construit le frontend
+React après l'exécution de `npm test`. Les secrets locaux et MariaDB ne sont pas
+requis.
+
+## Sécurité du déploiement
+
+Le fichier `backend/.env.example` distingue le développement HTTP local d'un
+déploiement HTTPS. En production, il faut remplacer les domaines locaux dans
+`ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS` et `CSRF_TRUSTED_ORIGINS`, puis activer
+la redirection HTTPS, les cookies sécurisés et HSTS. `USE_X_FORWARDED_PROTO` ne
+doit être activé que si le proxy d'hébergement définit correctement l'en-tête
+`X-Forwarded-Proto`.

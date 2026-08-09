@@ -366,6 +366,18 @@ footer nav { display: flex; gap: 8px; }
 footer button, footer a { border: 0; color: #d4daea; background: none; text-decoration: none; }
 footer small { grid-column: 1 / -1; padding-top: 18px; border-top: 1px solid #222b40; }
 
+.skip-link { position: fixed; z-index: 1000; top: 8px; left: 8px; padding: 10px 14px; border-radius: 8px; color: var(--night); background: white; font-weight: 900; transform: translateY(-150%); }
+.skip-link:focus { transform: translateY(0); }
+#main-content:focus { outline: none; }
+
+.app-error-page { min-height: 100vh; display: grid; place-items: center; align-content: center; gap: 16px; padding: 40px 20px; color: white; text-align: center; background: radial-gradient(circle at top, #18264b 0, #090d1c 52%, #050711 100%); }
+.app-error-page > img { width: 160px; height: 160px; object-fit: contain; }
+.app-error-page > svg { width: 42px; height: 42px; color: var(--gold); }
+.app-error-page h1, .app-error-page p { max-width: 620px; margin: 0; }
+.app-error-page h1 { font-size: clamp(2rem, 6vw, 4rem); }
+.app-error-page > p:not(.eyebrow) { color: #c8d0e4; line-height: 1.7; }
+.app-error-page .primary-button { margin-top: 8px; }
+
 @media (max-width: 1050px) {
   .site-header { min-height: 76px; }
   .brand { width: 62px; }
