@@ -24,45 +24,7 @@ import SiteFooter from "./components/SiteFooter";
 import SiteHeader from "./components/SiteHeader";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
-
-const fallbackPackages = [
-  {
-    id: "essentielle",
-    name: "Formule Essentielle",
-    description: "Une sélection musicale sur mesure pour vos soirées privées et anniversaires.",
-    included_hours: "4.0",
-    base_price: "450.00",
-    event: "Soirée privée",
-    rating: "4,7",
-    accent: "cyan",
-  },
-  {
-    id: "premium",
-    name: "Formule Premium",
-    description: "DJ, sonorisation et éclairage pour une expérience complète et mémorable.",
-    included_hours: "6.0",
-    base_price: "790.00",
-    event: "Événement d’entreprise",
-    rating: "4,8",
-    accent: "magenta",
-  },
-  {
-    id: "mariage",
-    name: "Package Mariage Premium",
-    description: "Accompagnement dédié, rendez-vous préparatoire et coordination de votre soirée.",
-    included_hours: "8.0",
-    base_price: "1190.00",
-    event: "Mariage",
-    rating: "4,9",
-    accent: "gold",
-  },
-];
-
-const djProfiles = [
-  { id: 1, name: "DJ Nova", styles: "Pop · House · Disco", slot: "18:00–02:00", rating: "4,9", reviews: 46 },
-  { id: 2, name: "DJ Pulse", styles: "Hip-hop · R&B · Afro", slot: "19:00–03:00", rating: "4,8", reviews: 38 },
-  { id: 3, name: "DJ Éclipse", styles: "Rock · Années 80 · Généraliste", slot: "17:00–01:00", rating: "4,7", reviews: 31 },
-];
+import { decoratePackages } from "./utils/catalogue";
 
 const unassignedDj = {
   id: null,
@@ -102,11 +64,11 @@ export default function App() {
   const [page, setPage] = useState("accueil");
   const [language, setLanguage] = useState("FR");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [packages, setPackages] = useState(fallbackPackages);
-  const [catalogueStatus, setCatalogueStatus] = useState("Catalogue de démonstration affiché");
+  const [packages, setPackages] = useState([]);
+  const [catalogueStatus, setCatalogueStatus] = useState("Chargement du catalogue Django…");
   const [catalogueReady, setCatalogueReady] = useState(false);
-  const [availableDjs, setAvailableDjs] = useState(djProfiles);
-  const [publicAvailabilityStatus, setPublicAvailabilityStatus] = useState("Créneaux de démonstration affichés");
+  const [availableDjs, setAvailableDjs] = useState([]);
+  const [publicAvailabilityStatus, setPublicAvailabilityStatus] = useState("Recherche des créneaux Django…");
   const [eventTypeRecords, setEventTypeRecords] = useState([]);
   const [selectedPackageId, setSelectedPackageId] = useState("mariage");
   const [selectedDj, setSelectedDj] = useState(unassignedDj);
@@ -322,17 +284,22 @@ export default function App() {
       .then((response) => {
         const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
         if (mounted && Array.isArray(data) && data.length) {
-          const mappedPackages = data.map((item, index) => ({ ...fallbackPackages[index % fallbackPackages.length], ...item }));
+          const mappedPackages = decoratePackages(data);
           setPackages(mappedPackages);
           setSelectedPackageId((current) => mappedPackages.some((item) => String(item.id) === String(current)) ? current : mappedPackages[0].id);
           setCatalogueReady(true);
           setCatalogueStatus("Catalogue synchronisé avec l’API locale");
+        } else if (mounted) {
+          setPackages([]);
+          setCatalogueReady(false);
+          setCatalogueStatus("Aucune offre active dans le catalogue Django");
         }
       })
       .catch(() => {
         if (mounted) {
+          setPackages([]);
           setCatalogueReady(false);
-          setCatalogueStatus("Catalogue de démonstration · API locale hors ligne");
+          setCatalogueStatus("Catalogue indisponible · vérifiez la connexion au backend Django");
         }
       });
     return () => {
@@ -361,8 +328,8 @@ export default function App() {
       })
       .catch(() => {
         if (!mounted) return;
-        setAvailableDjs(djProfiles);
-        setPublicAvailabilityStatus("Créneaux de démonstration · API locale hors ligne");
+        setAvailableDjs([]);
+        setPublicAvailabilityStatus("Disponibilités indisponibles · vérifiez la connexion au backend Django");
       });
 
     return () => {
@@ -1443,6 +1410,7 @@ export default function App() {
         {page === "accueil" && (
           <HomePage
             availableEventTypes={availableEventTypes}
+            catalogueStatus={catalogueStatus}
             eventDate={eventDate}
             eventType={eventType}
             location={location}
@@ -1467,8 +1435,8 @@ export default function App() {
                 <fieldset><legend>Services</legend><label className="check-row"><input type="checkbox" defaultChecked /> Sonorisation</label><label className="check-row"><input type="checkbox" defaultChecked /> Éclairage</label><label className="check-row"><input type="checkbox" /> Animation micro</label></fieldset>
               </aside>
               <div className="results"><div className="results-heading"><div><h2>DJs disponibles à {location}</h2><p>{availableDjs.length} résultat{availableDjs.length > 1 ? "s" : ""} · {publicAvailabilityStatus}</p></div><span className="status-pill"><span /> {catalogueStatus}</span></div>
-                {availableDjs.map((dj, index) => { const item = packages[index % packages.length]; return <article className="dj-card" key={dj.id}><div className={`dj-avatar avatar-${index + 1}`}><Headphones /></div><div className="dj-copy"><div className="dj-title"><h3>{dj.name}</h3><span><Star /> {dj.rating ? `${dj.rating} (${dj.reviews} avis)` : "Profil vérifié"}</span></div><p>{dj.styles}</p><p className="availability"><Clock3 /> Disponible {dj.slot}</p><strong>À partir de {formatEuro(item.base_price)}</strong></div><button className="primary-button" type="button" onClick={() => openDetail(item, dj)}>Voir le détail <ChevronRight /></button></article>; })}
-                {!availableDjs.length && <p className="invoice-empty">Modifiez la date pour rechercher un autre créneau.</p>}
+                {packages.length > 0 && availableDjs.map((dj, index) => { const item = packages[index % packages.length]; return <article className="dj-card" key={dj.id}><div className={`dj-avatar avatar-${index + 1}`}><Headphones /></div><div className="dj-copy"><div className="dj-title"><h3>{dj.name}</h3><span><Star /> {dj.rating ? `${dj.rating} (${dj.reviews} avis)` : "Profil vérifié"}</span></div><p>{dj.styles}</p><p className="availability"><Clock3 /> Disponible {dj.slot}</p><strong>À partir de {formatEuro(item.base_price)}</strong></div><button className="primary-button" type="button" onClick={() => openDetail(item, dj)}>Voir le détail <ChevronRight /></button></article>; })}
+                {(!availableDjs.length || !packages.length) && <p className="invoice-empty">{!packages.length ? catalogueStatus : "Modifiez la date pour rechercher un autre créneau."}</p>}
               </div>
             </div>
           </section>
@@ -1476,7 +1444,7 @@ export default function App() {
 
         {page === "detail" && selectedPackage && (
           <>
-            <section className="detail-hero"><div className="breadcrumb"><button onClick={() => navigate("accueil")}>Accueil</button><span>/</span><button onClick={() => navigate("offres")}>Offres & DJs</button><span>/</span><span>{selectedPackage.name}</span></div><div className="detail-heading"><div><p className="eyebrow">{selectedPackage.event || "Prestation événementielle"}</p><h1>{selectedPackage.name}</h1><p>{selectedPackage.description}</p><div className="detail-badges"><span><Star /> {selectedPackage.rating || selectedDj.rating} · avis vérifiés</span><span><Clock3 /> {Number(selectedPackage.included_hours)} heures incluses</span></div></div><div className="dj-signature"><div className="dj-avatar"><Headphones /></div><div><small>Votre DJ</small><strong>{selectedDj.name}</strong><span>{selectedDj.styles}</span></div></div></div></section>
+            <section className="detail-hero"><div className="breadcrumb"><button onClick={() => navigate("accueil")}>Accueil</button><span>/</span><button onClick={() => navigate("offres")}>Offres & DJs</button><span>/</span><span>{selectedPackage.name}</span></div><div className="detail-heading"><div><p className="eyebrow">{selectedPackage.event || "Prestation événementielle"}</p><h1>{selectedPackage.name}</h1><p>{selectedPackage.description}</p><div className="detail-badges"><span>{selectedDj.rating ? <><Star /> {selectedDj.rating} · {selectedDj.reviews} avis vérifiés</> : <><ShieldCheck /> Profil DJ vérifié</>}</span><span><Clock3 /> {Number(selectedPackage.included_hours)} heures incluses</span></div></div><div className="dj-signature"><div className="dj-avatar"><Headphones /></div><div><small>Votre DJ</small><strong>{selectedDj.name}</strong><span>{selectedDj.styles}</span></div></div></div></section>
             <section className="detail-layout section-wrap"><div className="detail-content"><article><h2>Ce qui est inclus</h2><ul className="feature-list"><li><Check /> Préparation musicale personnalisée</li><li><Check /> Sonorisation professionnelle</li><li><Check /> Éclairage adapté à la salle</li><li><Check /> Coordination avec le lieu de réception</li></ul></article><article><h2>Options & matériel</h2><p>Ajoutez une animation micro, un éclairage architectural ou du matériel supplémentaire. Chaque option apparaît clairement dans le devis.</p></article><article><h2>Playlist et styles</h2><p>Indiquez vos styles favoris, les chansons incontournables et celles à éviter. La playlist reste modifiable pendant la préparation.</p></article><article><h2>Conditions d’acompte</h2><p>Un acompte indicatif de 30 % confirme la réservation. Le créneau est bloqué uniquement après validation du contrat et paiement accepté.</p></article></div><aside className="booking-card"><p className="eyebrow dark">Réserver ce package</p><h2>À partir de {formatEuro(selectedPackage.base_price)}</h2><label>Date<input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} /></label><label>Créneau<select defaultValue={selectedDj.slot}><option>{selectedDj.slot}</option><option>À confirmer avec le DJ</option></select></label><label>Lieu<input value={location} onChange={(event) => setLocation(event.target.value)} /></label><button className="primary-button" onClick={startQuote}>Demander un devis <ChevronRight /></button><p className="secure-note"><ShieldCheck /> Aucun paiement à cette étape</p></aside></section>
           </>
         )}

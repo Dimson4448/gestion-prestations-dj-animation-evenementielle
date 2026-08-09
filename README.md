@@ -331,9 +331,9 @@ cd backend
 .venv\Scripts\python.exe manage.py migrate
 ```
 
-Les données de démonstration du catalogue restent visibles uniquement lorsque
-l'API locale est indisponible. Elles ne peuvent pas être utilisées pour créer
-un devis réel.
+Le catalogue et les disponibilités affichés par React proviennent exclusivement
+de l'API Django. Si le backend est indisponible, l'interface affiche un message
+explicite et ne remplace jamais les résultats par des offres ou des DJ fictifs.
 
 ## Intégration continue
 
