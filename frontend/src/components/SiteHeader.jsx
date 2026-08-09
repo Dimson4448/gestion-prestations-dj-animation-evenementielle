@@ -1,5 +1,7 @@
 import { CircleUserRound, Headphones, Menu, Settings, X } from "lucide-react";
 
+import { backendBaseUrl } from "../api";
+
 const languages = ["FR", "EN", "NL"];
 
 export default function SiteHeader({
@@ -43,7 +45,7 @@ export default function SiteHeader({
             <Headphones aria-hidden="true" /> Espace DJ
           </button>
         )}
-        <a className="admin-link" href="http://127.0.0.1:8000/admin/" target="_blank" rel="noreferrer">
+        <a className="admin-link" href={`${backendBaseUrl}/admin/`} target="_blank" rel="noreferrer">
           Django Admin
         </a>
         <div className="language-switcher" aria-label="Choix de la langue">

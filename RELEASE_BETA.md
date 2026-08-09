@@ -33,7 +33,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 
 ### Frontend React
 
-- URL du backend configurable avec `VITE_API_BASE_URL` ;
+- URLs de l'API et des pages Django configurables avec `VITE_API_BASE_URL` et `VITE_BACKEND_URL` ;
 - authentification réelle avec rotation des jetons JWT, renouvellement automatique et révocation à la déconnexion ;
 - limitation par adresse IP des connexions et actions sensibles d'authentification ;
 - inscription réelle d'un client avec validation Django et création de son profil ;
@@ -70,7 +70,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - aucune migration Django manquante dans le code ;
 - migration `payments.0003` appliquée à la base locale ;
 - `pip check` sans dépendance Python cassée ;
-- 16 tests unitaires frontend réussis avec Node.js ;
+- 19 tests unitaires frontend réussis avec Node.js ;
 - build de production Vite réussi ;
 - audit npm sans vulnérabilité détectée ;
 - aucun secret Stripe réel versionné.
