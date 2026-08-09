@@ -47,6 +47,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - affichage des factures d'acompte du client ;
 - bouton de paiement réservé aux factures envoyées ;
 - recherche des DJs réellement disponibles à la date choisie via l'API Django ;
+- affichage de la moyenne et du nombre d'avis publiés pour chaque DJ disponible ;
 - redirection contrôlée vers le domaine Stripe Checkout ;
 - messages de retour après succès ou annulation ;
 - confirmation finale laissée au webhook, et non au navigateur ;
@@ -63,12 +64,12 @@ Framework, l'authentification JWT et le frontend React/Vite.
 
 ## Validation effectuée
 
-- 19 tests Django réussis ;
+- 78 tests Django réussis ;
 - `manage.py check` sans erreur ;
 - aucune migration Django manquante dans le code ;
 - migration `payments.0003` appliquée à la base locale ;
 - `pip check` sans dépendance Python cassée ;
-- tests unitaires frontend exécutés avec Node.js ;
+- 14 tests unitaires frontend réussis avec Node.js ;
 - build de production Vite réussi ;
 - audit npm sans vulnérabilité détectée ;
 - aucun secret Stripe réel versionné.

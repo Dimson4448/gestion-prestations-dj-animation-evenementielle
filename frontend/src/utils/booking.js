@@ -65,8 +65,10 @@ export const mapAvailableDjs = (slots) => {
       name: slot.dj.stage_name,
       styles: slot.dj.music_styles?.map((style) => style.name).join(" · ") || "Généraliste",
       slot: `${String(slot.start_time).slice(0, 5)}–${String(slot.end_time).slice(0, 5)}`,
-      rating: null,
-      reviews: 0,
+      rating: slot.dj.average_rating == null
+        ? null
+        : Number(slot.dj.average_rating).toLocaleString("fr-BE", { maximumFractionDigits: 1 }),
+      reviews: Number(slot.dj.review_count) || 0,
     });
   });
 
