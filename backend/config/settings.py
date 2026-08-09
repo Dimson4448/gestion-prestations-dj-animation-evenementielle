@@ -11,7 +11,11 @@ env_repository = RepositoryEnv(ENV_FILE) if ENV_FILE.exists() else None
 config = Config(env_repository) if env_repository else AutoConfig(search_path=BASE_DIR)
 
 SECRET_KEY = config("SECRET_KEY", default="dev-secret-key")
-DEBUG = config("DEBUG", default=True, cast=bool)
+DEBUG = config(
+    "DEBUG",
+    default="true",
+    cast=lambda value: str(value).strip().lower() in {"1", "true", "yes", "on", "debug", "development"},
+)
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="127.0.0.1,localhost", cast=Csv())
 
 INSTALLED_APPS = [
