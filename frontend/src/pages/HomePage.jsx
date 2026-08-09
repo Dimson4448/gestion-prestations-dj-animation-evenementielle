@@ -12,6 +12,7 @@ const journeySteps = [
 
 export default function HomePage({
   availableEventTypes,
+  catalogueStatus,
   eventDate,
   eventType,
   location,
@@ -51,11 +52,12 @@ export default function HomePage({
           {packages.slice(0, 3).map((item) => (
             <article className={`package-card ${item.accent || "cyan"}`} key={item.id}>
               <div className="card-icon"><Headphones /></div><p className="card-kicker">{item.event || "Prestation DJ"}</p><h3>{item.name}</h3><p>{item.description}</p>
-              <div className="card-meta"><span><Clock3 /> {Number(item.included_hours).toLocaleString("fr-BE")} h</span><span><Star /> {item.rating || "4,8"}</span></div>
+              <div className="card-meta"><span><Clock3 /> {Number(item.included_hours).toLocaleString("fr-BE")} h</span>{item.rating ? <span><Star /> {item.rating}</span> : <span><ShieldCheck /> Tarif vérifié</span>}</div>
               <div className="card-footer"><div><small>À partir de</small><strong>{formatEuro(item.base_price)}</strong></div><button type="button" onClick={() => onOpenDetail(item)}>Découvrir <ChevronRight /></button></div>
             </article>
           ))}
         </div>
+        {!packages.length && <p className="invoice-empty" role="status">{catalogueStatus}</p>}
       </section>
 
       <section className="journey-section">

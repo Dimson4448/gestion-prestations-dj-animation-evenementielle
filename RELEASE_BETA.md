@@ -48,6 +48,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - bouton de paiement réservé aux factures envoyées ;
 - recherche des DJs réellement disponibles à la date choisie via l'API Django ;
 - affichage de la moyenne et du nombre d'avis publiés pour chaque DJ disponible ;
+- suppression des offres, notes et profils DJ fictifs lorsque Django est indisponible ;
 - redirection contrôlée vers le domaine Stripe Checkout ;
 - messages de retour après succès ou annulation ;
 - confirmation finale laissée au webhook, et non au navigateur ;
@@ -69,7 +70,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - aucune migration Django manquante dans le code ;
 - migration `payments.0003` appliquée à la base locale ;
 - `pip check` sans dépendance Python cassée ;
-- 14 tests unitaires frontend réussis avec Node.js ;
+- 16 tests unitaires frontend réussis avec Node.js ;
 - build de production Vite réussi ;
 - audit npm sans vulnérabilité détectée ;
 - aucun secret Stripe réel versionné.
