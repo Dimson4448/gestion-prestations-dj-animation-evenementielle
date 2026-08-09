@@ -164,6 +164,18 @@ copy .env.example .env.local
 npm run dev
 ```
 
+Le fichier `frontend/.env.local` permet de configurer séparément l'API REST et
+les liens vers les pages Django :
+
+```dotenv
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_BACKEND_URL=http://localhost:8000
+```
+
+Si `VITE_BACKEND_URL` est absent, React déduit automatiquement l'origine du
+backend depuis `VITE_API_BASE_URL`. Aucun lien d'administration n'est donc
+codé en dur dans les composants.
+
 ## URLs locales prévues
 
 - Frontend : <http://localhost:5173/>

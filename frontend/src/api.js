@@ -1,8 +1,15 @@
 import axios from "axios";
 
+import { resolveBackendBaseUrl } from "./utils/configuration";
+
 const defaultApiBaseUrl = "http://localhost:8000/api/v1";
 
 export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl).replace(/\/$/, "");
+export const backendBaseUrl = resolveBackendBaseUrl(
+  apiBaseUrl,
+  import.meta.env.VITE_BACKEND_URL,
+  window.location.origin,
+);
 
 export const apiClient = axios.create({
   baseURL: apiBaseUrl,
