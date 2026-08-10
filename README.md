@@ -47,11 +47,16 @@ Il retrace les principales décisions, productions et étapes de travail depuis 
 
 ## Démarrage backend
 
+Pour reproduire exactement les versions Python validées par la CI, installer
+`requirements-lock.txt`. Le fichier `requirements.txt` conserve les plages de
+compatibilité des dépendances directes pour les futures mises à niveau
+contrôlées.
+
 ```bash
 cd backend
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-lock.txt
 copy .env.example .env
 python manage.py migrate
 python manage.py runserver
@@ -157,9 +162,14 @@ uniquement dans la base MariaDB locale et dans les sauvegardes privées.
 
 ## Démarrage frontend
 
+Les dépendances frontend sont figées à des versions exactes dans
+`package.json` et `package-lock.json`. Utiliser `npm ci` sur une nouvelle copie
+du projet permet de reproduire l'environnement validé sans mise à niveau
+implicite vers une future version de React ou Vite.
+
 ```bash
 cd frontend
-npm install
+npm ci
 copy .env.example .env.local
 npm run dev
 ```
