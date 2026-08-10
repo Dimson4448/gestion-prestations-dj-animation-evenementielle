@@ -46,6 +46,7 @@ class ApiUltimateDJTests(APITestCase):
             billing_postal_code="1000",
         )
         self.event_type, _ = EventType.objects.get_or_create(name="Anniversaire adulte")
+        self.package.event_types.add(self.event_type)
         self.venue = Venue.objects.create(
             client=self.client_profile,
             name="Salle du client",
@@ -634,6 +635,43 @@ class ApiUltimateDJTests(APITestCase):
         self.assertIn("liens", premier_resultat)
         self.assertIn("ressource", premier_resultat["liens"])
         self.assertIn("calculer_devis", premier_resultat["liens"])
+
+    def test_liste_des_packages_filtre_les_formules_par_prestation(self):
+        mariage = EventType.objects.get(name=EventType.WEDDING)
+        mariage_gold = Package.objects.create(
+            name="Mariage Gold Test",
+            description="Formule réservée au mariage.",
+            included_hours=8,
+            base_price=1500,
+        )
+        mariage_gold.event_types.add(mariage)
+
+        response = self.client.get(f"/api/v1/packages/?event_type={self.event_type.pk}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = {item["name"] for item in response.data["results"]}
+        self.assertIn(self.package.name, names)
+        self.assertNotIn(mariage_gold.name, names)
+
+    def test_devis_refuse_une_formule_incompatible_avec_la_prestation(self):
+        mariage = EventType.objects.get(name=EventType.WEDDING)
+        mariage_gold = Package.objects.create(
+            name="Mariage Gold Incompatible",
+            description="Formule réservée au mariage.",
+            included_hours=8,
+            base_price=1500,
+        )
+        mariage_gold.event_types.add(mariage)
+        self.client.force_authenticate(user=self.client_user)
+
+        response = self.client.post(
+            "/api/v1/quotes/",
+            self.quote_payload(package=mariage_gold.pk),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("package", response.data)
 
     def test_api_propose_uniquement_les_quatre_prestations_du_cahier_des_charges(self):
         unsupported = EventType.objects.create(name="Soirée d'entreprise")

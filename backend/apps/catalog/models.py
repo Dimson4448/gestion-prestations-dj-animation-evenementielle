@@ -44,6 +44,11 @@ class Package(models.Model):
     included_hours = models.DecimalField("heures incluses", max_digits=4, decimal_places=1)
     base_price = models.DecimalField("prix de base", max_digits=10, decimal_places=2)
     is_active = models.BooleanField("actif", default=True)
+    event_types = models.ManyToManyField(
+        EventType,
+        related_name="packages",
+        verbose_name="prestations compatibles",
+    )
 
     class Meta:
         db_table = "packages"

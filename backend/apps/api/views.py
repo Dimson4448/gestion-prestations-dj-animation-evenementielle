@@ -350,10 +350,17 @@ def logout_user(request):
 
 
 class PackageViewSet(AdminWritePublicReadViewSet):
-    queryset = Package.objects.filter(is_active=True).order_by("base_price")
+    queryset = Package.objects.filter(is_active=True).prefetch_related("event_types").order_by("base_price")
     serializer_class = PackageSerializer
     search_fields = ["name", "description"]
     ordering_fields = ["base_price", "included_hours", "name"]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        event_type = self.request.query_params.get("event_type")
+        if event_type:
+            queryset = queryset.filter(event_types=event_type)
+        return queryset.distinct()
 
 
 class ServiceOptionViewSet(AdminWritePublicReadViewSet):

@@ -55,6 +55,7 @@ class DepositCheckoutTests(APITestCase):
             included_hours="6.0",
             base_price="600.00",
         )
+        self.package.event_types.add(self.event_type)
         self.venue = Venue.objects.create(
             client=self.client_profile,
             name="Salle Beta",

@@ -338,7 +338,7 @@ class PackageSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Package
-        fields = ["id", "name", "description", "included_hours", "base_price", "is_active", "liens"]
+        fields = ["id", "name", "description", "included_hours", "base_price", "is_active", "event_types", "liens"]
 
 
 class ServiceOptionSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
@@ -512,6 +512,12 @@ class QuoteSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         if event_type and event_type.name not in EventType.ALLOWED_NAMES:
             raise serializers.ValidationError({"event_type": "Ce type de prestation n'est plus proposé."})
 
+        package = attrs.get("package") or getattr(self.instance, "package", None)
+        if package and not package.is_active:
+            raise serializers.ValidationError({"package": "Ce package n'est plus disponible."})
+        if package and event_type and not package.event_types.filter(pk=event_type.pk).exists():
+            raise serializers.ValidationError({"package": "Cette formule n'est pas compatible avec la prestation choisie."})
+
         request = self.context.get("request")
         if not request or request.user.is_staff:
             return attrs
@@ -523,10 +529,6 @@ class QuoteSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         venue = attrs.get("venue") or getattr(self.instance, "venue", None)
         if venue and venue.client_id != client.id:
             raise serializers.ValidationError({"venue": "Ce lieu n'appartient pas au client connecté."})
-
-        package = attrs.get("package") or getattr(self.instance, "package", None)
-        if package and not package.is_active:
-            raise serializers.ValidationError({"package": "Ce package n'est plus disponible."})
 
         if "status" in self.initial_data:
             raise serializers.ValidationError({"status": "Le statut du devis est géré par l'administration."})

@@ -319,7 +319,7 @@ préparatoires et disponibilités des DJ.
 Le formulaire React ne se limite plus à une simulation :
 
 1. le client se connecte avec son compte Django ;
-2. les types d'événements et les formules sont chargés depuis l'API ;
+2. les types d'événements et les formules compatibles sont chargés depuis l'API ;
 3. le client sélectionne un lieu existant ou en enregistre un nouveau ;
 4. React transmet la demande à `POST /api/v1/quotes/` ;
 5. Django vérifie la propriété du lieu et calcule tous les montants ;
@@ -328,6 +328,11 @@ Le formulaire React ne se limite plus à une simulation :
 8. l'administrateur envoie le devis et affecte un DJ réellement disponible ;
 9. l'acceptation crée la réservation, le contrat et la facture d'acompte ;
 10. le client signe son contrat puis règle l'acompte avec Stripe Checkout.
+
+Les formules `Mariage Silver` et `Mariage Gold` sont proposées uniquement pour
+un mariage. Les formules générales restent disponibles pour les quatre
+prestations prévues par le cahier des charges. Django contrôle cette
+compatibilité avant tout enregistrement de devis.
 
 ## Cycle réel de la prestation et de la facturation
 
