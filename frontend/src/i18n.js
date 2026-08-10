@@ -24,7 +24,6 @@ i18n.use(initReactI18next).init({
   supportedLngs: supportedLanguages,
   ns: ["translation", "interface"],
   defaultNS: "translation",
-  keySeparator: false,
   interpolation: { escapeValue: false },
   returnNull: false,
 });

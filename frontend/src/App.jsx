@@ -58,7 +58,7 @@ const contractStatusLabels = {
 export default function App() {
   const { i18n } = useTranslation();
   const [page, setPage] = useState("accueil");
-  const language = i18n.resolvedLanguage.toUpperCase();
+  const language = (i18n.resolvedLanguage || i18n.language || "fr").toUpperCase();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [packages, setPackages] = useState([]);
   const [catalogueStatus, setCatalogueStatus] = useState("Chargement du catalogue Django…");
