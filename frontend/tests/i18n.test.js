@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createInstance } from "i18next";
 
 import en from "../src/locales/en.js";
 import fr from "../src/locales/fr.js";
@@ -30,4 +31,21 @@ test("les accents français et néerlandais sont conservés en UTF-8", () => {
   assert.match(nl.eventTypes.privateParty, /é/);
   assert.equal(buildInterfaceTranslations("en")["Soirée privée"], "Private party");
   assert.equal(buildInterfaceTranslations("nl")["Soirée privée"], "Privéfeest");
+});
+
+test("i18next résout les clés imbriquées et les phrases plates", async () => {
+  const instance = createInstance();
+  await instance.init({
+    lng: "en",
+    fallbackLng: "fr",
+    resources: {
+      fr: { translation: fr, interface: buildInterfaceTranslations("fr") },
+      en: { translation: en, interface: buildInterfaceTranslations("en") },
+    },
+    ns: ["translation", "interface"],
+    defaultNS: "translation",
+  });
+
+  assert.equal(instance.t("error.title"), "The page could not be displayed.");
+  assert.equal(instance.t("Soirée privée", { ns: "interface", keySeparator: false }), "Private party");
 });

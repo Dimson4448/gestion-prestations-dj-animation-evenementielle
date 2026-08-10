@@ -15,15 +15,17 @@ export default function LocalizedContent({ children }) {
   const translateNode = (node) => {
     if (typeof node === "string") {
       const key = node.trim();
-      if (!key || !i18n.exists(key, { ns: "interface" })) return node;
-      return preserveSpacing(node, t(key));
+      if (!key || !i18n.exists(key, { ns: "interface", keySeparator: false })) return node;
+      return preserveSpacing(node, t(key, { keySeparator: false }));
     }
     if (!isValidElement(node)) return node;
 
     const nextProps = {};
     translatedProps.forEach((prop) => {
       const value = node.props[prop];
-      if (typeof value === "string" && i18n.exists(value, { ns: "interface" })) nextProps[prop] = t(value);
+      if (typeof value === "string" && i18n.exists(value, { ns: "interface", keySeparator: false })) {
+        nextProps[prop] = t(value, { keySeparator: false });
+      }
     });
     if (node.props.children !== undefined) {
       nextProps.children = Children.map(node.props.children, translateNode);
