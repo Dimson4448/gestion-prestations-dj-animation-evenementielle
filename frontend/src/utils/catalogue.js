@@ -8,3 +8,13 @@ export const decoratePackages = (records) => {
     accent: packageAccents[index % packageAccents.length],
   }));
 };
+
+export const filterPackagesForEventType = (packages, eventTypeId) => {
+  if (!Array.isArray(packages)) return [];
+  if (!eventTypeId) return packages;
+
+  return packages.filter((item) => (
+    Array.isArray(item.event_types)
+    && item.event_types.some((id) => String(id) === String(eventTypeId))
+  ));
+};

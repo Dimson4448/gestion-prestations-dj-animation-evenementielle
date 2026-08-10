@@ -531,6 +531,25 @@ CREATE TABLE `packages` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `packages_event_types`
+--
+
+DROP TABLE IF EXISTS `packages_event_types`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `packages_event_types` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `package_id` bigint(20) NOT NULL,
+  `eventtype_id` bigint(20) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `packages_event_types_package_id_eventtype_id_c982e6b9_uniq` (`package_id`,`eventtype_id`),
+  KEY `packages_event_types_eventtype_id_a15eb9ad_fk_event_types_id` (`eventtype_id`),
+  CONSTRAINT `packages_event_types_eventtype_id_a15eb9ad_fk_event_types_id` FOREIGN KEY (`eventtype_id`) REFERENCES `event_types` (`id`),
+  CONSTRAINT `packages_event_types_package_id_870c1d8f_fk_packages_id` FOREIGN KEY (`package_id`) REFERENCES `packages` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `payments`
 --
 
@@ -909,7 +928,9 @@ INSERT INTO `django_migrations` VALUES
 (45,'token_blacklist','0012_alter_outstandingtoken_user','2026-08-04 15:16:35.643536'),
 (46,'token_blacklist','0013_alter_blacklistedtoken_options_and_more','2026-08-04 15:16:35.656098'),
 (47,'accounts','0003_accountdeletionrequest','2026-08-04 16:23:38.295084'),
-(48,'accounts','0004_remove_accountdeletionrequest_unique_pending_account_deletion','2026-08-04 16:24:11.725422');
+(48,'accounts','0004_remove_accountdeletionrequest_unique_pending_account_deletion','2026-08-04 16:24:11.725422'),
+(49,'catalog','0004_restrict_supported_offerings','2026-08-10 17:09:20.468673'),
+(50,'catalog','0005_package_event_types','2026-08-10 17:22:56.353182');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -1104,12 +1125,7 @@ INSERT INTO `event_types` VALUES
 (1,'Anniversaire enfant',0),
 (10,'Mariage',1),
 (11,'Anniversaire adulte',0),
-(12,'Soirée d\'entreprise',1),
-(13,'Bal étudiant',0),
-(14,'Baptême',0),
-(15,'Fête communale',1),
-(16,'Soirée privée',0),
-(17,'Événement associatif',1);
+(16,'Soirée privée',0);
 /*!40000 ALTER TABLE `event_types` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -1151,12 +1167,25 @@ INSERT INTO `packages` VALUES
 (13,'Premium','DJ, sonorisation renforcée et éclairage d\'ambiance.',6.0,950.00,1),
 (14,'Mariage Silver','Formule mariage avec rendez-vous préparatoire.',7.0,1250.00,1),
 (15,'Mariage Gold','Formule mariage complète avec options avancées.',9.0,1690.00,1),
-(16,'Entreprise','Solution pour événement professionnel.',5.0,1100.00,1),
-(17,'Festival local','Prestation extérieure avec matériel renforcé.',8.0,1800.00,1),
-(18,'Étudiant','Formule adaptée aux bals et soirées étudiantes.',5.0,590.00,1),
-(19,'Lounge','Ambiance musicale douce pour cocktail.',4.0,520.00,1),
 (20,'Sur mesure','Contrat personnalisé selon les besoins.',1.0,250.00,1);
 /*!40000 ALTER TABLE `packages` ENABLE KEYS */;
+UNLOCK TABLES;
+commit;
+
+--
+-- Dumping data for table `packages_event_types`
+--
+
+LOCK TABLES `packages_event_types` WRITE;
+/*!40000 ALTER TABLE `packages_event_types` DISABLE KEYS */;
+set autocommit=0;
+INSERT INTO `packages_event_types` VALUES
+(1,11,16),(2,11,1),(3,11,10),(4,11,11),
+(5,12,16),(6,12,1),(7,12,10),(8,12,11),
+(9,13,16),(10,13,1),(11,13,10),(12,13,11),
+(13,14,10),(14,15,10),
+(15,20,16),(16,20,1),(17,20,10),(18,20,11);
+/*!40000 ALTER TABLE `packages_event_types` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
 
