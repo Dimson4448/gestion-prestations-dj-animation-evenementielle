@@ -157,9 +157,14 @@ uniquement dans la base MariaDB locale et dans les sauvegardes privées.
 
 ## Démarrage frontend
 
+Les dépendances frontend sont figées à des versions exactes dans
+`package.json` et `package-lock.json`. Utiliser `npm ci` sur une nouvelle copie
+du projet permet de reproduire l'environnement validé sans mise à niveau
+implicite vers une future version de React ou Vite.
+
 ```bash
 cd frontend
-npm install
+npm ci
 copy .env.example .env.local
 npm run dev
 ```
