@@ -48,4 +48,6 @@ test("i18next résout les clés imbriquées et les phrases plates", async () => 
 
   assert.equal(instance.t("error.title"), "The page could not be displayed.");
   assert.equal(instance.t("Soirée privée", { ns: "interface", keySeparator: false }), "Private party");
+  assert.equal(instance.t("Votre suivi personnalisé", { ns: "interface", keySeparator: false }), "Your personalised tracking");
+  assert.equal(instance.t("Consultez vos devis et contrats", { ns: "interface", keySeparator: false }), "View your quotes and contracts");
 });
