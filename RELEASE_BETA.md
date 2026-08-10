@@ -30,7 +30,8 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - mise à jour synchronisée du paiement, de la facture et de la réservation ;
 - gestion des sessions réussies, asynchrones, expirées ou échouées ;
 - API des paiements rendue non modifiable directement par les clients ;
-- catalogue limité aux quatre prestations prévues par le cahier des charges.
+- identité légale du prestataire configurable dans les contrats et factures PDF ;
+- catalogue limité aux quatre prestations prévues par le cahier des charges ;
 - filtrage des formules selon la prestation, avec les offres Mariage réservées
   aux demandes de mariage ;
 

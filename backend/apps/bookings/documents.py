@@ -1,5 +1,6 @@
 from io import BytesIO
 
+from django.conf import settings
 from django.utils import timezone
 from django.utils.html import escape
 from reportlab.lib import colors
@@ -38,7 +39,7 @@ def _header_footer(canvas, document):
     canvas.rect(45 * mm, height - 14 * mm, 25 * mm, 2 * mm, fill=1, stroke=0)
     canvas.setFillColor(MUTED)
     canvas.setFont("Helvetica", 8)
-    canvas.drawString(18 * mm, 12 * mm, "Ultimate DJ - Document généré par l'application")
+    canvas.drawString(18 * mm, 12 * mm, f"{settings.BUSINESS_LEGAL_NAME} - Document généré par l'application")
     canvas.drawRightString(width - 18 * mm, 12 * mm, f"Page {document.page}")
     canvas.restoreState()
 
@@ -52,8 +53,8 @@ def _document(story):
         leftMargin=18 * mm,
         topMargin=24 * mm,
         bottomMargin=22 * mm,
-        title="Ultimate DJ",
-        author="Ultimate DJ",
+        title=settings.BUSINESS_LEGAL_NAME,
+        author=settings.BUSINESS_LEGAL_NAME,
     )
     document.build(story, onFirstPage=_header_footer, onLaterPages=_header_footer)
     return output.getvalue()
@@ -75,6 +76,20 @@ def _details_table(rows, styles):
     return table
 
 
+def business_identity_rows(primary_label):
+    rows = [(primary_label, settings.BUSINESS_LEGAL_NAME)]
+    optional_fields = [
+        ("Adresse du prestataire", settings.BUSINESS_ADDRESS),
+        ("Numéro d'entreprise", settings.BUSINESS_COMPANY_NUMBER),
+        ("Numéro de TVA", settings.BUSINESS_VAT_NUMBER),
+        ("E-mail du prestataire", settings.BUSINESS_EMAIL),
+        ("Téléphone du prestataire", settings.BUSINESS_PHONE),
+        ("IBAN", settings.BUSINESS_IBAN),
+    ]
+    rows.extend((label, value) for label, value in optional_fields if value)
+    return rows
+
+
 def build_contract_pdf(contract):
     styles = _styles()
     booking = contract.booking
@@ -87,8 +102,7 @@ def build_contract_pdf(contract):
         Paragraph(f"Contrat {escape(contract.contract_number)}", styles["Right"]),
         Spacer(1, 8 * mm),
         Paragraph("Parties", styles["Section"]),
-        _details_table([
-            ("Prestataire", "Ultimate DJ - Belgique"),
+        _details_table(business_identity_rows("Prestataire") + [
             ("Client", client.user.get_full_name() or client.user.username),
             ("Adresse de facturation", f"{client.billing_address}, {client.billing_postal_code} {client.billing_city}"),
             ("E-mail", client.user.email or "Non renseigné"),
@@ -143,8 +157,7 @@ def build_invoice_pdf(invoice):
         Paragraph(invoice_titles[invoice.invoice_type], styles["DocumentTitle"]),
         Paragraph(f"Facture {escape(invoice.invoice_number)}", styles["Right"]),
         Spacer(1, 8 * mm),
-        _details_table([
-            ("Émetteur", "Ultimate DJ - Belgique"),
+        _details_table(business_identity_rows("Émetteur") + [
             ("Client", client.user.get_full_name() or client.user.username),
             ("Adresse de facturation", f"{client.billing_address}, {client.billing_postal_code} {client.billing_city}"),
             ("Date d'émission", timezone.localtime(invoice.issued_at).strftime("%d/%m/%Y")),
