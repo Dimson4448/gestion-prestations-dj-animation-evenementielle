@@ -21,6 +21,7 @@ class PackageAdmin(admin.ModelAdmin):
     list_display = ("name", "included_hours", "base_price", "is_active")
     search_fields = ("name", "description")
     list_filter = ("is_active",)
+    filter_horizontal = ("event_types",)
 
 
 @admin.register(ServiceOption)
