@@ -29,7 +29,8 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - traitement atomique et idempotent des événements ;
 - mise à jour synchronisée du paiement, de la facture et de la réservation ;
 - gestion des sessions réussies, asynchrones, expirées ou échouées ;
-- API des paiements rendue non modifiable directement par les clients.
+- API des paiements rendue non modifiable directement par les clients ;
+- identité légale du prestataire configurable dans les contrats et factures PDF.
 
 ### Frontend React
 
@@ -67,7 +68,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 
 ## Validation effectuée
 
-- 78 tests Django réussis ;
+- 80 tests Django réussis ;
 - `manage.py check` sans erreur ;
 - aucune migration Django manquante dans le code ;
 - migration `payments.0003` appliquée à la base locale ;

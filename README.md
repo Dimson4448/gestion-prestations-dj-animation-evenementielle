@@ -68,6 +68,23 @@ dédié. Le mot de passe doit être renseigné uniquement dans `backend/.env`, q
 est ignoré par Git. Le port peut être adapté si l'instance MariaDB compatible
 écoute ailleurs.
 
+Avant d'émettre un contrat ou une facture réelle, compléter également dans
+`backend/.env` l'identité légale du prestataire :
+
+```dotenv
+BUSINESS_LEGAL_NAME=Ultimate DJ
+BUSINESS_ADDRESS=
+BUSINESS_COMPANY_NUMBER=
+BUSINESS_VAT_NUMBER=
+BUSINESS_EMAIL=
+BUSINESS_PHONE=
+BUSINESS_IBAN=
+```
+
+Les champs renseignés apparaissent automatiquement dans les contrats et
+factures PDF. Les valeurs vides ne sont pas imprimées et aucune coordonnée
+fictive n'est ajoutée par l'application.
+
 L'ancienne base XAMPP sur le port `3306` constitue une source de migration et
 une sauvegarde historique. Elle ne doit pas être utilisée directement par
 Django 5.2 lorsqu'elle fonctionne encore sous MariaDB 10.4.
