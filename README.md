@@ -47,11 +47,16 @@ Il retrace les principales décisions, productions et étapes de travail depuis 
 
 ## Démarrage backend
 
+Pour reproduire exactement les versions Python validées par la CI, installer
+`requirements-lock.txt`. Le fichier `requirements.txt` conserve les plages de
+compatibilité des dépendances directes pour les futures mises à niveau
+contrôlées.
+
 ```bash
 cd backend
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-lock.txt
 copy .env.example .env
 python manage.py migrate
 python manage.py runserver

@@ -62,7 +62,8 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - procédure de test reproductible dans `STRIPE_TESTING.md` ;
 - validation automatique des tests Django et du build React avec GitHub Actions ;
 - exemples de configuration sans clé réelle dans les fichiers `.env.example` ;
-- versions React, Vite, Axios et Lucide figées pour des installations reproductibles.
+- versions React, Vite, Axios et Lucide figées pour des installations reproductibles ;
+- environnement Python 3.12 verrouillé et utilisé par l'intégration continue.
 
 ## Validation effectuée
 
