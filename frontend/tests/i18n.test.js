@@ -50,4 +50,8 @@ test("i18next résout les clés imbriquées et les phrases plates", async () => 
   assert.equal(instance.t("Soirée privée", { ns: "interface", keySeparator: false }), "Private party");
   assert.equal(instance.t("Votre suivi personnalisé", { ns: "interface", keySeparator: false }), "Your personalised tracking");
   assert.equal(instance.t("Consultez vos devis et contrats", { ns: "interface", keySeparator: false }), "View your quotes and contracts");
+  assert.equal(instance.t("Demandes d'annulation", { ns: "interface", keySeparator: false }), "Cancellation requests");
+  assert.equal(instance.t("Clôturer les prestations", { ns: "interface", keySeparator: false }), "Complete services");
+  assert.equal(instance.t("Demandes musicales", { ns: "interface", keySeparator: false }), "Music requests");
+  assert.equal(instance.t("À jouer absolument", { ns: "interface", keySeparator: false }), "Must play");
 });
