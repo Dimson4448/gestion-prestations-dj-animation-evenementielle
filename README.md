@@ -32,6 +32,7 @@ L'application devra notamment permettre :
 
 - Backend : Django 5 + Django REST Framework
 - Frontend : React + Vite
+- Internationalisation : i18next + react-i18next (français, anglais, néerlandais)
 - Base de données : MySQL/MariaDB
 - Documentation API : drf-spectacular, Swagger UI et ReDoc
 - Paiement : Stripe
@@ -368,6 +369,14 @@ financières et les changements de statut sensibles sont contrôlés côté Djan
 même lorsque l'action est lancée depuis React.
 
 ## Espaces utilisateurs
+
+L'interface est disponible en français, anglais et néerlandais. Le sélecteur
+`FR / EN / NL` traduit la navigation, le catalogue, les formulaires, les statuts
+et les espaces Client, DJ et Administration avec `i18next` et `react-i18next`.
+Le choix est conservé dans le navigateur ; la balise HTML `lang` et l'en-tête
+API `Accept-Language` sont synchronisés. Les dates, montants et notes utilisent
+la locale belge correspondant à la langue active. Les noms propres et contenus
+libres saisis par les utilisateurs restent inchangés.
 
 - **Client** : devis, lieux, contrat, factures, paiements, rendez-vous,
   playlist et avis ;

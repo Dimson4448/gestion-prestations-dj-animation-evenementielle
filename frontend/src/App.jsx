@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   CalendarDays,
   Check,
@@ -22,6 +23,7 @@ import {
 import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
 import SiteFooter from "./components/SiteFooter";
 import SiteHeader from "./components/SiteHeader";
+import LocalizedContent from "./components/LocalizedContent";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
@@ -54,8 +56,9 @@ const contractStatusLabels = {
 };
 
 export default function App() {
+  const { i18n } = useTranslation();
   const [page, setPage] = useState("accueil");
-  const [language, setLanguage] = useState("FR");
+  const language = i18n.resolvedLanguage.toUpperCase();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [packages, setPackages] = useState([]);
   const [catalogueStatus, setCatalogueStatus] = useState("Chargement du catalogue Django…");
@@ -1211,7 +1214,7 @@ export default function App() {
         reason: status === "blocked" ? "Indisponibilité déclarée par le DJ" : "",
       });
       setDjAvailabilities((current) => current.map((item) => item.id === availability.id ? response.data : item));
-      setDjStatus(`Le créneau du ${new Date(`${availability.available_date}T00:00:00`).toLocaleDateString("fr-BE")} est maintenant ${status === "available" ? "disponible" : "bloqué"}.`);
+      setDjStatus(`Le créneau du ${new Date(`${availability.available_date}T00:00:00`).toLocaleDateString(i18n.language)} est maintenant ${status === "available" ? "disponible" : "bloqué"}.`);
     } catch (error) {
       setDjStatus(error.response?.data?.detail || "Le créneau n’a pas pu être modifié.");
     } finally {
@@ -1400,19 +1403,24 @@ export default function App() {
     }
   };
 
+  const changeInterfaceLanguage = (nextLanguage) => {
+    i18n.changeLanguage(nextLanguage.toLowerCase());
+  };
+
   return (
     <div className="site-shell">
       <SiteHeader
         currentUser={currentUser}
         language={language}
         mobileNavOpen={mobileNavOpen}
-        onLanguageChange={setLanguage}
+        onLanguageChange={changeInterfaceLanguage}
         onNavigate={navigate}
         onToggleMenu={() => setMobileNavOpen((open) => !open)}
         page={page}
       />
 
       <main id="main-content" tabIndex="-1">
+        <LocalizedContent>
         {page === "accueil" && (
           <HomePage
             availableEventTypes={availableEventTypes}
@@ -1473,7 +1481,7 @@ export default function App() {
                 return (
                   <article className="admin-quote-card" key={item.id}>
                     <div className="quote-row-heading"><h2>Devis n°{item.id}</h2><span className={`quote-status ${item.status}`}>{quoteStatusLabels[item.status]}</span></div>
-                    <p><CalendarDays /> {itemEventType?.name || "Événement"} · {new Date(`${item.event_date}T00:00:00`).toLocaleDateString("fr-BE")} à {String(item.start_time).slice(0, 5)}</p>
+                    <p><CalendarDays /> {itemEventType?.name || "Événement"} · {new Date(`${item.event_date}T00:00:00`).toLocaleDateString(i18n.language)} à {String(item.start_time).slice(0, 5)}</p>
                     <p><Clock3 /> {item.duration_hours} heures · {item.guest_count} invités</p>
                     <p><FileText /> {itemPackage?.name || `Formule n°${item.package}`} · <strong>{formatEuro(item.total_amount)}</strong></p>
                     {item.status === "draft" ? (
@@ -1499,7 +1507,7 @@ export default function App() {
                     <article className="admin-quote-card" key={request.id}>
                       <div className="quote-row-heading"><h2>Réservation n°{request.booking}</h2><span className="quote-status sent">En attente</span></div>
                       <p>{request.reason}</p>
-                      <small>Demandée le {new Date(request.requested_at).toLocaleString("fr-BE")}</small>
+                      <small>Demandée le {new Date(request.requested_at).toLocaleString(i18n.language)}</small>
                       <div className="cancellation-payments">
                         <strong>Paiements liés</strong>
                         {requestPayments.map((payment) => <div key={payment.id}><span>Paiement n°{payment.id} · {formatEuro(payment.amount)}<small>Remboursé : {formatEuro(payment.refunded_amount)} · Restant : {formatEuro(payment.refundable_amount)}</small></span><span className={`invoice-status ${payment.refund_status === "pending" ? "pending" : payment.status}`}>{payment.refund_status === "pending" ? "Remboursement en cours" : payment.refund_status === "partial" ? "Partiellement remboursé" : payment.refund_status === "failed" ? "Remboursement échoué" : payment.status === "paid" ? "Payé" : payment.status === "refunded" ? "Remboursé" : payment.status === "pending" ? "En attente" : "Échoué"}</span>{payment.status === "paid" && payment.refund_status !== "pending" && Number(payment.refundable_amount) > 0 && <button className="document-button" type="button" onClick={() => refundCancellationPayment(payment, request)} disabled={refundPendingId === payment.id}>{refundPendingId === payment.id ? "Remboursement…" : `Rembourser ${formatEuro(payment.refundable_amount)}`}</button>}</div>)}
@@ -1517,7 +1525,7 @@ export default function App() {
             <div className="admin-booking-panel account-deletion-panel">
               <div className="playlist-heading"><div><h2>Suppressions de compte</h2><p>Vérifiez les obligations de conservation avant de désactiver un compte et de révoquer ses sessions.</p></div><CircleUserRound /></div>
               <div className="admin-quote-grid">
-                {adminDeletionRequests.map((request) => <article className="admin-quote-card" key={request.id}><div className="quote-row-heading"><h2>{request.client_name}</h2><span className="quote-status sent">En attente</span></div><p>{request.client_email}</p><p>{request.reason}</p><small>Demandée le {new Date(request.requested_at).toLocaleString("fr-BE")}</small><label className="cancellation-message">Réponse au client<textarea rows="3" value={adminDeletionMessages[request.id] || ""} onChange={(event) => setAdminDeletionMessages((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Décision motivée…" required /></label><div className="cancellation-admin-actions"><button className="primary-button" type="button" onClick={() => reviewAccountDeletion(request, "approved")} disabled={adminDeletionPendingId === request.id}>{adminDeletionPendingId === request.id ? "Traitement…" : "Approuver et désactiver"}</button><button className="document-button danger-button" type="button" onClick={() => reviewAccountDeletion(request, "rejected")} disabled={adminDeletionPendingId === request.id}>Refuser</button></div></article>)}
+                {adminDeletionRequests.map((request) => <article className="admin-quote-card" key={request.id}><div className="quote-row-heading"><h2>{request.client_name}</h2><span className="quote-status sent">En attente</span></div><p>{request.client_email}</p><p>{request.reason}</p><small>Demandée le {new Date(request.requested_at).toLocaleString(i18n.language)}</small><label className="cancellation-message">Réponse au client<textarea rows="3" value={adminDeletionMessages[request.id] || ""} onChange={(event) => setAdminDeletionMessages((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Décision motivée…" required /></label><div className="cancellation-admin-actions"><button className="primary-button" type="button" onClick={() => reviewAccountDeletion(request, "approved")} disabled={adminDeletionPendingId === request.id}>{adminDeletionPendingId === request.id ? "Traitement…" : "Approuver et désactiver"}</button><button className="document-button danger-button" type="button" onClick={() => reviewAccountDeletion(request, "rejected")} disabled={adminDeletionPendingId === request.id}>Refuser</button></div></article>)}
                 {!adminDeletionRequests.length && <p className="invoice-empty">Aucune demande de suppression en attente.</p>}
               </div>
             </div>
@@ -1527,7 +1535,7 @@ export default function App() {
                 {adminBookings.map((booking) => (
                   <article className="admin-quote-card" key={booking.id}>
                     <div className="quote-row-heading"><h2>Réservation n°{booking.id}</h2><span className="quote-status accepted">Confirmée</span></div>
-                    <p><CalendarDays /> {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")} · {String(booking.start_time).slice(0, 5)}</p>
+                    <p><CalendarDays /> {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)} · {String(booking.start_time).slice(0, 5)}</p>
                     <p><FileText /> Montant total : <strong>{formatEuro(booking.total_amount)}</strong></p>
                     <button className="primary-button" type="button" onClick={() => completeAdminBooking(booking.id)} disabled={completionPendingId === booking.id}>{completionPendingId === booking.id ? "Clôture…" : "Marquer comme réalisée"}</button>
                   </article>
@@ -1550,7 +1558,7 @@ export default function App() {
                 return (
                   <article className="admin-quote-card" key={booking.id}>
                     <div className="quote-row-heading"><h2>Réservation n°{booking.id}</h2><span className={`quote-status ${booking.status === "paid" || booking.status === "performed" ? "accepted" : "sent"}`}>{statusLabel}</span></div>
-                    <p><CalendarDays /> {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")} · {String(booking.start_time).slice(0, 5)}–{String(booking.end_time).slice(0, 5)}</p>
+                    <p><CalendarDays /> {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)} · {String(booking.start_time).slice(0, 5)}–{String(booking.end_time).slice(0, 5)}</p>
                     <p><FileText /> Montant : <strong>{formatEuro(booking.total_amount)}</strong></p>
                     <p><ShieldCheck /> Acompte {booking.deposit_paid ? "payé" : "en attente"}</p>
                     {canComplete && <button className="primary-button" type="button" onClick={() => completeDjBooking(booking.id)} disabled={djPendingId === booking.id}>{djPendingId === booking.id ? "Clôture…" : "Marquer comme réalisée"}</button>}
@@ -1567,7 +1575,7 @@ export default function App() {
                     const appointmentDate = new Date(appointment.scheduled_at);
                     return (
                       <article key={appointment.id}>
-                        <div><strong>{appointmentDate.toLocaleString("fr-BE")}</strong><span>Réservation n°{appointment.booking} · {appointment.mode === "online" ? "En ligne" : "En présentiel"}</span>{appointment.notes && <small>{appointment.notes}</small>}</div>
+                        <div><strong>{appointmentDate.toLocaleString(i18n.language)}</strong><span>Réservation n°{appointment.booking} · {appointment.mode === "online" ? "En ligne" : "En présentiel"}</span>{appointment.notes && <small>{appointment.notes}</small>}</div>
                         <div className="dj-action-buttons">
                           <span className={`appointment-status ${appointment.status}`}>{appointment.status === "done" ? "Réalisé" : appointment.status === "cancelled" ? "Annulé" : "Planifié"}</span>
                           {appointment.status === "planned" && appointmentDate <= new Date() && <button className="document-button" type="button" onClick={() => updateDjAppointment(appointment.id, "done")} disabled={djAppointmentPendingId === appointment.id}>Marquer réalisé</button>}
@@ -1605,7 +1613,7 @@ export default function App() {
               <div className="availability-list">
                 {djAvailabilities.map((availability) => (
                   <article key={availability.id}>
-                    <div><strong>{new Date(`${availability.available_date}T00:00:00`).toLocaleDateString("fr-BE")}</strong><span>{String(availability.start_time).slice(0, 5)}–{String(availability.end_time).slice(0, 5)}</span>{availability.reason && <small>{availability.reason}</small>}</div>
+                    <div><strong>{new Date(`${availability.available_date}T00:00:00`).toLocaleDateString(i18n.language)}</strong><span>{String(availability.start_time).slice(0, 5)}–{String(availability.end_time).slice(0, 5)}</span>{availability.reason && <small>{availability.reason}</small>}</div>
                     <div className="dj-action-buttons"><span className={`availability-status ${availability.status}`}>{availability.status === "available" ? "Disponible" : availability.status === "reserved" ? "Réservé" : "Bloqué"}</span>{availability.status === "available" && <button className="document-button" type="button" onClick={() => updateDjAvailability(availability, "blocked")} disabled={availabilityPendingId === availability.id}>Bloquer</button>}{availability.status === "blocked" && <button className="document-button" type="button" onClick={() => updateDjAvailability(availability, "available")} disabled={availabilityPendingId === availability.id}>Rouvrir</button>}{availability.status !== "reserved" && <button className="document-button danger-button" type="button" onClick={() => deleteDjAvailability(availability)} disabled={availabilityPendingId === availability.id}>Supprimer</button>}</div>
                   </article>
                 ))}
@@ -1714,7 +1722,7 @@ export default function App() {
                       return (
                         <article className="quote-row" key={item.id}>
                           <div className="quote-row-heading"><strong>Devis n°{item.id}</strong><span className={`quote-status ${item.status}`}>{quoteStatusLabels[item.status] || item.status}</span></div>
-                          <span>{itemEventType?.name || "Événement"} · {new Date(`${item.event_date}T00:00:00`).toLocaleDateString("fr-BE")}</span>
+                          <span>{itemEventType?.name || "Événement"} · {new Date(`${item.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</span>
                           <span>{itemPackage?.name || `Formule n°${item.package}`} · {itemVenue ? `${itemVenue.name}, ${itemVenue.city}` : `Lieu n°${item.venue}`}</span>
                           <div className="quote-row-amounts"><span>Total : <strong>{formatEuro(item.total_amount)}</strong></span><span>Acompte : <strong>{formatEuro(item.deposit_amount)}</strong></span></div>
                         </article>
@@ -1730,7 +1738,7 @@ export default function App() {
                         const pendingRequest = bookingRequests.find((request) => request.status === "pending");
                         return (
                           <article key={booking.id}>
-                            <div className="quote-row-heading"><strong>Réservation n°{booking.id}</strong><span>{new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")}</span></div>
+                            <div className="quote-row-heading"><strong>Réservation n°{booking.id}</strong><span>{new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</span></div>
                             {bookingRequests.map((request) => <div className="cancellation-history" key={request.id}><span className={`cancellation-request-status ${request.status}`}>{request.status === "pending" ? "En attente" : request.status === "approved" ? "Acceptée" : "Refusée"}</span><p>{request.reason}</p>{request.review_message && <small>Réponse : {request.review_message}</small>}</div>)}
                             {!pendingRequest && <div className="cancellation-form"><label>Motif<textarea rows="3" maxLength="255" value={cancellationReasons[booking.id] || ""} onChange={(event) => setCancellationReasons((current) => ({ ...current, [booking.id]: event.target.value }))} placeholder="Expliquez la raison de votre demande…" /></label><button className="document-button danger-button" type="button" onClick={() => requestCancellation(booking.id)} disabled={cancellationPendingId === booking.id}>{cancellationPendingId === booking.id ? "Envoi…" : "Demander l'annulation"}</button></div>}
                           </article>
@@ -1749,7 +1757,7 @@ export default function App() {
                           <span className={`contract-status ${contract.status}`}>{contractStatusLabels[contract.status] || contract.status}</span>
                           <button className="document-button" type="button" onClick={() => downloadDocument("contracts", contract.id, contract.contract_number)} disabled={downloadPending === `contracts-${contract.id}`}><Download /> {downloadPending === `contracts-${contract.id}` ? "Préparation…" : "Télécharger le PDF"}</button>
                           {contract.status === "sent" && <button className="primary-button payment-button" type="button" onClick={() => signClientContract(contract.id)} disabled={contractPendingId === contract.id}><FileText /> {contractPendingId === contract.id ? "Signature…" : "Signer le contrat"}</button>}
-                          {contract.signed_by_client_at && <small>Signé le {new Date(contract.signed_by_client_at).toLocaleString("fr-BE")}</small>}
+                          {contract.signed_by_client_at && <small>Signé le {new Date(contract.signed_by_client_at).toLocaleString(i18n.language)}</small>}
                         </div>
                       </article>
                     ))}
@@ -1762,7 +1770,7 @@ export default function App() {
                       const invoicePayments = clientPayments.filter((payment) => payment.invoice === invoice.id);
                       return (
                         <article className="invoice-row" key={invoice.id}>
-                          <div><strong>{invoice.invoice_number}</strong><span>{invoice.invoice_type === "deposit" ? "Acompte" : invoice.invoice_type === "balance" ? "Solde" : "Facture complète"} · Échéance : {new Date(invoice.due_at).toLocaleDateString("fr-BE")}</span>{invoicePayments.map((payment) => <div className="client-payment-trace" key={payment.id}><span>Paiement n°{payment.id} · {formatEuro(payment.amount)}</span>{payment.refund_status !== "none" && <small>{payment.refund_status === "pending" ? "Remboursement en cours chez Stripe" : payment.refund_status === "partial" ? `Remboursé partiellement : ${formatEuro(payment.refunded_amount)}` : payment.refund_status === "succeeded" ? `Remboursé : ${formatEuro(payment.refunded_amount)}` : "Le remboursement a échoué — l'administration doit le relancer."}</small>}</div>)}</div>
+                          <div><strong>{invoice.invoice_number}</strong><span>{invoice.invoice_type === "deposit" ? "Acompte" : invoice.invoice_type === "balance" ? "Solde" : "Facture complète"} · Échéance : {new Date(invoice.due_at).toLocaleDateString(i18n.language)}</span>{invoicePayments.map((payment) => <div className="client-payment-trace" key={payment.id}><span>Paiement n°{payment.id} · {formatEuro(payment.amount)}</span>{payment.refund_status !== "none" && <small>{payment.refund_status === "pending" ? "Remboursement en cours chez Stripe" : payment.refund_status === "partial" ? `Remboursé partiellement : ${formatEuro(payment.refunded_amount)}` : payment.refund_status === "succeeded" ? `Remboursé : ${formatEuro(payment.refunded_amount)}` : "Le remboursement a échoué — l'administration doit le relancer."}</small>}</div>)}</div>
                           <div className="invoice-actions">
                             <strong>{formatEuro(invoice.amount)}</strong>
                             <span className={`invoice-status ${invoice.status}`}>{invoice.status === "paid" ? "Payée" : invoice.status === "sent" ? "À payer" : invoice.status === "cancelled" ? "Annulée" : invoice.status}</span>
@@ -1782,7 +1790,7 @@ export default function App() {
                     {appointmentStatus && <p className={appointmentStatus.includes("planifié") ? "form-message success" : "invoice-empty"} role="status">{appointmentStatus}</p>}
                     {eligibleAppointmentBookings.length > 0 && (
                       <form className="playlist-form" onSubmit={createPreparatoryAppointment}>
-                        <label>Réservation<select value={appointmentBookingId} onChange={(event) => setAppointmentBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligibleAppointmentBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")}</option>)}</select></label>
+                        <label>Réservation<select value={appointmentBookingId} onChange={(event) => setAppointmentBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligibleAppointmentBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</option>)}</select></label>
                         <label>Date et heure<input type="datetime-local" value={appointmentDateTime} onChange={(event) => setAppointmentDateTime(event.target.value)} required /></label>
                         <label>Mode<select value={appointmentMode} onChange={(event) => setAppointmentMode(event.target.value)}><option value="online">En ligne</option><option value="in_person">En présentiel</option></select></label>
                         <label>Notes<textarea rows="2" value={appointmentNotes} onChange={(event) => setAppointmentNotes(event.target.value)} placeholder="Sujets à préparer, disponibilité particulière…" /></label>
@@ -1790,7 +1798,7 @@ export default function App() {
                       </form>
                     )}
                     <div className="appointment-list">
-                      {appointments.map((appointment) => <article key={appointment.id}><div><strong>{new Date(appointment.scheduled_at).toLocaleString("fr-BE")}</strong><span>Réservation n°{appointment.booking} · {appointment.mode === "online" ? "En ligne" : "En présentiel"}</span>{appointment.notes && <small>{appointment.notes}</small>}</div><span className={`appointment-status ${appointment.status}`}>{appointment.status === "done" ? "Réalisé" : appointment.status === "cancelled" ? "Annulé" : "Planifié"}</span></article>)}
+                      {appointments.map((appointment) => <article key={appointment.id}><div><strong>{new Date(appointment.scheduled_at).toLocaleString(i18n.language)}</strong><span>Réservation n°{appointment.booking} · {appointment.mode === "online" ? "En ligne" : "En présentiel"}</span>{appointment.notes && <small>{appointment.notes}</small>}</div><span className={`appointment-status ${appointment.status}`}>{appointment.status === "done" ? "Réalisé" : appointment.status === "cancelled" ? "Annulé" : "Planifié"}</span></article>)}
                     </div>
                   </div>
                   <div className="playlist-panel">
@@ -1799,7 +1807,7 @@ export default function App() {
                     {eligiblePlaylistBookings.length > 0 && (
                       <form className="playlist-form" onSubmit={createClientPlaylist}>
                         <h4>Créer une playlist</h4>
-                        <label>Réservation confirmée<select value={playlistBookingId} onChange={(event) => setPlaylistBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligiblePlaylistBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")}</option>)}</select></label>
+                        <label>Réservation confirmée<select value={playlistBookingId} onChange={(event) => setPlaylistBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligiblePlaylistBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</option>)}</select></label>
                         <label>Style principal<select value={playlistStyleId} onChange={(event) => setPlaylistStyleId(event.target.value)} required><option value="">Sélectionner</option>{musicStyles.map((style) => <option value={style.id} key={style.id}>{style.name}</option>)}</select></label>
                         <label>Notes<textarea rows="2" value={playlistNotes} onChange={(event) => setPlaylistNotes(event.target.value)} placeholder="Ambiance souhaitée, moments importants…" /></label>
                         <button className="primary-button" type="submit" disabled={playlistPending}>{playlistPending ? "Création…" : "Créer la playlist"}</button>
@@ -1824,7 +1832,7 @@ export default function App() {
                     {reviewStatus && <p className={reviewStatus.includes("Merci") ? "form-message success" : "invoice-empty"} role="status">{reviewStatus}</p>}
                     {eligibleReviewBookings.length > 0 && (
                       <form className="playlist-form" onSubmit={createClientReview}>
-                        <label>Prestation réalisée<select value={reviewBookingId} onChange={(event) => setReviewBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligibleReviewBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString("fr-BE")}</option>)}</select></label>
+                        <label>Prestation réalisée<select value={reviewBookingId} onChange={(event) => setReviewBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligibleReviewBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</option>)}</select></label>
                         <label>Note<select value={reviewRating} onChange={(event) => setReviewRating(event.target.value)}>{[5, 4, 3, 2, 1].map((rating) => <option value={rating} key={rating}>{rating} / 5</option>)}</select></label>
                         <label>Commentaire<textarea rows="3" maxLength="255" value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} placeholder="Décrivez la qualité de la prestation…" required /></label>
                         <small>{reviewComment.length}/255 caractères</small>
@@ -1843,6 +1851,7 @@ export default function App() {
             </div>
           </section>
         )}
+        </LocalizedContent>
       </main>
 
       <SiteFooter onNavigate={navigate} />

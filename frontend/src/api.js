@@ -19,6 +19,13 @@ export const apiClient = axios.create({
 });
 const refreshClient = axios.create({ baseURL: apiBaseUrl, headers: { "Content-Type": "application/json" } });
 
+const addInterfaceLanguage = (config) => {
+  config.headers["Accept-Language"] = window.localStorage.getItem("ultimate-dj-language") || "fr";
+  return config;
+};
+apiClient.interceptors.request.use(addInterfaceLanguage);
+refreshClient.interceptors.request.use(addInterfaceLanguage);
+
 const accessTokenKey = "ultimate_dj_access_token";
 const refreshTokenKey = "ultimate_dj_refresh_token";
 

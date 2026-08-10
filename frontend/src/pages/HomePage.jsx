@@ -1,14 +1,14 @@
 import { CalendarDays, Check, ChevronRight, Clock3, Headphones, Music2, Search, ShieldCheck, Star } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { formatEuro } from "../utils/booking";
 
-const journeySteps = [
-  "Décrivez votre événement",
-  "Choisissez l’offre et le DJ",
-  "Validez devis et contrat",
-  "Payez l’acompte",
-  "Préparez votre playlist",
-];
+const eventTypeTranslationKeys = {
+  "Anniversaire enfant": "eventTypes.childBirthday",
+  "Anniversaire adulte": "eventTypes.adultBirthday",
+  Mariage: "eventTypes.wedding",
+  "Soirée privée": "eventTypes.privateParty",
+};
 
 export default function HomePage({
   availableEventTypes,
@@ -23,37 +23,39 @@ export default function HomePage({
   onOpenDetail,
   packages,
 }) {
+  const { t, i18n } = useTranslation();
+  const journeySteps = t("home.steps", { returnObjects: true });
   return (
     <>
       <section className="hero">
         <div className="hero-content">
-          <p className="eyebrow">Votre événement, votre ambiance</p>
-          <h1>Réservez le DJ parfait.</h1>
-          <p className="hero-lead">Devis, contrat, acompte et playlist réunis dans un parcours simple et sécurisé.</p>
+          <p className="eyebrow">{t("home.eyebrow")}</p>
+          <h1>{t("home.title")}</h1>
+          <p className="hero-lead">{t("home.lead")}</p>
           <form className="quick-search" onSubmit={(event) => { event.preventDefault(); onNavigate("offres"); }}>
-            <label><span>Événement</span><select value={eventType} onChange={(event) => onEventTypeChange(event.target.value)}>{availableEventTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
-            <label><span>Date</span><input type="date" value={eventDate} min={new Date().toISOString().slice(0, 10)} onChange={(event) => onEventDateChange(event.target.value)} /></label>
-            <label><span>Lieu</span><input value={location} onChange={(event) => onLocationChange(event.target.value)} /></label>
-            <button className="primary-button" type="submit"><Search aria-hidden="true" /> Trouver un DJ</button>
+            <label><span>{t("home.event")}</span><select value={eventType} onChange={(event) => onEventTypeChange(event.target.value)}>{availableEventTypes.map((type) => <option key={type}>{t(eventTypeTranslationKeys[type], { defaultValue: type })}</option>)}</select></label>
+            <label><span>{t("home.date")}</span><input type="date" value={eventDate} min={new Date().toISOString().slice(0, 10)} onChange={(event) => onEventDateChange(event.target.value)} /></label>
+            <label><span>{t("home.venue")}</span><input value={location} onChange={(event) => onLocationChange(event.target.value)} /></label>
+            <button className="primary-button" type="submit"><Search aria-hidden="true" /> {t("home.findDj")}</button>
           </form>
-          <p className="search-note"><Check aria-hidden="true" /> Disponibilités vérifiées avant confirmation</p>
+          <p className="search-note"><Check aria-hidden="true" /> {t("home.availabilityChecked")}</p>
         </div>
       </section>
 
-      <section className="trust-strip" aria-label="Nos garanties">
-        <article><CalendarDays /><div><strong>Créneaux vérifiés</strong><span>Une disponibilité claire, sans mauvaise surprise.</span></div></article>
-        <article><ShieldCheck /><div><strong>Acompte sécurisé</strong><span>Le paiement confirme et bloque votre créneau.</span></div></article>
-        <article><Music2 /><div><strong>Playlist client</strong><span>Vos styles et chansons réunis avec le DJ.</span></div></article>
+      <section className="trust-strip" aria-label={t("home.guarantees")}>
+        <article><CalendarDays /><div><strong>{t("home.verifiedSlots")}</strong><span>{t("home.verifiedSlotsText")}</span></div></article>
+        <article><ShieldCheck /><div><strong>{t("home.secureDeposit")}</strong><span>{t("home.secureDepositText")}</span></div></article>
+        <article><Music2 /><div><strong>{t("home.clientPlaylist")}</strong><span>{t("home.clientPlaylistText")}</span></div></article>
       </section>
 
       <section className="section-wrap">
-        <div className="section-title"><div><p className="eyebrow dark">Des offres adaptées</p><h2>Choisissez votre formule</h2></div><button className="text-link" type="button" onClick={() => onNavigate("offres")}>Voir toutes les offres <ChevronRight /></button></div>
+        <div className="section-title"><div><p className="eyebrow dark">{t("home.adaptedOffers")}</p><h2>{t("home.choosePackage")}</h2></div><button className="text-link" type="button" onClick={() => onNavigate("offres")}>{t("home.allOffers")} <ChevronRight /></button></div>
         <div className="package-grid">
           {packages.slice(0, 3).map((item) => (
             <article className={`package-card ${item.accent || "cyan"}`} key={item.id}>
-              <div className="card-icon"><Headphones /></div><p className="card-kicker">{item.event || "Prestation DJ"}</p><h3>{item.name}</h3><p>{item.description}</p>
-              <div className="card-meta"><span><Clock3 /> {Number(item.included_hours).toLocaleString("fr-BE")} h</span>{item.rating ? <span><Star /> {item.rating}</span> : <span><ShieldCheck /> Tarif vérifié</span>}</div>
-              <div className="card-footer"><div><small>À partir de</small><strong>{formatEuro(item.base_price)}</strong></div><button type="button" onClick={() => onOpenDetail(item)}>Découvrir <ChevronRight /></button></div>
+              <div className="card-icon"><Headphones /></div><p className="card-kicker">{item.event || t("home.djService")}</p><h3>{item.name}</h3><p>{item.description}</p>
+              <div className="card-meta"><span><Clock3 /> {Number(item.included_hours).toLocaleString(i18n.language)} h</span>{item.rating ? <span><Star /> {item.rating}</span> : <span><ShieldCheck /> {t("home.verifiedPrice")}</span>}</div>
+              <div className="card-footer"><div><small>{t("home.from")}</small><strong>{formatEuro(item.base_price)}</strong></div><button type="button" onClick={() => onOpenDetail(item)}>{t("home.discover")} <ChevronRight /></button></div>
             </article>
           ))}
         </div>
@@ -61,7 +63,7 @@ export default function HomePage({
       </section>
 
       <section className="journey-section">
-        <p className="eyebrow">Un parcours guidé</p><h2>De votre idée à la piste de danse</h2>
+        <p className="eyebrow">{t("home.guidedJourney")}</p><h2>{t("home.journeyTitle")}</h2>
         <ol className="journey-list">{journeySteps.map((step, index) => <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>)}</ol>
       </section>
     </>

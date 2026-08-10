@@ -1,5 +1,6 @@
 import { Component } from "react";
 import { RotateCcw, ShieldAlert } from "lucide-react";
+import i18n from "../i18n";
 
 export default class AppErrorBoundary extends Component {
   state = { hasError: false };
@@ -19,11 +20,11 @@ export default class AppErrorBoundary extends Component {
       <main className="app-error-page" role="alert">
         <img src="/logo-ultimate-dj.png" alt="Ultimate DJ" />
         <ShieldAlert aria-hidden="true" />
-        <p className="eyebrow">Incident temporaire</p>
-        <h1>La page n’a pas pu s’afficher.</h1>
-        <p>Rechargez l’application. Si le problème persiste, vérifiez que le backend Django est démarré.</p>
+        <p className="eyebrow">{i18n.t("error.eyebrow")}</p>
+        <h1>{i18n.t("error.title")}</h1>
+        <p>{i18n.t("error.text")}</p>
         <button className="primary-button" type="button" onClick={() => window.location.reload()}>
-          <RotateCcw aria-hidden="true" /> Recharger l’application
+          <RotateCcw aria-hidden="true" /> {i18n.t("error.reload")}
         </button>
       </main>
     );
