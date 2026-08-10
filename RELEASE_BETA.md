@@ -59,6 +59,8 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - écran de récupération en cas d'erreur React inattendue ;
 - navigation au clavier améliorée avec lien d'évitement et indication de page active ;
 - identification visuelle de la version beta.
+- interface disponible en français, anglais et néerlandais avec mémorisation du
+  choix de langue et formats locaux pour les dates et les montants.
 
 ### Documentation
 
@@ -76,7 +78,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - aucune migration Django manquante dans le code ;
 - migration `payments.0003` appliquée à la base locale ;
 - `pip check` sans dépendance Python cassée ;
-- 22 tests unitaires frontend réussis avec Node.js ;
+- 25 tests unitaires frontend réussis avec Node.js ;
 - build de production Vite réussi ;
 - audit npm sans vulnérabilité détectée ;
 - aucun secret Stripe réel versionné.

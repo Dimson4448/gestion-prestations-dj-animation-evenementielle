@@ -1,5 +1,9 @@
+const currentLocale = () => ({ fr: "fr-BE", en: "en-BE", nl: "nl-BE" }[
+  globalThis.localStorage?.getItem("ultimate-dj-language") || "fr"
+] || "fr-BE");
+
 export const formatEuro = (value) =>
-  new Intl.NumberFormat("fr-BE", {
+  new Intl.NumberFormat(currentLocale(), {
     style: "currency",
     currency: "EUR",
     maximumFractionDigits: 0,
@@ -67,7 +71,7 @@ export const mapAvailableDjs = (slots) => {
       slot: `${String(slot.start_time).slice(0, 5)}–${String(slot.end_time).slice(0, 5)}`,
       rating: slot.dj.average_rating == null
         ? null
-        : Number(slot.dj.average_rating).toLocaleString("fr-BE", { maximumFractionDigits: 1 }),
+        : Number(slot.dj.average_rating).toLocaleString(currentLocale(), { maximumFractionDigits: 1 }),
       reviews: Number(slot.dj.review_count) || 0,
     });
   });
