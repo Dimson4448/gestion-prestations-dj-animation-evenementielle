@@ -311,6 +311,11 @@ class EventTypeSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         model = EventType
         fields = ["id", "name", "requires_preparatory_meeting", "liens"]
 
+    def validate_name(self, value):
+        if value not in EventType.ALLOWED_NAMES:
+            raise serializers.ValidationError("Ce type de prestation ne fait pas partie du cahier des charges.")
+        return value
+
 
 class MusicStyleSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "music-style"
@@ -503,6 +508,10 @@ class QuoteSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        event_type = attrs.get("event_type") or getattr(self.instance, "event_type", None)
+        if event_type and event_type.name not in EventType.ALLOWED_NAMES:
+            raise serializers.ValidationError({"event_type": "Ce type de prestation n'est plus proposé."})
+
         request = self.context.get("request")
         if not request or request.user.is_staff:
             return attrs

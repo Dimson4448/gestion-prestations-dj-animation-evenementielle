@@ -372,7 +372,7 @@ class EquipmentViewSet(AdminWritePublicReadViewSet):
 
 
 class EventTypeViewSet(AdminWritePublicReadViewSet):
-    queryset = EventType.objects.order_by("name")
+    queryset = EventType.objects.filter(name__in=EventType.ALLOWED_NAMES).order_by("name")
     serializer_class = EventTypeSerializer
     search_fields = ["name"]
     ordering_fields = ["name"]

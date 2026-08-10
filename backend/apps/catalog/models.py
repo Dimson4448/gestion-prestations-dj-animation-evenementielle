@@ -1,7 +1,14 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
 class EventType(models.Model):
+    CHILD_BIRTHDAY = "Anniversaire enfant"
+    ADULT_BIRTHDAY = "Anniversaire adulte"
+    WEDDING = "Mariage"
+    PRIVATE_PARTY = "Soirée privée"
+    ALLOWED_NAMES = (CHILD_BIRTHDAY, ADULT_BIRTHDAY, WEDDING, PRIVATE_PARTY)
+
     name = models.CharField("nom", max_length=80, unique=True)
     requires_preparatory_meeting = models.BooleanField("rendez-vous préparatoire requis", default=False)
 
@@ -12,6 +19,11 @@ class EventType(models.Model):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        super().clean()
+        if self.name not in self.ALLOWED_NAMES:
+            raise ValidationError({"name": "Ce type de prestation ne fait pas partie du cahier des charges."})
 
 
 class MusicStyle(models.Model):

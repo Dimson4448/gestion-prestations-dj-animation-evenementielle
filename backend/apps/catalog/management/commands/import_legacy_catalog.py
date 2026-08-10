@@ -11,6 +11,7 @@ from apps.catalog.models import Equipment, EventType, MusicStyle, Package, Servi
 EVENT_TYPE_RENAMES = {
     "Anniversaire": "Anniversaire adulte",
 }
+EXCLUDED_PACKAGE_NAMES = {"Entreprise", "Festival local", "Étudiant", "Lounge"}
 
 
 def fetch_rows(connection, table_name):
@@ -54,13 +55,7 @@ class Command(BaseCommand):
             with transaction.atomic():
                 self._import_event_types(legacy_connection, counters)
                 self._import_named_rows(legacy_connection, MusicStyle, "music_styles", ("name",), counters)
-                self._import_named_rows(
-                    legacy_connection,
-                    Package,
-                    "packages",
-                    ("name", "description", "included_hours", "base_price", "is_active"),
-                    counters,
-                )
+                self._import_packages(legacy_connection, counters)
                 self._import_named_rows(
                     legacy_connection,
                     ServiceOption,
@@ -86,12 +81,22 @@ class Command(BaseCommand):
     def _import_event_types(self, legacy_connection, counters):
         for row in fetch_rows(legacy_connection, "event_types"):
             name = EVENT_TYPE_RENAMES.get(row["name"], row["name"])
+            if name not in EventType.ALLOWED_NAMES:
+                continue
             self._upsert(
                 EventType,
                 {"name": name},
                 {"requires_preparatory_meeting": bool(row["requires_preparatory_meeting"])},
                 counters,
             )
+
+    def _import_packages(self, legacy_connection, counters):
+        fields = ("name", "description", "included_hours", "base_price", "is_active")
+        for row in fetch_rows(legacy_connection, "packages"):
+            if row["name"] in EXCLUDED_PACKAGE_NAMES:
+                continue
+            defaults = {field: row[field] for field in fields if field != "name"}
+            self._upsert(Package, {"name": row["name"]}, defaults, counters)
 
     def _import_named_rows(self, legacy_connection, model, table_name, fields, counters):
         for row in fetch_rows(legacy_connection, table_name):

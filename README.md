@@ -6,6 +6,17 @@ Projet TFE - Application **Ultimate DJ**.
 
 Ce projet vise à concevoir puis développer une application web permettant de gérer des prestations DJ et d'animation événementielle.
 
+Le périmètre du cahier des charges est strictement limité aux quatre types de
+prestations suivants :
+
+- anniversaire enfant ;
+- anniversaire adulte ;
+- mariage ;
+- soirée privée.
+
+Les autres types éventuellement présents dans un historique importé ne sont
+jamais proposés pour une nouvelle demande de devis.
+
 L'application devra notamment permettre :
 
 - la consultation des offres commerciales et des options payantes ;

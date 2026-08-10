@@ -45,7 +45,10 @@ class DepositCheckoutTests(APITestCase):
             bio="DJ de test",
             base_hourly_rate="80.00",
         )
-        self.event_type = EventType.objects.create(name="Mariage")
+        self.event_type, _ = EventType.objects.get_or_create(
+            name="Mariage",
+            defaults={"requires_preparatory_meeting": True},
+        )
         self.package = Package.objects.create(
             name="Beta Stripe",
             description="Package de test",

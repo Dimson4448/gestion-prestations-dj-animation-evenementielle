@@ -25,6 +25,7 @@ import SiteHeader from "./components/SiteHeader";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 import { decoratePackages } from "./utils/catalogue";
+import { allowedEventTypeNames, filterAllowedEventTypes } from "./utils/eventTypes";
 
 const unassignedDj = {
   id: null,
@@ -34,14 +35,6 @@ const unassignedDj = {
   rating: null,
   reviews: 0,
 };
-
-const eventTypes = [
-  "Mariage",
-  "Anniversaire adulte",
-  "Anniversaire enfant",
-  "Soirée privée",
-  "Événement d’entreprise",
-];
 
 const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -345,8 +338,11 @@ export default function App() {
         if (!mounted) return;
         const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
         if (Array.isArray(data) && data.length) {
-          setEventTypeRecords(data);
-          setEventType((current) => data.some((item) => item.name === current) ? current : data[0].name);
+          const supportedRecords = filterAllowedEventTypes(data);
+          setEventTypeRecords(supportedRecords);
+          if (supportedRecords.length) {
+            setEventType((current) => supportedRecords.some((item) => item.name === current) ? current : supportedRecords[0].name);
+          }
         }
       })
       .catch(() => mounted && setEventTypeRecords([]));
@@ -652,7 +648,7 @@ export default function App() {
     [packages, selectedPackageId],
   );
 
-  const availableEventTypes = eventTypeRecords.length ? eventTypeRecords.map((item) => item.name) : eventTypes;
+  const availableEventTypes = eventTypeRecords.length ? eventTypeRecords.map((item) => item.name) : allowedEventTypeNames;
   const playlistBookingIds = new Set(playlists.map((item) => item.booking));
   const eligiblePlaylistBookings = clientBookings.filter((item) => canCreatePlaylist(item, playlistBookingIds));
   const plannedAppointmentBookingIds = new Set(

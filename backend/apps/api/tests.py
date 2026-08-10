@@ -45,7 +45,7 @@ class ApiUltimateDJTests(APITestCase):
             billing_city="Bruxelles",
             billing_postal_code="1000",
         )
-        self.event_type = EventType.objects.create(name="Anniversaire adulte")
+        self.event_type, _ = EventType.objects.get_or_create(name="Anniversaire adulte")
         self.venue = Venue.objects.create(
             client=self.client_profile,
             name="Salle du client",
@@ -634,6 +634,48 @@ class ApiUltimateDJTests(APITestCase):
         self.assertIn("liens", premier_resultat)
         self.assertIn("ressource", premier_resultat["liens"])
         self.assertIn("calculer_devis", premier_resultat["liens"])
+
+    def test_api_propose_uniquement_les_quatre_prestations_du_cahier_des_charges(self):
+        unsupported = EventType.objects.create(name="Soirée d'entreprise")
+        for name in EventType.ALLOWED_NAMES:
+            EventType.objects.get_or_create(name=name)
+
+        response = self.client.get("/api/v1/event-types/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = {item["name"] for item in response.data["results"]}
+        self.assertEqual(names, set(EventType.ALLOWED_NAMES))
+        self.assertNotIn(unsupported.name, names)
+
+    def test_administration_ne_peut_pas_creer_une_prestation_hors_perimetre(self):
+        admin = get_user_model().objects.create_superuser(
+            username="admin_prestations",
+            email="admin-prestations@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.post(
+            "/api/v1/event-types/",
+            {"name": "Baptême", "requires_preparatory_meeting": False},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(EventType.objects.filter(name="Baptême").exists())
+
+    def test_devis_refuse_un_ancien_type_de_prestation_hors_perimetre(self):
+        unsupported = EventType.objects.create(name="Bal étudiant")
+        self.client.force_authenticate(user=self.client_user)
+
+        response = self.client.post(
+            "/api/v1/quotes/",
+            self.quote_payload(event_type=unsupported.pk),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("event_type", response.data)
 
     def test_note_publique_du_dj_utilise_uniquement_les_avis_publies(self):
         dj, _ = self.create_available_dj()

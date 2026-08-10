@@ -29,7 +29,8 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - traitement atomique et idempotent des événements ;
 - mise à jour synchronisée du paiement, de la facture et de la réservation ;
 - gestion des sessions réussies, asynchrones, expirées ou échouées ;
-- API des paiements rendue non modifiable directement par les clients.
+- API des paiements rendue non modifiable directement par les clients ;
+- catalogue limité aux quatre prestations prévues par le cahier des charges.
 
 ### Frontend React
 
@@ -67,12 +68,12 @@ Framework, l'authentification JWT et le frontend React/Vite.
 
 ## Validation effectuée
 
-- 78 tests Django réussis ;
+- 81 tests Django réussis ;
 - `manage.py check` sans erreur ;
 - aucune migration Django manquante dans le code ;
 - migration `payments.0003` appliquée à la base locale ;
 - `pip check` sans dépendance Python cassée ;
-- 19 tests unitaires frontend réussis avec Node.js ;
+- 21 tests unitaires frontend réussis avec Node.js ;
 - build de production Vite réussi ;
 - audit npm sans vulnérabilité détectée ;
 - aucun secret Stripe réel versionné.
