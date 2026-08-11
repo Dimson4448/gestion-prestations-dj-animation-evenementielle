@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { searchLocations } from "../api";
 import { getPopularLocations, normalizeLocationResults, translatePopularLocation } from "../utils/locations";
 
-export default function CityAutocomplete({ label, value, onChange }) {
+export default function CityAutocomplete({ label, value, onChange, required = false }) {
   const { t, i18n } = useTranslation();
   const popularLocations = useMemo(() => getPopularLocations(i18n.language), [i18n.language]);
   const inputId = useId();
@@ -76,6 +76,7 @@ export default function CityAutocomplete({ label, value, onChange }) {
         aria-expanded={isOpen}
         aria-controls={listboxId}
         autoComplete="off"
+        required={required}
       />
         {isLoading && <LoaderCircle className="location-loader" aria-label={t("home.locationLoading")} />}
         {isOpen && (
