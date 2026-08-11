@@ -71,6 +71,7 @@ export const verifyEmail = async (uid, token) => apiClient.post("/auth/verify-em
 export const resendVerificationEmail = async (email) => (await apiClient.post("/auth/verify-email/resend/", { email })).data;
 export const requestPasswordReset = async (email) => (await apiClient.post("/auth/password-reset/", { email })).data;
 export const confirmPasswordReset = async (uid, token, password) => apiClient.post("/auth/password-reset/confirm/", { uid, token, password });
+export const searchLocations = async (query) => (await apiClient.get("/locations/search/", { params: { q: query } })).data;
 
 export const logout = async () => {
   const refresh = getStoredRefreshToken();

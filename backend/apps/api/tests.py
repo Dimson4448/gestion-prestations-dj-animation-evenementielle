@@ -1,6 +1,8 @@
+import json
 from datetime import date, timedelta
+from io import BytesIO
 from urllib.parse import parse_qs, urlparse
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -73,6 +75,46 @@ class ApiUltimateDJTests(APITestCase):
         }
         payload.update(overrides)
         return payload
+
+    @patch("apps.api.views.search_cities")
+    def test_recherche_des_villes_priorise_les_resultats_du_service(self, mocked_search):
+        mocked_search.return_value = [
+            {
+                "label": "Bruxelles, Belgique",
+                "city": "Bruxelles",
+                "country": "Belgique",
+                "country_code": "BE",
+                "latitude": 50.85,
+                "longitude": 4.35,
+            }
+        ]
+
+        response = self.client.get("/api/v1/locations/search/?q=bru", HTTP_ACCEPT_LANGUAGE="fr-BE")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["results"][0]["city"], "Bruxelles")
+        mocked_search.assert_called_once_with("bru", language="fr")
+
+    def test_recherche_des_villes_exige_deux_caracteres(self):
+        response = self.client.get("/api/v1/locations/search/?q=b")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["results"], [])
+
+    @patch("apps.api.locations.urlopen")
+    def test_photon_est_normalise_et_priorise_la_belgique(self, mocked_urlopen):
+        photon_response = MagicMock()
+        photon_response.__enter__.return_value = BytesIO(json.dumps({"features": [
+            {"properties": {"name": "Paris", "country": "France", "countrycode": "FR"}, "geometry": {"coordinates": [2.35, 48.85]}},
+            {"properties": {"name": "Bruxelles", "state": "Bruxelles-Capitale", "country": "Belgique", "countrycode": "BE"}, "geometry": {"coordinates": [4.35, 50.85]}},
+        ]}).encode("utf-8"))
+        mocked_urlopen.return_value = photon_response
+
+        from apps.api.locations import search_cities
+        results = search_cities("ville-test-priorite", language="fr")
+
+        self.assertEqual([item["city"] for item in results], ["Bruxelles", "Paris"])
+        self.assertEqual(results[0]["country_code"], "BE")
 
     def test_renouvelle_la_session_jwt_et_accede_au_profil(self):
         authenticated = self.client.post(

@@ -53,9 +53,23 @@ svg { width: 20px; height: 20px; }
 .hero h1, .detail-hero h1 { max-width: 850px; margin-bottom: 14px; color: white; font-size: clamp(3rem, 6vw, 5.7rem); line-height: .98; letter-spacing: -.045em; }
 .hero-lead { max-width: 760px; margin: 0 0 34px; color: #d4daed; font-size: clamp(1.05rem, 2vw, 1.35rem); }
 .quick-search { display: grid; grid-template-columns: 1.1fr 1fr 1fr auto; gap: 4px; max-width: 1020px; padding: 7px; border-radius: 16px; background: white; box-shadow: var(--shadow); }
-.quick-search label { display: grid; gap: 3px; padding: 7px 15px; border-right: 1px solid var(--line); color: var(--night); }
-.quick-search label span { color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.quick-search > label, .quick-search > .location-field { display: grid; gap: 3px; padding: 7px 15px; border-right: 1px solid var(--line); color: var(--night); }
+.quick-search > label > span, .quick-search > .location-field > label { color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
 .quick-search input, .quick-search select { width: 100%; min-width: 0; padding: 2px 0; border: 0; color: var(--night); background: white; font-weight: 700; }
+.quick-search .location-field { position: relative; }
+.city-autocomplete { position: relative; min-width: 0; }
+.city-autocomplete input { padding-right: 25px; }
+.location-loader { position: absolute; top: 1px; right: 0; width: 18px; color: var(--cyan); animation: spin .8s linear infinite; }
+.location-suggestions { position: absolute; z-index: 20; top: calc(100% + 13px); left: -15px; width: min(390px, calc(100vw - 32px)); max-height: 330px; overflow-y: auto; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: white; box-shadow: 0 20px 45px rgba(7, 13, 35, .22); }
+.location-suggestions > p { margin: 5px 8px 8px; color: var(--muted); font-size: .78rem; font-weight: 700; }
+.location-suggestions button { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 9px; color: var(--night); background: transparent; text-align: left; cursor: pointer; }
+.location-suggestions button:hover, .location-suggestions button:focus-visible { background: #eefaff; outline: none; }
+.location-suggestions button svg { width: 17px; color: var(--cyan-dark); }
+.location-suggestions button span { display: grid; gap: 1px; color: var(--night); font-size: .86rem; letter-spacing: normal; text-transform: none; }
+.location-suggestions button small { color: var(--muted); font-size: .72rem; font-weight: 500; }
+.location-suggestions button em { padding: 3px 6px; border-radius: 999px; color: #07516a; background: #dff8ff; font-size: .62rem; font-style: normal; font-weight: 800; }
+.location-suggestions footer { padding: 8px 10px 3px; border-top: 1px solid var(--line); color: var(--muted); font-size: .62rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .primary-button, .secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 0 20px; border: 0; border-radius: 11px; font-weight: 800; }
 .primary-button { color: var(--night); background: var(--cyan); }
 .primary-button:hover { background: #45ddff; transform: translateY(-1px); }
@@ -388,7 +402,7 @@ footer small { grid-column: 1 / -1; padding-top: 18px; border-top: 1px solid #22
   .main-nav > button, .main-nav > a { justify-content: flex-start; }
   .language-switcher { margin: 7px 0 0; padding: 10px 0 0; border-top: 1px solid #313a52; border-left: 0; }
   .quick-search { grid-template-columns: 1fr 1fr; }
-  .quick-search label { border-right: 0; }
+  .quick-search > label, .quick-search > .location-field { border-right: 0; }
   .quick-search .primary-button { min-height: 58px; }
   .package-grid { grid-template-columns: repeat(2, 1fr); }
   .package-card:last-child { grid-column: 1 / -1; }
@@ -404,7 +418,7 @@ footer small { grid-column: 1 / -1; padding-top: 18px; border-top: 1px solid #22
   .hero::after { display: none; }
   .hero h1 { font-size: 3rem; }
   .quick-search { grid-template-columns: 1fr; padding: 10px; }
-  .quick-search label { border-bottom: 1px solid var(--line); }
+  .quick-search > label, .quick-search > .location-field { border-bottom: 1px solid var(--line); }
   .trust-strip { grid-template-columns: 1fr; margin-top: -28px; }
   .section-wrap { width: min(100% - 28px, 1240px); padding: 60px 0; }
   .section-title, .results-heading { align-items: flex-start; flex-direction: column; }

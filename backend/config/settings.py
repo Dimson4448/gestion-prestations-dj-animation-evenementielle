@@ -167,6 +167,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "login": config("AUTH_LOGIN_RATE", default="10/minute"),
         "account_action": config("AUTH_ACCOUNT_ACTION_RATE", default="5/minute"),
+        "location_search": config("LOCATION_SEARCH_RATE", default="30/minute"),
     },
 }
 
@@ -212,3 +213,7 @@ BUSINESS_EMAIL = config("BUSINESS_EMAIL", default="")
 BUSINESS_PHONE = config("BUSINESS_PHONE", default="")
 BUSINESS_IBAN = config("BUSINESS_IBAN", default="")
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:5173")
+PHOTON_API_URL = config("PHOTON_API_URL", default="https://photon.komoot.io/api")
+GEOCODING_USER_AGENT = config("GEOCODING_USER_AGENT", default="UltimateDJ/0.2 (contact@ultimate-dj.local)")
+GEOCODING_TIMEOUT_SECONDS = config("GEOCODING_TIMEOUT_SECONDS", default=4, cast=float)
+GEOCODING_CACHE_SECONDS = config("GEOCODING_CACHE_SECONDS", default=3600, cast=int)

@@ -43,7 +43,8 @@ from apps.payments.models import Invoice, Payment
 from apps.payments.services import StripeCheckoutError, StripeConfigurationError, StripeRefundError, create_invoice_checkout, create_payment_refund
 
 from .permissions import AdministrationOuProprietaire, DJOuAdministration, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
-from .throttles import AccountActionRateThrottle, LoginRateThrottle
+from .locations import LocationSearchUnavailable, search_cities
+from .throttles import AccountActionRateThrottle, LocationSearchRateThrottle, LoginRateThrottle
 from .serializers import (
     BookingSerializer,
     AccountDeletionRequestSerializer,
@@ -138,6 +139,27 @@ def filtrer_par_reservation(queryset, user, prefix=""):
 @permission_classes([permissions.IsAuthenticated])
 def current_user(request):
     return Response(CurrentUserSerializer(request.user).data)
+
+
+@extend_schema(responses={200: OpenApiTypes.OBJECT}, summary="Rechercher une ville en Belgique et dans le monde")
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([LocationSearchRateThrottle])
+def location_search(request):
+    query = " ".join(request.query_params.get("q", "").split())
+    if len(query) < 2:
+        return Response({"results": [], "detail": "Saisissez au moins deux caractères."})
+    if len(query) > 80:
+        raise ValidationError({"q": "La recherche ne peut pas dépasser 80 caractères."})
+    language = request.headers.get("Accept-Language", "fr").split(",", 1)[0].split("-", 1)[0].lower()
+    try:
+        results = search_cities(query, language=language)
+    except LocationSearchUnavailable:
+        return Response(
+            {"results": [], "detail": "La recherche de lieux est temporairement indisponible."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    return Response({"results": results})
 
 
 @extend_schema(request=ClientProfileUpdateSerializer, responses={200: ClientProfileUpdateSerializer}, summary="Consulter ou modifier son profil client")

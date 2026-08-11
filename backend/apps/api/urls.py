@@ -28,6 +28,7 @@ from .views import (
     client_profile,
     current_user,
     logout_user,
+    location_search,
     confirm_password_reset,
     register_client,
     resend_verification_email,
@@ -69,6 +70,7 @@ urlpatterns = [
     path("auth/deletion-requests/<int:pk>/review/", review_account_deletion_request, name="review-account-deletion-request"),
     path("auth/password-change/", change_password, name="change-password"),
     path("auth/logout/", logout_user, name="logout-user"),
+    path("locations/search/", location_search, name="location-search"),
     path("quotes/calculate/", calculate_quote, name="quote-calculate"),
     path("payments/webhook/", stripe_webhook, name="stripe-webhook"),
 ]

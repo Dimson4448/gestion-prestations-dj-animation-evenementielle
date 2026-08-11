@@ -388,6 +388,20 @@ libres saisis par les utilisateurs restent inchangés.
 Les disponibilités disponibles sont publiques. Un DJ ne peut gérer que ses
 propres créneaux et ne peut ni modifier ni supprimer un créneau déjà réservé.
 
+### Recherche des villes
+
+Le champ `Lieu` de l'accueil propose immédiatement des villes belges et
+internationales, puis recherche une ville à partir de deux caractères. React
+interroge l'endpoint Django `/api/v1/locations/search/` ; Django contacte le
+service Photon basé sur les données OpenStreetMap, met les réponses en cache et
+place les résultats belges en premier. La saisie manuelle reste possible si le
+service tiers est momentanément indisponible.
+
+L'URL du fournisseur, l'identification de l'application, le délai d'attente,
+la durée du cache et la limite de requêtes sont configurables dans `.env`. Cela
+permet de remplacer Photon sans publier une nouvelle version du frontend. Les
+résultats affichent l'attribution aux contributeurs OpenStreetMap.
+
 Après récupération de cette version, appliquer les migrations :
 
 ```powershell
@@ -406,6 +420,14 @@ fonctionnalité et les Pull Requests vers `main`. Il exécute les tests Django a
 une base SQLite temporaire, vérifie les migrations, puis construit le frontend
 React après l'exécution de `npm test`. Les secrets locaux et MariaDB ne sont pas
 requis.
+
+En local, la suite backend peut également être lancée sans droit de création de
+base MariaDB :
+
+```powershell
+cd backend
+.venv\Scripts\python.exe manage.py test --settings=config.test_settings
+```
 
 ## Sécurité du déploiement
 
