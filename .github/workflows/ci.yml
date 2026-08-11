@@ -23,7 +23,7 @@ jobs:
     env:
       DB_ENGINE: sqlite
       SECRET_KEY: ci-Q7zT9pW4nK8xR2mV6bC3fH5jL1sD0gA9uE4yI8oP2qN6wZ3cF7hJ5
-      DEBUG: "False"
+      DJANGO_DEBUG: "False"
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@v4

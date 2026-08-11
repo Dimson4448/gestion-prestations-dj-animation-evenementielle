@@ -12,7 +12,7 @@ config = Config(env_repository) if env_repository else AutoConfig(search_path=BA
 
 SECRET_KEY = config("SECRET_KEY", default="dev-secret-key")
 DEBUG = config(
-    "DEBUG",
+    "DJANGO_DEBUG",
     default="true",
     cast=lambda value: str(value).strip().lower() in {"1", "true", "yes", "on", "debug", "development"},
 )
