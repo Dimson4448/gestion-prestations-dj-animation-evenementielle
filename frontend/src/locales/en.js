@@ -2,6 +2,7 @@ export default {
   language: { choice: "Language selection", fr: "French", en: "English", nl: "Dutch" },
   nav: { skip: "Skip to main content", home: "Home", offers: "Offers & DJs", quote: "Request a quote", account: "My account", adminSpace: "Admin area", djSpace: "DJ area", djangoAdmin: "Django Admin", main: "Main navigation", footer: "Footer navigation", openMenu: "Open menu", closeMenu: "Close menu" },
   eventTypes: { childBirthday: "Children’s birthday", adultBirthday: "Adult birthday", wedding: "Wedding", privateParty: "Private party" },
+  eventPrompt: "Select an event",
   home: {
     eyebrow: "Your event, your atmosphere", title: "Book the perfect DJ.", lead: "Quote, contract, deposit and playlist brought together in a simple and secure journey.", event: "Event", date: "Date", venue: "Venue", findDj: "Find a DJ", availabilityChecked: "Availability checked before confirmation", guarantees: "Our guarantees", locationPlaceholder: "Start typing a city", locationLoading: "Searching for cities", locationPopular: "Popular cities", locationBelgium: "Belgium", locationNoResults: "No city found.", locationUnavailable: "Search is unavailable. You can enter the city manually.", locationAttribution: "Data © OpenStreetMap contributors",
     verifiedSlots: "Verified time slots", verifiedSlotsText: "Clear availability with no unpleasant surprises.", secureDeposit: "Secure deposit", secureDepositText: "Payment confirms and secures your time slot.", clientPlaylist: "Client playlist", clientPlaylistText: "Share your styles and songs with the DJ.",

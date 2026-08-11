@@ -34,9 +34,9 @@ export default function HomePage({
           <h1>{t("home.title")}</h1>
           <p className="hero-lead">{t("home.lead")}</p>
           <form className="quick-search" onSubmit={(event) => { event.preventDefault(); onNavigate("offres"); }}>
-            <label><span>{t("home.event")}</span><select value={eventType} onChange={(event) => onEventTypeChange(event.target.value)}>{availableEventTypes.map((type) => <option key={type}>{t(eventTypeTranslationKeys[type], { defaultValue: type })}</option>)}</select></label>
+            <label><span>{t("home.event")}</span><select value={eventType} onChange={(event) => onEventTypeChange(event.target.value)} required><option value="" disabled>{t("eventPrompt")}</option>{availableEventTypes.map((type) => <option key={type}>{t(eventTypeTranslationKeys[type], { defaultValue: type })}</option>)}</select></label>
             <label><span>{t("home.date")}</span><input type="date" value={eventDate} min={new Date().toISOString().slice(0, 10)} onChange={(event) => onEventDateChange(event.target.value)} /></label>
-            <CityAutocomplete label={t("home.venue")} value={location} onChange={onLocationChange} />
+            <CityAutocomplete label={t("home.venue")} value={location} onChange={onLocationChange} required />
             <button className="primary-button" type="submit"><Search aria-hidden="true" /> {t("home.findDj")}</button>
           </form>
           <p className="search-note"><Check aria-hidden="true" /> {t("home.availabilityChecked")}</p>

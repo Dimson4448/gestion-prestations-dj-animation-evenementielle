@@ -68,10 +68,10 @@ export default function App() {
   const [eventTypeRecords, setEventTypeRecords] = useState([]);
   const [selectedPackageId, setSelectedPackageId] = useState("mariage");
   const [selectedDj, setSelectedDj] = useState(unassignedDj);
-  const [eventType, setEventType] = useState("Mariage");
+  const [eventType, setEventType] = useState("");
   const [eventDate, setEventDate] = useState("2026-09-12");
   const [startTime, setStartTime] = useState("18:00");
-  const [location, setLocation] = useState("Bruxelles");
+  const [location, setLocation] = useState("");
   const [venueName, setVenueName] = useState("Lieu de l’événement");
   const [venueStreet, setVenueStreet] = useState("");
   const [venuePostalCode, setVenuePostalCode] = useState("");
@@ -344,7 +344,7 @@ export default function App() {
           const supportedRecords = filterAllowedEventTypes(data);
           setEventTypeRecords(supportedRecords);
           if (supportedRecords.length) {
-            setEventType((current) => supportedRecords.some((item) => item.name === current) ? current : supportedRecords[0].name);
+            setEventType((current) => supportedRecords.some((item) => item.name === current) ? current : "");
           }
         }
       })
@@ -1441,8 +1441,8 @@ export default function App() {
           <section className="section-wrap catalogue-page">
             <div className="page-heading"><p className="eyebrow dark">Offres & DJs</p><h1>Trouvez la prestation qui vous ressemble</h1><p>{eventType} · {eventDate.split("-").reverse().join("/")} · {location}</p></div>
             <div className="catalogue-layout">
-              <aside className="filters"><div className="filter-heading"><h2>Filtres</h2><button onClick={() => { setEventType("Mariage"); setLocation("Bruxelles"); }}>Réinitialiser</button></div>
-                <label>Type d’événement<select value={eventType} onChange={(event) => setEventType(event.target.value)}>{availableEventTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
+              <aside className="filters"><div className="filter-heading"><h2>Filtres</h2><button onClick={() => { setEventType(""); setLocation(""); }}>Réinitialiser</button></div>
+                <label>Type d’événement<select value={eventType} onChange={(event) => setEventType(event.target.value)}><option value="">Toutes les prestations</option>{availableEventTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
                 <label>Date<input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} /></label>
                 <label>Lieu<input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
                 <label>Budget<select defaultValue="1500"><option value="700">Moins de 700 €</option><option value="1500">700 € – 1 500 €</option><option value="more">Plus de 1 500 €</option></select></label>
