@@ -1,6 +1,7 @@
 import json
 from datetime import date, timedelta
 from io import BytesIO
+from urllib.error import URLError
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import MagicMock, patch
 
@@ -115,6 +116,18 @@ class ApiUltimateDJTests(APITestCase):
 
         self.assertEqual([item["city"] for item in results], ["Bruxelles", "Paris"])
         self.assertEqual(results[0]["country_code"], "BE")
+
+    @patch("apps.api.locations.urlopen", side_effect=URLError("indisponible"))
+    def test_mons_et_les_quartiers_bruxellois_restent_disponibles_hors_ligne(self, _mocked_urlopen):
+        from apps.api.locations import search_cities
+
+        mons = search_cities("Mons", language="fr")
+        laeken = search_cities("Laeken", language="fr")
+        molenbeek = search_cities("Molenbeek", language="fr")
+
+        self.assertEqual(mons[0]["city"], "Mons")
+        self.assertEqual(laeken[0]["city"], "Laeken")
+        self.assertEqual(molenbeek[0]["city"], "Molenbeek-Saint-Jean")
 
     def test_renouvelle_la_session_jwt_et_accede_au_profil(self):
         authenticated = self.client.post(

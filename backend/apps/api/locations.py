@@ -1,4 +1,5 @@
 import json
+import unicodedata
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -9,6 +10,68 @@ from django.core.cache import cache
 
 class LocationSearchUnavailable(Exception):
     """Le fournisseur de géocodage ne peut pas répondre actuellement."""
+
+
+BELGIAN_LOCATIONS = [
+    ("Bruxelles", "Bruxelles-Capitale", "brussel brussels"),
+    ("Anderlecht", "Bruxelles-Capitale", ""),
+    ("Auderghem", "Bruxelles-Capitale", "oudergem"),
+    ("Berchem-Sainte-Agathe", "Bruxelles-Capitale", "sint-agatha-berchem"),
+    ("Etterbeek", "Bruxelles-Capitale", ""),
+    ("Evere", "Bruxelles-Capitale", ""),
+    ("Forest", "Bruxelles-Capitale", "vorst"),
+    ("Ganshoren", "Bruxelles-Capitale", ""),
+    ("Ixelles", "Bruxelles-Capitale", "elsene"),
+    ("Jette", "Bruxelles-Capitale", ""),
+    ("Koekelberg", "Bruxelles-Capitale", ""),
+    ("Molenbeek-Saint-Jean", "Bruxelles-Capitale", "sint-jans-molenbeek molenbeek"),
+    ("Saint-Gilles", "Bruxelles-Capitale", "sint-gillis"),
+    ("Saint-Josse-ten-Noode", "Bruxelles-Capitale", "sint-joost-ten-node saint-josse"),
+    ("Schaerbeek", "Bruxelles-Capitale", "schaarbeek"),
+    ("Uccle", "Bruxelles-Capitale", "ukkel"),
+    ("Watermael-Boitsfort", "Bruxelles-Capitale", "watermaal-bosvoorde"),
+    ("Woluwe-Saint-Lambert", "Bruxelles-Capitale", "sint-lambrechts-woluwe"),
+    ("Woluwe-Saint-Pierre", "Bruxelles-Capitale", "sint-pieters-woluwe"),
+    ("Laeken", "Bruxelles-Capitale", "laken"),
+    ("Matonge", "Bruxelles-Capitale", "matonge ixelles"),
+    ("Marolles", "Bruxelles-Capitale", "marollen"),
+    ("Sablon", "Bruxelles-Capitale", "zavel"),
+    ("Quartier européen", "Bruxelles-Capitale", "quartier europeen european quarter europese wijk"),
+    ("Mons", "Hainaut", "bergen"),
+    ("Charleroi", "Hainaut", ""),
+    ("Liège", "Liège", "luik liege"),
+    ("Namur", "Namur", "namen"),
+    ("Anvers", "Anvers", "antwerpen"),
+    ("Gand", "Flandre-Orientale", "gent"),
+    ("Bruges", "Flandre-Occidentale", "brugge"),
+    ("Louvain", "Brabant flamand", "leuven"),
+    ("Wavre", "Brabant wallon", ""),
+    ("Arlon", "Luxembourg", "aarlen"),
+    ("Hasselt", "Limbourg", ""),
+]
+
+
+def _search_key(value):
+    normalized = unicodedata.normalize("NFKD", value.casefold())
+    return "".join(character for character in normalized if not unicodedata.combining(character))
+
+
+def _local_belgian_results(query):
+    key = _search_key(query)
+    matches = []
+    for city, region, aliases in BELGIAN_LOCATIONS:
+        searchable = _search_key(f"{city} {region} {aliases}")
+        if key not in searchable:
+            continue
+        matches.append({
+            "label": f"{city}, {region}, Belgique",
+            "city": city,
+            "country": "Belgique",
+            "country_code": "BE",
+            "latitude": None,
+            "longitude": None,
+        })
+    return matches
 
 
 def _city_label(properties):
@@ -32,6 +95,7 @@ def search_cities(query, language="fr", limit=8):
     if cached is not None:
         return cached
 
+    local_cities = _local_belgian_results(normalized_query)
     parameters = urlencode([
         ("q", normalized_query),
         ("lang", language if language in {"fr", "en", "nl"} else "fr"),
@@ -41,6 +105,7 @@ def search_cities(query, language="fr", limit=8):
         ("location_bias_scale", "0.35"),
         ("layer", "city"),
         ("layer", "locality"),
+        ("layer", "district"),
     ])
     request = Request(
         f"{settings.PHOTON_API_URL.rstrip('/')}?{parameters}",
@@ -50,10 +115,13 @@ def search_cities(query, language="fr", limit=8):
         with urlopen(request, timeout=settings.GEOCODING_TIMEOUT_SECONDS) as response:
             payload = json.load(response)
     except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
+        if local_cities:
+            cache.set(cache_key, local_cities[:limit], settings.GEOCODING_CACHE_SECONDS)
+            return local_cities[:limit]
         raise LocationSearchUnavailable from exc
 
-    cities = []
-    seen = set()
+    cities = list(local_cities)
+    seen = {city["label"].casefold() for city in local_cities}
     for feature in payload.get("features", []):
         properties = feature.get("properties") or {}
         label = _city_label(properties)
