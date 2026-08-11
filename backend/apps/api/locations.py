@@ -50,23 +50,76 @@ BELGIAN_LOCATIONS = [
     ("Hasselt", "Limbourg", ""),
 ]
 
+CITY_TRANSLATIONS = {
+    "Bruxelles": {"en": "Brussels", "nl": "Brussel"},
+    "Auderghem": {"nl": "Oudergem"},
+    "Berchem-Sainte-Agathe": {"nl": "Sint-Agatha-Berchem"},
+    "Forest": {"nl": "Vorst"},
+    "Ixelles": {"nl": "Elsene"},
+    "Molenbeek-Saint-Jean": {"nl": "Sint-Jans-Molenbeek"},
+    "Saint-Gilles": {"nl": "Sint-Gillis"},
+    "Saint-Josse-ten-Noode": {"nl": "Sint-Joost-ten-Node"},
+    "Schaerbeek": {"nl": "Schaarbeek"},
+    "Uccle": {"nl": "Ukkel"},
+    "Watermael-Boitsfort": {"nl": "Watermaal-Bosvoorde"},
+    "Woluwe-Saint-Lambert": {"nl": "Sint-Lambrechts-Woluwe"},
+    "Woluwe-Saint-Pierre": {"nl": "Sint-Pieters-Woluwe"},
+    "Laeken": {"nl": "Laken"},
+    "Marolles": {"nl": "Marollen"},
+    "Sablon": {"nl": "Zavel"},
+    "Quartier européen": {"en": "European Quarter", "nl": "Europese wijk"},
+    "Mons": {"nl": "Bergen"},
+    "Liège": {"nl": "Luik"},
+    "Namur": {"nl": "Namen"},
+    "Anvers": {"en": "Antwerp", "nl": "Antwerpen"},
+    "Gand": {"en": "Ghent", "nl": "Gent"},
+    "Bruges": {"nl": "Brugge"},
+    "Louvain": {"en": "Leuven", "nl": "Leuven"},
+    "Arlon": {"nl": "Aarlen"},
+}
+
+REGION_TRANSLATIONS = {
+    "Bruxelles-Capitale": {"en": "Brussels-Capital", "nl": "Brussel-Hoofdstad"},
+    "Hainaut": {"nl": "Henegouwen"},
+    "Liège": {"nl": "Luik"},
+    "Namur": {"nl": "Namen"},
+    "Anvers": {"en": "Antwerp", "nl": "Antwerpen"},
+    "Flandre-Orientale": {"en": "East Flanders", "nl": "Oost-Vlaanderen"},
+    "Flandre-Occidentale": {"en": "West Flanders", "nl": "West-Vlaanderen"},
+    "Brabant flamand": {"en": "Flemish Brabant", "nl": "Vlaams-Brabant"},
+    "Brabant wallon": {"en": "Walloon Brabant", "nl": "Waals-Brabant"},
+    "Luxembourg": {"nl": "Luxemburg"},
+    "Limbourg": {"en": "Limburg", "nl": "Limburg"},
+}
+
+COUNTRY_TRANSLATIONS = {"fr": "Belgique", "en": "Belgium", "nl": "België"}
+
 
 def _search_key(value):
     normalized = unicodedata.normalize("NFKD", value.casefold())
     return "".join(character for character in normalized if not unicodedata.combining(character))
 
 
-def _local_belgian_results(query):
+def _translated_name(value, language, translations):
+    return translations.get(value, {}).get(language, value)
+
+
+def _local_belgian_results(query, language):
     key = _search_key(query)
     matches = []
     for city, region, aliases in BELGIAN_LOCATIONS:
-        searchable = _search_key(f"{city} {region} {aliases}")
+        translated_names = " ".join(CITY_TRANSLATIONS.get(city, {}).values())
+        translated_regions = " ".join(REGION_TRANSLATIONS.get(region, {}).values())
+        searchable = _search_key(f"{city} {translated_names} {region} {translated_regions} {aliases}")
         if key not in searchable:
             continue
+        localized_city = _translated_name(city, language, CITY_TRANSLATIONS)
+        localized_region = _translated_name(region, language, REGION_TRANSLATIONS)
+        localized_country = COUNTRY_TRANSLATIONS.get(language, COUNTRY_TRANSLATIONS["fr"])
         matches.append({
-            "label": f"{city}, {region}, Belgique",
-            "city": city,
-            "country": "Belgique",
+            "label": f"{localized_city}, {localized_region}, {localized_country}",
+            "city": localized_city,
+            "country": localized_country,
             "country_code": "BE",
             "latitude": None,
             "longitude": None,
@@ -95,10 +148,11 @@ def search_cities(query, language="fr", limit=8):
     if cached is not None:
         return cached
 
-    local_cities = _local_belgian_results(normalized_query)
+    language = language if language in {"fr", "en", "nl"} else "fr"
+    local_cities = _local_belgian_results(normalized_query, language)
     parameters = urlencode([
         ("q", normalized_query),
-        ("lang", language if language in {"fr", "en", "nl"} else "fr"),
+        ("lang", language),
         ("limit", limit),
         ("lat", "50.8503"),
         ("lon", "4.3517"),

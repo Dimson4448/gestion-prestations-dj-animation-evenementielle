@@ -1,12 +1,13 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { LoaderCircle, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { searchLocations } from "../api";
-import { normalizeLocationResults, popularLocations } from "../utils/locations";
+import { getPopularLocations, normalizeLocationResults, translatePopularLocation } from "../utils/locations";
 
 export default function CityAutocomplete({ label, value, onChange }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const popularLocations = useMemo(() => getPopularLocations(i18n.language), [i18n.language]);
   const inputId = useId();
   const listboxId = useId();
   const requestId = useRef(0);
@@ -15,6 +16,11 @@ export default function CityAutocomplete({ label, value, onChange }) {
   const [hasTyped, setHasTyped] = useState(false);
   const [results, setResults] = useState(popularLocations);
   const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    const translatedValue = translatePopularLocation(value, i18n.language);
+    if (!hasTyped && translatedValue !== value) onChange(translatedValue);
+  }, [hasTyped, i18n.language, onChange, value]);
 
   useEffect(() => {
     const query = value.trim();
@@ -45,7 +51,7 @@ export default function CityAutocomplete({ label, value, onChange }) {
     }, 400);
 
     return () => window.clearTimeout(timer);
-  }, [hasTyped, isOpen, t, value]);
+  }, [hasTyped, isOpen, popularLocations, t, value]);
 
   const selectLocation = (item) => {
     onChange(item.city);

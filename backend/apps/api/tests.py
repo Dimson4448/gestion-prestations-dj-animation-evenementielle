@@ -124,10 +124,14 @@ class ApiUltimateDJTests(APITestCase):
         mons = search_cities("Mons", language="fr")
         laeken = search_cities("Laeken", language="fr")
         molenbeek = search_cities("Molenbeek", language="fr")
+        brussels = search_cities("Brussels", language="en")
+        bergen = search_cities("Bergen", language="nl")
 
         self.assertEqual(mons[0]["city"], "Mons")
         self.assertEqual(laeken[0]["city"], "Laeken")
         self.assertEqual(molenbeek[0]["city"], "Molenbeek-Saint-Jean")
+        self.assertEqual(brussels[0]["label"], "Brussels, Brussels-Capital, Belgium")
+        self.assertEqual(bergen[0]["label"], "Bergen, Henegouwen, België")
 
     def test_renouvelle_la_session_jwt_et_accede_au_profil(self):
         authenticated = self.client.post(
