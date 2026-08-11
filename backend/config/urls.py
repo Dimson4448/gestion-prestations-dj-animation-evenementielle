@@ -1,4 +1,6 @@
+from django.conf import settings
 from django.contrib import admin
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -24,3 +26,6 @@ urlpatterns = [
     path("api/v1/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/v1/", include("apps.api.urls")),
 ]
+
+if settings.DEBUG:
+    urlpatterns += staticfiles_urlpatterns()
