@@ -352,6 +352,10 @@ svg { width: 20px; height: 20px; }
 .cancellation-payments > div > span:first-child { display: grid; gap: 3px; }
 .cancellation-payments > div > span:first-child small { color: #69758b; }
 .cancellation-payments .document-button { margin-left: auto; }
+.partial-refund-controls { display: flex; flex-wrap: wrap; align-items: end; justify-content: flex-end; gap: 8px; margin-left: auto; }
+.partial-refund-controls label { display: grid; gap: 4px; color: #344054; font-size: .72rem; font-weight: 800; }
+.partial-refund-controls input { width: 170px; min-height: 34px; padding: 6px 9px; border: 1px solid #b9c6d8; border-radius: 8px; color: var(--night); background: white; }
+.partial-refund-controls .document-button { margin-left: 0; }
 .cancellation-admin-actions { display: flex; justify-content: flex-end; }
 .availability-panel { display: grid; gap: 18px; margin-top: 30px; padding: 22px; border: 1px solid #bfeaf3; border-radius: var(--radius); background: #f4fcfe; }
 .availability-panel h2, .availability-panel p { margin: 0; }

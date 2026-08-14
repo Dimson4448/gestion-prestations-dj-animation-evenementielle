@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
+import { validateRefundAmount } from "./utils/refunds";
 import SiteFooter from "./components/SiteFooter";
 import SiteHeader from "./components/SiteHeader";
 import LocalizedContent from "./components/LocalizedContent";
@@ -180,6 +181,7 @@ export default function App() {
   const [adminCancellationPendingId, setAdminCancellationPendingId] = useState(null);
   const [adminPayments, setAdminPayments] = useState([]);
   const [refundPendingId, setRefundPendingId] = useState(null);
+  const [refundAmounts, setRefundAmounts] = useState({});
   const [playlists, setPlaylists] = useState([]);
   const [playlistSongs, setPlaylistSongs] = useState([]);
   const [musicStyles, setMusicStyles] = useState([]);
@@ -1106,13 +1108,20 @@ export default function App() {
   };
 
   const refundCancellationPayment = async (payment, request) => {
+    const validation = validateRefundAmount(refundAmounts[payment.id], payment.refundable_amount);
+    if (!validation.valid) {
+      setAdminStatus(validation.error);
+      return;
+    }
     setRefundPendingId(payment.id);
     setAdminStatus("");
     try {
       const response = await apiClient.post(`/payments/${payment.id}/refund/`, {
+        amount: validation.amount,
         reason: "requested_by_customer",
         internal_reason: `Demande d'annulation n°${request.id} : ${request.reason}`.slice(0, 255),
       });
+      setRefundAmounts((current) => ({ ...current, [payment.id]: "" }));
       await loadAdminDashboard();
       setAdminStatus(response.data.status === "succeeded" ? `Le paiement n°${payment.id} a été remboursé par Stripe.` : `Le remboursement Stripe n°${response.data.id} est en cours de traitement.`);
     } catch (error) {
@@ -1510,7 +1519,7 @@ export default function App() {
                       <small>Demandée le {new Date(request.requested_at).toLocaleString(i18n.language)}</small>
                       <div className="cancellation-payments">
                         <strong>Paiements liés</strong>
-                        {requestPayments.map((payment) => <div key={payment.id}><span>Paiement n°{payment.id} · {formatEuro(payment.amount)}<small>Remboursé : {formatEuro(payment.refunded_amount)} · Restant : {formatEuro(payment.refundable_amount)}</small></span><span className={`invoice-status ${payment.refund_status === "pending" ? "pending" : payment.status}`}>{payment.refund_status === "pending" ? "Remboursement en cours" : payment.refund_status === "partial" ? "Partiellement remboursé" : payment.refund_status === "failed" ? "Remboursement échoué" : payment.status === "paid" ? "Payé" : payment.status === "refunded" ? "Remboursé" : payment.status === "pending" ? "En attente" : "Échoué"}</span>{payment.status === "paid" && payment.refund_status !== "pending" && Number(payment.refundable_amount) > 0 && <button className="document-button" type="button" onClick={() => refundCancellationPayment(payment, request)} disabled={refundPendingId === payment.id}>{refundPendingId === payment.id ? "Remboursement…" : `Rembourser ${formatEuro(payment.refundable_amount)}`}</button>}</div>)}
+                        {requestPayments.map((payment) => <div key={payment.id}><span>Paiement n°{payment.id} · {formatEuro(payment.amount)}<small>Remboursé : {formatEuro(payment.refunded_amount)} · Restant : {formatEuro(payment.refundable_amount)}</small></span><span className={`invoice-status ${payment.refund_status === "pending" ? "pending" : payment.status}`}>{payment.refund_status === "pending" ? "Remboursement en cours" : payment.refund_status === "partial" ? "Partiellement remboursé" : payment.refund_status === "failed" ? "Remboursement échoué" : payment.status === "paid" ? "Payé" : payment.status === "refunded" ? "Remboursé" : payment.status === "pending" ? "En attente" : "Échoué"}</span>{payment.status === "paid" && payment.refund_status !== "pending" && Number(payment.refundable_amount) > 0 && <div className="partial-refund-controls"><label>Montant à rembourser<input type="number" min="0.01" max={payment.refundable_amount} step="0.01" inputMode="decimal" value={refundAmounts[payment.id] || ""} onChange={(event) => setRefundAmounts((current) => ({ ...current, [payment.id]: event.target.value }))} placeholder={`Maximum ${formatEuro(payment.refundable_amount)}`} /></label><button className="document-button" type="button" onClick={() => refundCancellationPayment(payment, request)} disabled={refundPendingId === payment.id}>{refundPendingId === payment.id ? "Remboursement…" : "Rembourser ce montant"}</button></div>}</div>)}
                         {!requestPayments.length && <small>Aucun paiement encaissé pour cette réservation.</small>}
                       </div>
                       <div className="cancellation-admin-actions"><button className="primary-button" type="button" onClick={() => approveCancellation(request)} disabled={adminCancellationPendingId === request.id || blockingPayments.length > 0}>{adminCancellationPendingId === request.id ? "Annulation…" : blockingPayments.length ? "Remboursement requis" : "Accepter et annuler"}</button></div>
