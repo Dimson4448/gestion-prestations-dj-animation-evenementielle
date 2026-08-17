@@ -1,6 +1,6 @@
 export default {
   language: { choice: "Taalkeuze", fr: "Frans", en: "Engels", nl: "Nederlands" },
-  nav: { skip: "Ga naar de hoofdinhoud", home: "Home", offers: "Aanbiedingen & dj's", quote: "Offerte aanvragen", account: "Mijn account", adminSpace: "Beheerdersruimte", djSpace: "DJ-ruimte", djangoAdmin: "Django Admin", main: "Hoofdnavigatie", footer: "Voettekstnavigatie", openMenu: "Menu openen", closeMenu: "Menu sluiten" },
+  nav: { skip: "Ga naar de hoofdinhoud", home: "Home", offers: "Aanbiedingen & dj's", quote: "Offerte aanvragen", account: "Mijn account", adminSpace: "Beheerdersruimte", djSpace: "DJ-ruimte", administration: "Beheer", main: "Hoofdnavigatie", footer: "Voettekstnavigatie", openMenu: "Menu openen", closeMenu: "Menu sluiten" },
   eventTypes: { childBirthday: "Kinderverjaardag", adultBirthday: "Verjaardag voor volwassenen", wedding: "Bruiloft", privateParty: "Privéfeest" },
   eventPrompt: "Selecteer een evenement",
   home: {
@@ -8,6 +8,13 @@ export default {
     verifiedSlots: "Gecontroleerde tijdsloten", verifiedSlotsText: "Duidelijke beschikbaarheid zonder onaangename verrassingen.", secureDeposit: "Veilig voorschot", secureDepositText: "De betaling bevestigt en reserveert uw tijdslot.", clientPlaylist: "Afspeellijst van de klant", clientPlaylistText: "Deel uw stijlen en nummers met de DJ.",
     adaptedOffers: "Aangepaste aanbiedingen", choosePackage: "Kies uw formule", allOffers: "Bekijk alle aanbiedingen", djService: "DJ-dienst", verifiedPrice: "Gecontroleerd tarief", from: "Vanaf", discover: "Ontdekken", guidedJourney: "Een begeleid traject", journeyTitle: "Van uw idee tot de dansvloer",
     steps: ["Beschrijf uw evenement", "Kies de aanbieding en DJ", "Bevestig offerte en contract", "Betaal het voorschot", "Bereid uw afspeellijst voor"],
+  },
+  djApplication: {
+    title: "Word Ultimate DJ", intro: "Vertel ons over uw ervaring en stuur uw bewijsstukken door. Uw profiel wordt pas na goedkeuring door de beheerder gepubliceerd.",
+    firstName: "Voornaam", lastName: "Achternaam", username: "Gebruikersnaam", email: "E-mail", password: "Wachtwoord", stageName: "Artiestennaam",
+    birthDate: "Geboortedatum", phone: "Telefoon", city: "Stad", language: "Taal", experience: "Jaren ervaring", rate: "Gewenst uurtarief (€)",
+    styles: "Muziekstijlen", stylesPlaceholder: "Afrobeats, pop, disco…", bio: "Professionele voorstelling", identity: "Identiteitsbewijs", insurance: "Burgerlijke aansprakelijkheidsverzekering",
+    security: "PDF, JPG of PNG, maximaal 5 MB per bestand. Documenten zijn alleen toegankelijk voor beheerders.", open: "DJ worden", close: "DJ-kandidatuur sluiten", submit: "Mijn kandidatuur indienen", sending: "Verzenden…", success: "Uw kandidatuur is geregistreerd. Bevestig uw e-mail; daarna beoordeelt de beheerder uw documenten.", pendingAccount: "Uw e-mail is bevestigd en uw DJ-kandidatuur wacht op goedkeuring door de beheerder.", error: "De kandidatuur kon niet worden verzonden. Controleer de velden en bestanden en of het e-mailadres en de artiestennaam uniek zijn.",
   },
   footer: { tagline: "Boeken. Mixen. Vieren.", offers: "Aanbiedingen", quote: "Offerte", account: "Mijn account", admin: "Beheer", version: "© 2026 Ultimate DJ · Bètaversie 0.2.0" },
   error: { eyebrow: "Tijdelijk probleem", title: "De pagina kon niet worden weergegeven.", text: "Laad de toepassing opnieuw. Controleer of de Django-backend actief is als het probleem aanhoudt.", reload: "Toepassing opnieuw laden" },

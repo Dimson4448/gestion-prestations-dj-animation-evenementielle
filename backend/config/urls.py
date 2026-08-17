@@ -6,6 +6,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.api.views import ThrottledTokenObtainPairView
+from apps.accounts.views import download_dj_application_document
 
 from .views import home
 
@@ -17,6 +18,7 @@ admin.site.index_title = "Gestion des prestations DJ"
 
 urlpatterns = [
     path("", home, name="home"),
+    path("admin/dj-applications/<int:pk>/document/<str:document_type>/", download_dj_application_document, name="dj-application-document"),
     path("admin/", admin.site.urls),
     path("accounts/", include("django.contrib.auth.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

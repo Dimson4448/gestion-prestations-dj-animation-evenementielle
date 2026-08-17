@@ -1,6 +1,6 @@
 export default {
   language: { choice: "Language selection", fr: "French", en: "English", nl: "Dutch" },
-  nav: { skip: "Skip to main content", home: "Home", offers: "Offers & DJs", quote: "Request a quote", account: "My account", adminSpace: "Admin area", djSpace: "DJ area", djangoAdmin: "Django Admin", main: "Main navigation", footer: "Footer navigation", openMenu: "Open menu", closeMenu: "Close menu" },
+  nav: { skip: "Skip to main content", home: "Home", offers: "Offers & DJs", quote: "Request a quote", account: "My account", adminSpace: "Admin area", djSpace: "DJ area", administration: "Administration", main: "Main navigation", footer: "Footer navigation", openMenu: "Open menu", closeMenu: "Close menu" },
   eventTypes: { childBirthday: "Children’s birthday", adultBirthday: "Adult birthday", wedding: "Wedding", privateParty: "Private party" },
   eventPrompt: "Select an event",
   home: {
@@ -8,6 +8,13 @@ export default {
     verifiedSlots: "Verified time slots", verifiedSlotsText: "Clear availability with no unpleasant surprises.", secureDeposit: "Secure deposit", secureDepositText: "Payment confirms and secures your time slot.", clientPlaylist: "Client playlist", clientPlaylistText: "Share your styles and songs with the DJ.",
     adaptedOffers: "Tailored offers", choosePackage: "Choose your package", allOffers: "View all offers", djService: "DJ service", verifiedPrice: "Verified price", from: "From", discover: "Discover", guidedJourney: "A guided journey", journeyTitle: "From your idea to the dance floor",
     steps: ["Describe your event", "Choose the offer and DJ", "Approve the quote and contract", "Pay the deposit", "Prepare your playlist"],
+  },
+  djApplication: {
+    title: "Become an Ultimate DJ", intro: "Tell us about your experience and submit your supporting documents. Your profile will only be published after admin approval.",
+    firstName: "First name", lastName: "Last name", username: "Username", email: "Email", password: "Password", stageName: "Stage name",
+    birthDate: "Date of birth", phone: "Phone", city: "City", language: "Language", experience: "Years of experience", rate: "Desired hourly rate (€)",
+    styles: "Music styles", stylesPlaceholder: "Afrobeats, pop, disco…", bio: "Professional introduction", identity: "Identity document", insurance: "Public liability insurance",
+    security: "PDF, JPG or PNG, maximum 5 MB per file. Documents are only accessible to administrators.", open: "Become a DJ", close: "Close the DJ application", submit: "Submit my application", sending: "Submitting…", success: "Your application has been recorded. Confirm your email, then the admin team will review your documents.", pendingAccount: "Your email is confirmed and your DJ application is awaiting admin approval.", error: "The application could not be submitted. Check the fields, files, and that the email and stage name are unique.",
   },
   footer: { tagline: "Book. Mix. Celebrate.", offers: "Offers", quote: "Quote", account: "My account", admin: "Administration", version: "© 2026 Ultimate DJ · Beta version 0.2.0" },
   error: { eyebrow: "Temporary issue", title: "The page could not be displayed.", text: "Reload the application. If the problem persists, check that the Django backend is running.", reload: "Reload the application" },

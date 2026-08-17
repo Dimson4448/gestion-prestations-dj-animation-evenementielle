@@ -1,639 +1,6252 @@
 openapi: 3.0.3
 info:
-  title: Ultimate DJ API
+  title: API Ultimate DJ
   version: 1.0.0
-  description: API REST du projet Ultimate DJ - gestion des prestations DJ et animation événementielle.
-servers:
-  - url: http://localhost:8000/api/v1
-    description: Serveur local de développement
-security:
-  - bearerAuth: []
-tags:
-  - name: Authentification
-  - name: Avis
-  - name: Catalogue
-  - name: Contrats
-  - name: DJ
-  - name: Devis
-  - name: Disponibilités
-  - name: Documentation
-  - name: Factures
-  - name: Open Data
-  - name: Paiements
-  - name: Playlist
-  - name: Rendez-vous
-  - name: Réservations
+  description: API REST pour la gestion des prestations DJ et animation événementielle.
 paths:
-  /api/schema/:
+  /api/v1/appointments/:
     get:
-      tags: [Documentation]
-      summary: "Schéma OpenAPI généré par drf-spectacular."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /api/docs/swagger/:
-    get:
-      tags: [Documentation]
-      summary: "Interface Swagger UI pour tester l'API."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /api/docs/redoc/:
-    get:
-      tags: [Documentation]
-      summary: "Documentation ReDoc plus lisible pour consultation."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /auth/token/:
-    post:
-      tags: [Authentification]
-      summary: "Connexion et génération des jetons JWT."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /auth/token/refresh/:
-    post:
-      tags: [Authentification]
-      summary: "Renouvellement du jeton d'accès."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /me/:
-    get:
-      tags: [Authentification]
-      summary: "Profil de l'utilisateur connecté."
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /open-data/packages/:
-    get:
-      tags: [Open Data]
-      summary: "Liste publique des packages commerciaux actifs."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /open-data/event-types/:
-    get:
-      tags: [Open Data]
-      summary: "Types d'événements proposés."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /open-data/music-styles/:
-    get:
-      tags: [Open Data]
-      summary: "Styles musicaux disponibles."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /open-data/djs/:
-    get:
-      tags: [Open Data]
-      summary: "Présentation publique des DJ actifs, sans données privées."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /open-data/reviews/:
-    get:
-      tags: [Open Data]
-      summary: "Avis publiés et modérés."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /packages/:
-    get:
-      tags: [Catalogue]
-      summary: "Consultation des formules et prix de base."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /service-options/:
-    get:
-      tags: [Catalogue]
-      summary: "Options payantes disponibles."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /djs/:
-    get:
-      tags: [DJ]
-      summary: "Liste des DJ visibles côté client."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /djs/{id}/availability/:
-    get:
-      tags: [Disponibilités]
-      summary: "Créneaux disponibles d'un DJ."
+      operationId: v1_appointments_list
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /quotes/calculate/:
-    post:
-      tags: [Devis]
-      summary: "Simulation de devis informatif."
-      security: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /quotes/:
-    get:
-      tags: [Devis]
-      summary: "Liste des devis du client ou de l'administrateur."
+      - in: query
+        name: mode
+        schema:
+          type: string
+          enum:
+          - in_person
+          - online
+        description: |-
+          * `online` - En ligne
+          * `in_person` - En présentiel
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          title: Statut
+          enum:
+          - cancelled
+          - done
+          - planned
+        description: |-
+          * `planned` - Planifié
+          * `done` - Réalisé
+          * `cancelled` - Annulé
+      tags:
+      - v1
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
         '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /quotes/:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPreparatoryAppointmentList'
+          description: ''
     post:
-      tags: [Devis]
-      summary: "Création d'un devis lié à un client."
+      operationId: v1_appointments_create
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreparatoryAppointment'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PreparatoryAppointment'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PreparatoryAppointment'
+        required: true
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /quotes/{id}/:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreparatoryAppointment'
+          description: ''
+  /api/v1/appointments/{id}/:
     get:
-      tags: [Devis]
-      summary: "Détail d'un devis."
+      operationId: v1_appointments_retrieve
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) rendez-vous
+          préparatoire.
+        required: true
+      tags:
+      - v1
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
         '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /quotes/{id}/:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreparatoryAppointment'
+          description: ''
+    put:
+      operationId: v1_appointments_update
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) rendez-vous
+          préparatoire.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreparatoryAppointment'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PreparatoryAppointment'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PreparatoryAppointment'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreparatoryAppointment'
+          description: ''
     patch:
-      tags: [Devis]
-      summary: "Modification limitée du devis tant qu'il n'est pas accepté."
+      operationId: v1_appointments_partial_update
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) rendez-vous
+          préparatoire.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPreparatoryAppointment'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPreparatoryAppointment'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPreparatoryAppointment'
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
         '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /quotes/{id}/accept/:
-    post:
-      tags: [Devis]
-      summary: "Acceptation du devis et préparation de la réservation."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreparatoryAppointment'
+          description: ''
+    delete:
+      operationId: v1_appointments_destroy
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) rendez-vous
+          préparatoire.
+        required: true
+      tags:
+      - v1
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /bookings/:
+        '204':
+          description: No response body
+  /api/v1/auth/deletion-requests/:
     get:
-      tags: [Réservations]
-      summary: "Liste des réservations selon le rôle."
+      operationId: v1_auth_deletion_requests_list
+      summary: Consulter ou demander la suppression du compte
+      tags:
+      - v1
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
         '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /bookings/:
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccountDeletionRequest'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletionRequest'
+          description: ''
     post:
-      tags: [Réservations]
-      summary: "Création d'une réservation à partir d'un devis accepté."
+      operationId: v1_auth_deletion_requests_create
+      summary: Consulter ou demander la suppression du compte
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountDeletionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AccountDeletionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AccountDeletionRequest'
+        required: true
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
         '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /bookings/{id}/:
-    get:
-      tags: [Réservations]
-      summary: "Détail complet d'une réservation."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccountDeletionRequest'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletionRequest'
+          description: ''
+  /api/v1/auth/deletion-requests/{id}/cancel/:
+    post:
+      operationId: v1_auth_deletion_requests_cancel_create
+      summary: Annuler une demande de suppression
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
         '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /bookings/{id}/status/:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletionRequest'
+          description: ''
+  /api/v1/auth/deletion-requests/{id}/review/:
+    post:
+      operationId: v1_auth_deletion_requests_review_create
+      summary: Traiter une demande de suppression
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountDeletionReview'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AccountDeletionReview'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AccountDeletionReview'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletionRequest'
+          description: ''
+  /api/v1/auth/dj-application/:
+    get:
+      operationId: v1_auth_dj_application_retrieve
+      summary: Consulter sa candidature DJ
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DJApplicationStatus'
+          description: ''
+  /api/v1/auth/logout/:
+    post:
+      operationId: v1_auth_logout_create
+      summary: Révoquer la session JWT
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Logout'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Logout'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Logout'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/me/:
+    get:
+      operationId: v1_auth_me_retrieve
+      summary: Afficher l'utilisateur connecté
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+          description: ''
+  /api/v1/auth/password-change/:
+    post:
+      operationId: v1_auth_password_change_create
+      summary: Modifier le mot de passe connecté
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/password-reset/:
+    post:
+      operationId: v1_auth_password_reset_create
+      summary: Demander un nouveau mot de passe
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: Demande traitée
+  /api/v1/auth/password-reset/confirm/:
+    post:
+      operationId: v1_auth_password_reset_confirm_create
+      summary: Confirmer un nouveau mot de passe
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/profile/:
+    get:
+      operationId: v1_auth_profile_retrieve
+      summary: Consulter ou modifier son profil client
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfileUpdate'
+          description: ''
     patch:
-      tags: [Réservations]
-      summary: "Mise à jour du statut métier."
+      operationId: v1_auth_profile_partial_update
+      summary: Consulter ou modifier son profil client
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedClientProfileUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedClientProfileUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedClientProfileUpdate'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfileUpdate'
+          description: ''
+  /api/v1/auth/register/:
+    post:
+      operationId: v1_auth_register_create
+      summary: Créer un compte client
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientRegistration'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ClientRegistration'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ClientRegistration'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          description: Compte créé, vérification requise
+  /api/v1/auth/register-dj/:
+    post:
+      operationId: v1_auth_register_dj_create
+      summary: Déposer une candidature DJ
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DJApplicationRegistration'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DJApplicationRegistration'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DJApplicationRegistration'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DJApplicationStatus'
+          description: ''
+  /api/v1/auth/token/:
+    post:
+      operationId: v1_auth_token_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/v1/auth/token/refresh/:
+    post:
+      operationId: v1_auth_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/auth/verify-email/:
+    post:
+      operationId: v1_auth_verify_email_create
+      summary: Confirmer une adresse e-mail
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerification'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailVerification'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailVerification'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/verify-email/resend/:
+    post:
+      operationId: v1_auth_verify_email_resend_create
+      summary: Renvoyer le lien de vérification
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationResend'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationResend'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationResend'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: Demande traitée
+  /api/v1/availability/:
+    get:
+      operationId: v1_availability_list
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      tags:
+      - v1
       security:
-        - bearerAuth: []
+      - jwtAuth: []
+      - {}
       responses:
         '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /bookings/{id}/cancel/:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDJAvailabilityList'
+          description: ''
     post:
-      tags: [Réservations]
-      summary: "Annulation avec motif et règles de remboursement."
+      operationId: v1_availability_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DJAvailability'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DJAvailability'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DJAvailability'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DJAvailability'
+          description: ''
+  /api/v1/availability/{id}/:
+    get:
+      operationId: v1_availability_retrieve
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) créneau DJ.
+        required: true
+      tags:
+      - v1
       security:
-        - bearerAuth: []
+      - jwtAuth: []
+      - {}
       responses:
         '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /appointments/:
-    get:
-      tags: [Rendez-vous]
-      summary: "Rendez-vous préparatoires."
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /appointments/:
-    post:
-      tags: [Rendez-vous]
-      summary: "Prise de rendez-vous préparatoire."
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /contracts/:
-    get:
-      tags: [Contrats]
-      summary: "Liste des contrats accessibles."
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /contracts/:
-    post:
-      tags: [Contrats]
-      summary: "Création d'un contrat personnalisé."
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /contracts/{id}/download/:
-    get:
-      tags: [Contrats]
-      summary: "Téléchargement du contrat PDF."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DJAvailability'
+          description: ''
+    put:
+      operationId: v1_availability_update
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) créneau DJ.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DJAvailability'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DJAvailability'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DJAvailability'
+        required: true
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
         '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /invoices/:
-    get:
-      tags: [Factures]
-      summary: "Factures liées aux réservations."
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /invoices/{id}/download/:
-    get:
-      tags: [Factures]
-      summary: "Téléchargement de la facture PDF."
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /payments/checkout-session/:
-    post:
-      tags: [Paiements]
-      summary: "Création d'une session Stripe Checkout."
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /payments/stripe-webhook/:
-    post:
-      tags: [Paiements]
-      summary: "Réception des événements Stripe."
-      security: []
-      description: Endpoint appelé par Stripe avec vérification de signature webhook côté serveur.
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /playlists/:
-    get:
-      tags: [Playlist]
-      summary: "Playlist liée aux événements du client."
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /playlists/{id}/songs/:
-    post:
-      tags: [Playlist]
-      summary: "Ajout d'une chanson demandée."
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /playlists/songs/{id}/:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DJAvailability'
+          description: ''
     patch:
-      tags: [Playlist]
-      summary: "Mise à jour d'une préférence musicale."
+      operationId: v1_availability_partial_update
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) créneau DJ.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDJAvailability'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDJAvailability'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDJAvailability'
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
         '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /reviews/:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DJAvailability'
+          description: ''
+    delete:
+      operationId: v1_availability_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) créneau DJ.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/bookings/:
+    get:
+      operationId: v1_bookings_list
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: query
+        name: deposit_paid
+        schema:
+          type: boolean
+      - in: query
+        name: event_type
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - in: query
+        name: package
+        schema:
+          type: integer
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          title: Statut
+          enum:
+          - cancelled
+          - confirmed
+          - paid
+          - performed
+          - preparatory_meeting
+        description: |-
+          * `preparatory_meeting` - Rendez-vous préparatoire
+          * `confirmed` - Confirmé
+          * `performed` - Presté
+          * `paid` - Payé
+          * `cancelled` - Annulé
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBookingList'
+          description: ''
     post:
-      tags: [Avis]
-      summary: "Dépôt d'un avis après prestation."
+      operationId: v1_bookings_create
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Booking'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Booking'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Booking'
+        required: true
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
-        '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
-  /reviews/{id}/moderate/:
-    patch:
-      tags: [Avis]
-      summary: "Modération d'un avis."
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+          description: ''
+  /api/v1/bookings/{id}/:
+    get:
+      operationId: v1_bookings_retrieve
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) réservation.
+        required: true
+      tags:
+      - v1
       security:
-        - bearerAuth: []
+      - jwtAuth: []
       responses:
         '200':
-          description: Succès
-        '400':
-          description: Requête invalide
-        '401':
-          description: Authentification requise ou jeton invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+          description: ''
+    put:
+      operationId: v1_bookings_update
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) réservation.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Booking'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Booking'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Booking'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+          description: ''
+    patch:
+      operationId: v1_bookings_partial_update
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) réservation.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBooking'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBooking'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBooking'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+          description: ''
+    delete:
+      operationId: v1_bookings_destroy
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) réservation.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/bookings/{id}/cancel/:
+    post:
+      operationId: v1_bookings_cancel_create
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      summary: Annuler une réservation remboursée et libérer le créneau DJ
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) réservation.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingCancellation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingCancellation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingCancellation'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+          description: ''
+  /api/v1/bookings/{id}/cancellation-requests/:
+    get:
+      operationId: v1_bookings_cancellation_requests_list
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      summary: Consulter les demandes d'annulation d'une réservation
+      parameters:
+      - in: query
+        name: deposit_paid
+        schema:
+          type: boolean
+      - in: query
+        name: event_type
+        schema:
+          type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) réservation.
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - in: query
+        name: package
+        schema:
+          type: integer
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          title: Statut
+          enum:
+          - cancelled
+          - confirmed
+          - paid
+          - performed
+          - preparatory_meeting
+        description: |-
+          * `preparatory_meeting` - Rendez-vous préparatoire
+          * `confirmed` - Confirmé
+          * `performed` - Presté
+          * `paid` - Payé
+          * `cancelled` - Annulé
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCancellationRequestList'
+          description: ''
+  /api/v1/bookings/{id}/complete/:
+    post:
+      operationId: v1_bookings_complete_create
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      summary: Clôturer la prestation et émettre la facture de solde
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) réservation.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Booking'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Booking'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Booking'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+          description: ''
+  /api/v1/bookings/{id}/reject-cancellation/:
+    post:
+      operationId: v1_bookings_reject_cancellation_create
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      summary: Refuser une demande d'annulation en attente
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) réservation.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancellationRequestReview'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CancellationRequestReview'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CancellationRequestReview'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancellationRequest'
+          description: ''
+  /api/v1/bookings/{id}/request-cancellation/:
+    post:
+      operationId: v1_bookings_request_cancellation_create
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      summary: Demander l'annulation d'une réservation en tant que client
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) réservation.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingCancellation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingCancellation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingCancellation'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancellationRequest'
+          description: ''
+  /api/v1/contracts/:
+    get:
+      operationId: v1_contracts_list
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          title: Statut
+          enum:
+          - cancelled
+          - draft
+          - sent
+          - signed
+        description: |-
+          * `draft` - Brouillon
+          * `sent` - Envoyé
+          * `signed` - Signé
+          * `cancelled` - Annulé
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedContractList'
+          description: ''
+    post:
+      operationId: v1_contracts_create
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Contract'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Contract'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Contract'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+          description: ''
+  /api/v1/contracts/{id}/:
+    get:
+      operationId: v1_contracts_retrieve
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) contrat.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+          description: ''
+    put:
+      operationId: v1_contracts_update
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) contrat.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Contract'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Contract'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Contract'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+          description: ''
+    patch:
+      operationId: v1_contracts_partial_update
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) contrat.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedContract'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedContract'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedContract'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+          description: ''
+    delete:
+      operationId: v1_contracts_destroy
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) contrat.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/contracts/{id}/pdf/:
+    get:
+      operationId: v1_contracts_pdf_retrieve
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      summary: Télécharger le contrat au format PDF
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) contrat.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+          description: Contrat PDF
+  /api/v1/contracts/{id}/sign/:
+    post:
+      operationId: v1_contracts_sign_create
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      summary: Signer le contrat en tant que client
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) contrat.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Contract'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Contract'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Contract'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+          description: ''
+  /api/v1/djs/:
+    get:
+      operationId: v1_djs_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDJProfileList'
+          description: ''
+  /api/v1/djs/{id}/:
+    get:
+      operationId: v1_djs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) profil DJ.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DJProfile'
+          description: ''
+  /api/v1/equipment/:
+    get:
+      operationId: v1_equipment_list
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          title: Statut
+          enum:
+          - available
+          - maintenance
+          - reserved
+        description: |-
+          * `available` - Disponible
+          * `maintenance` - En maintenance
+          * `reserved` - Réservé
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEquipmentList'
+          description: ''
+    post:
+      operationId: v1_equipment_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Equipment'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Equipment'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Equipment'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+          description: ''
+  /api/v1/equipment/{id}/:
+    get:
+      operationId: v1_equipment_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) matériel.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+          description: ''
+    put:
+      operationId: v1_equipment_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) matériel.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Equipment'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Equipment'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Equipment'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+          description: ''
+    patch:
+      operationId: v1_equipment_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) matériel.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEquipment'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEquipment'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEquipment'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+          description: ''
+    delete:
+      operationId: v1_equipment_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) matériel.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/event-types/:
+    get:
+      operationId: v1_event_types_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEventTypeList'
+          description: ''
+    post:
+      operationId: v1_event_types_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventType'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EventType'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EventType'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+          description: ''
+  /api/v1/event-types/{id}/:
+    get:
+      operationId: v1_event_types_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) type d'événement.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+          description: ''
+    put:
+      operationId: v1_event_types_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) type d'événement.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventType'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EventType'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EventType'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+          description: ''
+    patch:
+      operationId: v1_event_types_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) type d'événement.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEventType'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEventType'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEventType'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+          description: ''
+    delete:
+      operationId: v1_event_types_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) type d'événement.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/invoices/:
+    get:
+      operationId: v1_invoices_list
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: query
+        name: invoice_type
+        schema:
+          type: string
+          title: Type de facture
+          enum:
+          - balance
+          - deposit
+          - full
+        description: |-
+          * `deposit` - Acompte
+          * `balance` - Solde
+          * `full` - Facture complète
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          title: Statut
+          enum:
+          - cancelled
+          - draft
+          - paid
+          - sent
+        description: |-
+          * `draft` - Brouillon
+          * `sent` - Envoyée
+          * `paid` - Payée
+          * `cancelled` - Annulée
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvoiceList'
+          description: ''
+    post:
+      operationId: v1_invoices_create
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+          description: ''
+  /api/v1/invoices/{id}/:
+    get:
+      operationId: v1_invoices_retrieve
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) facture.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+          description: ''
+    put:
+      operationId: v1_invoices_update
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) facture.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+          description: ''
+    patch:
+      operationId: v1_invoices_partial_update
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) facture.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInvoice'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInvoice'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInvoice'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+          description: ''
+    delete:
+      operationId: v1_invoices_destroy
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) facture.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/invoices/{id}/checkout/:
+    post:
+      operationId: v1_invoices_checkout_create
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) facture.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+          description: ''
+  /api/v1/invoices/{id}/pdf/:
+    get:
+      operationId: v1_invoices_pdf_retrieve
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      summary: Télécharger la facture au format PDF
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) facture.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+          description: Facture PDF
+  /api/v1/locations/search/:
+    get:
+      operationId: v1_locations_search_retrieve
+      summary: Rechercher une ville en Belgique et dans le monde
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/music-styles/:
+    get:
+      operationId: v1_music_styles_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMusicStyleList'
+          description: ''
+    post:
+      operationId: v1_music_styles_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MusicStyle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MusicStyle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MusicStyle'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MusicStyle'
+          description: ''
+  /api/v1/music-styles/{id}/:
+    get:
+      operationId: v1_music_styles_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) style musical.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MusicStyle'
+          description: ''
+    put:
+      operationId: v1_music_styles_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) style musical.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MusicStyle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MusicStyle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MusicStyle'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MusicStyle'
+          description: ''
+    patch:
+      operationId: v1_music_styles_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) style musical.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMusicStyle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMusicStyle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMusicStyle'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MusicStyle'
+          description: ''
+    delete:
+      operationId: v1_music_styles_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) style musical.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/packages/:
+    get:
+      operationId: v1_packages_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPackageList'
+          description: ''
+    post:
+      operationId: v1_packages_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Package'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Package'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Package'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Package'
+          description: ''
+  /api/v1/packages/{id}/:
+    get:
+      operationId: v1_packages_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) package.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Package'
+          description: ''
+    put:
+      operationId: v1_packages_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) package.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Package'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Package'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Package'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Package'
+          description: ''
+    patch:
+      operationId: v1_packages_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) package.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPackage'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPackage'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPackage'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Package'
+          description: ''
+    delete:
+      operationId: v1_packages_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) package.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/payments/:
+    get:
+      operationId: v1_payments_list
+      parameters:
+      - in: query
+        name: currency
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          title: Statut
+          enum:
+          - failed
+          - paid
+          - pending
+          - refunded
+        description: |-
+          * `pending` - En attente
+          * `paid` - Payé
+          * `failed` - Échoué
+          * `refunded` - Remboursé
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPaymentList'
+          description: ''
+  /api/v1/payments/{id}/:
+    get:
+      operationId: v1_payments_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) paiement.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+          description: ''
+  /api/v1/payments/{id}/refund/:
+    post:
+      operationId: v1_payments_refund_create
+      summary: Rembourser totalement ou partiellement un paiement Stripe
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) paiement.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+          description: ''
+  /api/v1/playlist-songs/:
+    get:
+      operationId: v1_playlist_songs_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - in: query
+        name: preference_level
+        schema:
+          type: string
+          title: Préférence
+          enum:
+          - do_not_play
+          - must_play
+          - play_if_possible
+        description: |-
+          * `must_play` - À jouer absolument
+          * `play_if_possible` - À jouer si possible
+          * `do_not_play` - À ne pas jouer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          title: Statut
+          enum:
+          - approved
+          - rejected
+          - requested
+        description: |-
+          * `requested` - Demandée
+          * `approved` - Acceptée
+          * `rejected` - Refusée
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPlaylistSongList'
+          description: ''
+    post:
+      operationId: v1_playlist_songs_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaylistSong'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlaylistSong'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlaylistSong'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistSong'
+          description: ''
+  /api/v1/playlist-songs/{id}/:
+    get:
+      operationId: v1_playlist_songs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) chanson de
+          playlist.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistSong'
+          description: ''
+    put:
+      operationId: v1_playlist_songs_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) chanson de
+          playlist.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaylistSong'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlaylistSong'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlaylistSong'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistSong'
+          description: ''
+    patch:
+      operationId: v1_playlist_songs_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) chanson de
+          playlist.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaylistSong'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaylistSong'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaylistSong'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistSong'
+          description: ''
+    delete:
+      operationId: v1_playlist_songs_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) chanson de
+          playlist.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/playlists/:
+    get:
+      operationId: v1_playlists_list
+      parameters:
+      - in: query
+        name: main_style
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPlaylistList'
+          description: ''
+    post:
+      operationId: v1_playlists_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Playlist'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Playlist'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Playlist'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+          description: ''
+  /api/v1/playlists/{id}/:
+    get:
+      operationId: v1_playlists_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) playlist.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+          description: ''
+    put:
+      operationId: v1_playlists_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) playlist.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Playlist'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Playlist'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Playlist'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+          description: ''
+    patch:
+      operationId: v1_playlists_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) playlist.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaylist'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaylist'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaylist'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+          description: ''
+    delete:
+      operationId: v1_playlists_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) playlist.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/quotes/:
+    get:
+      operationId: v1_quotes_list
+      parameters:
+      - in: query
+        name: event_type
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - in: query
+        name: package
+        schema:
+          type: integer
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          title: Statut
+          enum:
+          - accepted
+          - draft
+          - expired
+          - refused
+          - sent
+        description: |-
+          * `draft` - Brouillon
+          * `sent` - Envoyé
+          * `accepted` - Accepté
+          * `refused` - Refusé
+          * `expired` - Expiré
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedQuoteList'
+          description: ''
+    post:
+      operationId: v1_quotes_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Quote'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Quote'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Quote'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+          description: ''
+  /api/v1/quotes/{id}/:
+    get:
+      operationId: v1_quotes_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) devis.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+          description: ''
+    put:
+      operationId: v1_quotes_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) devis.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Quote'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Quote'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Quote'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+          description: ''
+    patch:
+      operationId: v1_quotes_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) devis.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedQuote'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedQuote'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedQuote'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+          description: ''
+    delete:
+      operationId: v1_quotes_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) devis.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/quotes/{id}/accept/:
+    post:
+      operationId: v1_quotes_accept_create
+      summary: Accepter un devis et créer le dossier de réservation
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) devis.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteAcceptance'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QuoteAcceptance'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QuoteAcceptance'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+          description: ''
+  /api/v1/quotes/calculate/:
+    post:
+      operationId: v1_quotes_calculate_create
+      description: Calcule un devis indicatif à partir du package, de la durée et
+        de la distance de déplacement.
+      summary: Calculer un devis informatif
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteCalculationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QuoteCalculationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QuoteCalculationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteCalculationResponse'
+          description: ''
+  /api/v1/reviews/:
+    get:
+      operationId: v1_reviews_list
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - in: query
+        name: rating
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          title: Statut
+          enum:
+          - pending
+          - published
+          - rejected
+        description: |-
+          * `pending` - En attente
+          * `published` - Publié
+          * `rejected` - Rejeté
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedReviewList'
+          description: ''
+    post:
+      operationId: v1_reviews_create
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Review'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Review'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Review'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+          description: ''
+  /api/v1/reviews/{id}/:
+    get:
+      operationId: v1_reviews_retrieve
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) avis client.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+          description: ''
+    put:
+      operationId: v1_reviews_update
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) avis client.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Review'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Review'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Review'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+          description: ''
+    patch:
+      operationId: v1_reviews_partial_update
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) avis client.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedReview'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedReview'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedReview'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+          description: ''
+    delete:
+      operationId: v1_reviews_destroy
+      description: Ressource consultable par son propriétaire, mais écrite via les
+        parcours métier ou l'administration.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) avis client.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/service-options/:
+    get:
+      operationId: v1_service_options_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedServiceOptionList'
+          description: ''
+    post:
+      operationId: v1_service_options_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceOption'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ServiceOption'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ServiceOption'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOption'
+          description: ''
+  /api/v1/service-options/{id}/:
+    get:
+      operationId: v1_service_options_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) option de
+          service.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOption'
+          description: ''
+    put:
+      operationId: v1_service_options_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) option de
+          service.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceOption'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ServiceOption'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ServiceOption'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOption'
+          description: ''
+    patch:
+      operationId: v1_service_options_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) option de
+          service.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedServiceOption'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedServiceOption'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedServiceOption'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOption'
+          description: ''
+    delete:
+      operationId: v1_service_options_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) option de
+          service.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/venues/:
+    get:
+      operationId: v1_venues_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Quel champ utiliser pour classer les résultats.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un numéro de page de l'ensemble des résultats.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un terme de recherche.
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVenueList'
+          description: ''
+    post:
+      operationId: v1_venues_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Venue'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Venue'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Venue'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venue'
+          description: ''
+  /api/v1/venues/{id}/:
+    get:
+      operationId: v1_venues_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) lieu.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venue'
+          description: ''
+    put:
+      operationId: v1_venues_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) lieu.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Venue'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Venue'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Venue'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venue'
+          description: ''
+    patch:
+      operationId: v1_venues_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) lieu.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedVenue'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedVenue'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedVenue'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venue'
+          description: ''
+    delete:
+      operationId: v1_venues_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un(une) valeur entière unique identifiant ce(cette) lieu.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
   schemas:
-    Error:
+    AccountDeletionRequest:
       type: object
       properties:
-        detail:
+        id:
+          type: integer
+          readOnly: true
+        client_email:
           type: string
+          format: email
+          readOnly: true
+        client_name:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          title: Motif
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AccountDeletionRequestStatusEnum'
+          readOnly: true
+          title: Statut
+        review_message:
+          type: string
+          readOnly: true
+          title: Réponse administrative
+        requested_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Demandée le
+        reviewed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          title: Traitée le
+      required:
+      - client_email
+      - client_name
+      - id
+      - reason
+      - requested_at
+      - review_message
+      - reviewed_at
+      - status
+    AccountDeletionRequestStatusEnum:
+      enum:
+      - pending
+      - approved
+      - rejected
+      - cancelled
+      type: string
+      description: |-
+        * `pending` - En attente
+        * `approved` - Approuvée
+        * `rejected` - Refusée
+        * `cancelled` - Annulée par le client
+    AccountDeletionReview:
+      type: object
+      properties:
+        decision:
+          $ref: '#/components/schemas/DecisionEnum'
+        review_message:
+          type: string
+          minLength: 10
+      required:
+      - decision
+      - review_message
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        quote:
+          type: integer
+          title: Devis
+        client:
+          type: integer
+        dj:
+          type: integer
+        event_type:
+          type: integer
+          title: Type d'événement
+        package:
+          type: integer
+        venue:
+          type: integer
+          title: Lieu
+        equipment:
+          type: array
+          items:
+            type: integer
+            title: Matériel
+          readOnly: true
+          title: Matériel
+        event_date:
+          type: string
+          format: date
+          title: Date de l'événement
+        start_time:
+          type: string
+          format: time
+          title: Heure de début
+        end_time:
+          type: string
+          format: time
+          title: Heure de fin
+        status:
+          allOf:
+          - $ref: '#/components/schemas/BookingStatusEnum'
+          title: Statut
+        total_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Montant total
+        deposit_required:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Acompte requis
+        deposit_paid:
+          type: boolean
+          title: Acompte payé
+        cancellation_reason:
+          type: string
+          title: Motif d'annulation
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Créé le
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - created_at
+      - deposit_required
+      - dj
+      - end_time
+      - equipment
+      - event_date
+      - event_type
+      - id
+      - liens
+      - package
+      - quote
+      - start_time
+      - total_amount
+      - venue
+    BookingCancellation:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 255
+          minLength: 5
+      required:
+      - reason
+    BookingStatusEnum:
+      enum:
+      - preparatory_meeting
+      - confirmed
+      - performed
+      - paid
+      - cancelled
+      type: string
+      description: |-
+        * `preparatory_meeting` - Rendez-vous préparatoire
+        * `confirmed` - Confirmé
+        * `performed` - Presté
+        * `paid` - Payé
+        * `cancelled` - Annulé
+    CancellationRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          readOnly: true
+          title: Réservation
+        reason:
+          type: string
+          readOnly: true
+          title: Motif
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CancellationRequestStatusEnum'
+          readOnly: true
+          title: Statut
+        requested_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Demandée le
+        reviewed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          title: Traitée le
+        reviewed_by:
+          type: integer
+          readOnly: true
+          nullable: true
+          title: Traitée par
+        review_message:
+          type: string
+          readOnly: true
+          title: Réponse administrative
+      required:
+      - booking
+      - id
+      - reason
+      - requested_at
+      - review_message
+      - reviewed_at
+      - reviewed_by
+      - status
+    CancellationRequestReview:
+      type: object
+      properties:
+        message:
+          type: string
+          maxLength: 255
+          minLength: 5
+      required:
+      - message
+    CancellationRequestStatusEnum:
+      enum:
+      - pending
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `pending` - En attente
+        * `approved` - Acceptée
+        * `rejected` - Refusée
+    ClientProfileUpdate:
+      type: object
+      properties:
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          readOnly: true
+        date_of_birth:
+          type: string
+          format: date
+        phone:
+          type: string
+          maxLength: 30
+        billing_address:
+          type: string
+          maxLength: 255
+        billing_city:
+          type: string
+          maxLength: 80
+        billing_postal_code:
+          type: string
+          maxLength: 20
+        preferred_language:
+          $ref: '#/components/schemas/PreferredLanguageEnum'
+      required:
+      - billing_address
+      - billing_city
+      - billing_postal_code
+      - date_of_birth
+      - email
+      - first_name
+      - last_name
+      - phone
+      - preferred_language
+    ClientRegistration:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          writeOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        date_of_birth:
+          type: string
+          format: date
+        phone:
+          type: string
+          maxLength: 30
+        billing_address:
+          type: string
+          maxLength: 255
+        billing_city:
+          type: string
+          maxLength: 80
+        billing_postal_code:
+          type: string
+          maxLength: 20
+        preferred_language:
+          allOf:
+          - $ref: '#/components/schemas/PreferredLanguageEnum'
+          default: fr
+      required:
+      - billing_address
+      - billing_city
+      - billing_postal_code
+      - date_of_birth
+      - email
+      - first_name
+      - last_name
+      - password
+      - phone
+      - username
+    Contract:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          title: Réservation
+        contract_number:
+          type: string
+          title: Numéro de contrat
+          maxLength: 40
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ContractStatusEnum'
+          title: Statut
+        refund_policy:
+          type: string
+          title: Modalités de remboursement
+          maxLength: 255
+        signed_by_client_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: Signé par le client le
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Créé le
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - booking
+      - contract_number
+      - created_at
+      - id
+      - liens
+      - refund_policy
+    ContractStatusEnum:
+      enum:
+      - draft
+      - sent
+      - signed
+      - cancelled
+      type: string
+      description: |-
+        * `draft` - Brouillon
+        * `sent` - Envoyé
+        * `signed` - Signé
+        * `cancelled` - Annulé
+    CurrentUser:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        is_staff:
+          type: boolean
+          readOnly: true
+        role:
+          type: string
+          readOnly: true
+      required:
+      - email
+      - first_name
+      - id
+      - is_staff
+      - last_name
+      - role
+      - username
+    DJApplicationRegistration:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        first_name:
+          type: string
+          writeOnly: true
+          maxLength: 150
+        last_name:
+          type: string
+          writeOnly: true
+          maxLength: 150
+        stage_name:
+          type: string
+          title: Nom de scène
+          maxLength: 100
+        date_of_birth:
+          type: string
+          format: date
+          title: Date de naissance
+        phone:
+          type: string
+          title: Téléphone
+          maxLength: 30
+        city:
+          type: string
+          title: Ville
+          maxLength: 80
+        preferred_language:
+          allOf:
+          - $ref: '#/components/schemas/PreferredLanguageEnum'
+          title: Langue préférée
+        bio:
+          type: string
+          title: Présentation
+        music_styles:
+          type: string
+          title: Styles musicaux
+          maxLength: 255
+        base_hourly_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Tarif horaire souhaité
+        years_experience:
+          type: integer
+          maximum: 65535
+          minimum: 0
+          title: Années d'expérience
+        identity_document:
+          type: string
+          format: uri
+          title: Pièce d'identité
+          pattern: (?:pdf|jpg|jpeg|png)$
+        insurance_document:
+          type: string
+          format: uri
+          title: Assurance responsabilité civile
+          pattern: (?:pdf|jpg|jpeg|png)$
+      required:
+      - base_hourly_rate
+      - bio
+      - city
+      - date_of_birth
+      - email
+      - first_name
+      - identity_document
+      - insurance_document
+      - last_name
+      - music_styles
+      - password
+      - phone
+      - stage_name
+      - username
+    DJApplicationStatus:
+      type: object
+      properties:
+        stage_name:
+          type: string
+          readOnly: true
+          title: Nom de scène
+        status:
+          allOf:
+          - $ref: '#/components/schemas/DJApplicationStatusStatusEnum'
+          readOnly: true
+          title: Statut
+        review_message:
+          type: string
+          readOnly: true
+          title: Réponse administrative
+        submitted_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Envoyée le
+        reviewed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          title: Traitée le
+      required:
+      - review_message
+      - reviewed_at
+      - stage_name
+      - status
+      - submitted_at
+    DJApplicationStatusStatusEnum:
+      enum:
+      - pending
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `pending` - En attente
+        * `approved` - Approuvée
+        * `rejected` - Refusée
+    DJAvailability:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        dj:
+          allOf:
+          - $ref: '#/components/schemas/DJProfile'
+          readOnly: true
+        dj_id:
+          type: integer
+          writeOnly: true
+        available_date:
+          type: string
+          format: date
+          title: Date disponible
+        start_time:
+          type: string
+          format: time
+          title: Heure de début
+        end_time:
+          type: string
+          format: time
+          title: Heure de fin
+        status:
+          allOf:
+          - $ref: '#/components/schemas/DJAvailabilityStatusEnum'
+          title: Statut
+        reason:
+          type: string
+          title: Motif
+          maxLength: 255
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - available_date
+      - dj
+      - end_time
+      - id
+      - liens
+      - start_time
+    DJAvailabilityStatusEnum:
+      enum:
+      - available
+      - reserved
+      - blocked
+      type: string
+      description: |-
+        * `available` - Disponible
+        * `reserved` - Réservé
+        * `blocked` - Bloqué
+    DJProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        stage_name:
+          type: string
+          title: Nom de scène
+          maxLength: 100
+        bio:
+          type: string
+          title: Biographie
+        music_styles:
+          type: array
+          items:
+            $ref: '#/components/schemas/MusicStyle'
+          readOnly: true
+        base_hourly_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Tarif horaire de base
+        travel_rate_per_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Tarif de déplacement par km
+        years_experience:
+          type: integer
+          maximum: 65535
+          minimum: 0
+          title: Années d'expérience
+        is_available:
+          type: boolean
+          title: Disponible
+        average_rating:
+          type: number
+          format: double
+          readOnly: true
+        review_count:
+          type: integer
+          readOnly: true
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - average_rating
+      - base_hourly_rate
+      - bio
+      - id
+      - liens
+      - music_styles
+      - review_count
+      - stage_name
+    DecisionEnum:
+      enum:
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `approved` - approved
+        * `rejected` - rejected
+    EmailVerification:
+      type: object
+      properties:
+        uid:
+          type: string
+        token:
+          type: string
+      required:
+      - token
+      - uid
+    EmailVerificationResend:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
+    Equipment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        category:
+          type: string
+          title: Catégorie
+          maxLength: 60
+        name:
+          type: string
+          title: Nom
+          maxLength: 120
+        serial_number:
+          type: string
+          title: Numéro de série
+          maxLength: 80
+        daily_cost:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Coût journalier
+        replacement_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Valeur de remplacement
+        status:
+          allOf:
+          - $ref: '#/components/schemas/EquipmentStatusEnum'
+          title: Statut
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - category
+      - daily_cost
+      - id
+      - liens
+      - name
+      - replacement_value
+      - serial_number
+    EquipmentStatusEnum:
+      enum:
+      - available
+      - maintenance
+      - reserved
+      type: string
+      description: |-
+        * `available` - Disponible
+        * `maintenance` - En maintenance
+        * `reserved` - Réservé
+    EventType:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Nom
+          maxLength: 80
+        requires_preparatory_meeting:
+          type: boolean
+          title: Rendez-vous préparatoire requis
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - id
+      - liens
+      - name
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          title: Réservation
+        invoice_number:
+          type: string
+          title: Numéro de facture
+          maxLength: 40
+        invoice_type:
+          allOf:
+          - $ref: '#/components/schemas/InvoiceTypeEnum'
+          title: Type de facture
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Montant
+        status:
+          allOf:
+          - $ref: '#/components/schemas/InvoiceStatusEnum'
+          title: Statut
+        issued_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Émise le
+        due_at:
+          type: string
+          format: date-time
+          title: Échéance
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - amount
+      - booking
+      - due_at
+      - id
+      - invoice_number
+      - invoice_type
+      - issued_at
+      - liens
+    InvoiceStatusEnum:
+      enum:
+      - draft
+      - sent
+      - paid
+      - cancelled
+      type: string
+      description: |-
+        * `draft` - Brouillon
+        * `sent` - Envoyée
+        * `paid` - Payée
+        * `cancelled` - Annulée
+    InvoiceTypeEnum:
+      enum:
+      - deposit
+      - balance
+      - full
+      type: string
+      description: |-
+        * `deposit` - Acompte
+        * `balance` - Solde
+        * `full` - Facture complète
+    Logout:
+      type: object
+      properties:
+        refresh:
+          type: string
+          writeOnly: true
+      required:
+      - refresh
+    ModeEnum:
+      enum:
+      - online
+      - in_person
+      type: string
+      description: |-
+        * `online` - En ligne
+        * `in_person` - En présentiel
+    MusicStyle:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Nom
+          maxLength: 80
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - id
+      - liens
+      - name
+    Package:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Nom
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 255
+        included_hours:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          title: Heures incluses
+        base_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Prix de base
+        is_active:
+          type: boolean
+          title: Actif
+        event_types:
+          type: array
+          items:
+            type: integer
+            title: Prestations compatibles
+          title: Prestations compatibles
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - base_price
+      - description
+      - event_types
+      - id
+      - included_hours
+      - liens
+      - name
+    PaginatedBookingList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Booking'
+    PaginatedCancellationRequestList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CancellationRequest'
+    PaginatedContractList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Contract'
+    PaginatedDJAvailabilityList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DJAvailability'
+    PaginatedDJProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DJProfile'
+    PaginatedEquipmentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Equipment'
+    PaginatedEventTypeList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventType'
+    PaginatedInvoiceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invoice'
+    PaginatedMusicStyleList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MusicStyle'
+    PaginatedPackageList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Package'
+    PaginatedPaymentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payment'
+    PaginatedPlaylistList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Playlist'
+    PaginatedPlaylistSongList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaylistSong'
+    PaginatedPreparatoryAppointmentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreparatoryAppointment'
+    PaginatedQuoteList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Quote'
+    PaginatedReviewList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Review'
+    PaginatedServiceOptionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOption'
+    PaginatedVenueList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Venue'
+    PasswordChange:
+      type: object
+      properties:
+        current_password:
+          type: string
+          writeOnly: true
+        new_password:
+          type: string
+          writeOnly: true
+        refresh:
+          type: string
+          writeOnly: true
+      required:
+      - current_password
+      - new_password
+      - refresh
+    PasswordResetConfirm:
+      type: object
+      properties:
+        uid:
+          type: string
+        token:
+          type: string
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - password
+      - token
+      - uid
+    PasswordResetRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
+    PatchedBooking:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        quote:
+          type: integer
+          title: Devis
+        client:
+          type: integer
+        dj:
+          type: integer
+        event_type:
+          type: integer
+          title: Type d'événement
+        package:
+          type: integer
+        venue:
+          type: integer
+          title: Lieu
+        equipment:
+          type: array
+          items:
+            type: integer
+            title: Matériel
+          readOnly: true
+          title: Matériel
+        event_date:
+          type: string
+          format: date
+          title: Date de l'événement
+        start_time:
+          type: string
+          format: time
+          title: Heure de début
+        end_time:
+          type: string
+          format: time
+          title: Heure de fin
+        status:
+          allOf:
+          - $ref: '#/components/schemas/BookingStatusEnum'
+          title: Statut
+        total_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Montant total
+        deposit_required:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Acompte requis
+        deposit_paid:
+          type: boolean
+          title: Acompte payé
+        cancellation_reason:
+          type: string
+          title: Motif d'annulation
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Créé le
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedClientProfileUpdate:
+      type: object
+      properties:
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          readOnly: true
+        date_of_birth:
+          type: string
+          format: date
+        phone:
+          type: string
+          maxLength: 30
+        billing_address:
+          type: string
+          maxLength: 255
+        billing_city:
+          type: string
+          maxLength: 80
+        billing_postal_code:
+          type: string
+          maxLength: 20
+        preferred_language:
+          $ref: '#/components/schemas/PreferredLanguageEnum'
+    PatchedContract:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          title: Réservation
+        contract_number:
+          type: string
+          title: Numéro de contrat
+          maxLength: 40
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ContractStatusEnum'
+          title: Statut
+        refund_policy:
+          type: string
+          title: Modalités de remboursement
+          maxLength: 255
+        signed_by_client_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: Signé par le client le
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Créé le
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedDJAvailability:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        dj:
+          allOf:
+          - $ref: '#/components/schemas/DJProfile'
+          readOnly: true
+        dj_id:
+          type: integer
+          writeOnly: true
+        available_date:
+          type: string
+          format: date
+          title: Date disponible
+        start_time:
+          type: string
+          format: time
+          title: Heure de début
+        end_time:
+          type: string
+          format: time
+          title: Heure de fin
+        status:
+          allOf:
+          - $ref: '#/components/schemas/DJAvailabilityStatusEnum'
+          title: Statut
+        reason:
+          type: string
+          title: Motif
+          maxLength: 255
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedEquipment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        category:
+          type: string
+          title: Catégorie
+          maxLength: 60
+        name:
+          type: string
+          title: Nom
+          maxLength: 120
+        serial_number:
+          type: string
+          title: Numéro de série
+          maxLength: 80
+        daily_cost:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Coût journalier
+        replacement_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Valeur de remplacement
+        status:
+          allOf:
+          - $ref: '#/components/schemas/EquipmentStatusEnum'
+          title: Statut
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedEventType:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Nom
+          maxLength: 80
+        requires_preparatory_meeting:
+          type: boolean
+          title: Rendez-vous préparatoire requis
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedInvoice:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          title: Réservation
+        invoice_number:
+          type: string
+          title: Numéro de facture
+          maxLength: 40
+        invoice_type:
+          allOf:
+          - $ref: '#/components/schemas/InvoiceTypeEnum'
+          title: Type de facture
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Montant
+        status:
+          allOf:
+          - $ref: '#/components/schemas/InvoiceStatusEnum'
+          title: Statut
+        issued_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Émise le
+        due_at:
+          type: string
+          format: date-time
+          title: Échéance
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedMusicStyle:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Nom
+          maxLength: 80
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedPackage:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Nom
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 255
+        included_hours:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          title: Heures incluses
+        base_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Prix de base
+        is_active:
+          type: boolean
+          title: Actif
+        event_types:
+          type: array
+          items:
+            type: integer
+            title: Prestations compatibles
+          title: Prestations compatibles
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedPlaylist:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          title: Réservation
+        main_style:
+          type: integer
+          title: Style principal
+        notes:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Créé le
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedPlaylistSong:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        playlist:
+          type: integer
+        title:
+          type: string
+          title: Titre
+          maxLength: 160
+        artist:
+          type: string
+          title: Artiste
+          maxLength: 120
+        preference_level:
+          allOf:
+          - $ref: '#/components/schemas/PreferenceLevelEnum'
+          title: Préférence
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PlaylistSongStatusEnum'
+          title: Statut
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedPreparatoryAppointment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          title: Réservation
+        scheduled_at:
+          type: string
+          format: date-time
+          title: Date et heure du rendez-vous
+        mode:
+          $ref: '#/components/schemas/ModeEnum'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PreparatoryAppointmentStatusEnum'
+          title: Statut
+        notes:
+          type: string
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedQuote:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        client:
+          type: integer
+        event_type:
+          type: integer
+          title: Type d'événement
+        package:
+          type: integer
+        venue:
+          type: integer
+          title: Lieu
+        event_date:
+          type: string
+          format: date
+          title: Date de l'événement
+        start_time:
+          type: string
+          format: time
+          title: Heure de début
+        duration_hours:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          title: Durée en heures
+        guest_count:
+          type: integer
+          maximum: 65535
+          minimum: 0
+          title: Nombre d'invités
+        distance_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          title: Distance en km
+        parking_available:
+          type: boolean
+          title: Parking disponible
+        status:
+          allOf:
+          - $ref: '#/components/schemas/QuoteStatusEnum'
+          title: Statut
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: Sous-total
+        travel_fee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: Frais de déplacement
+        total_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: Montant total
+        deposit_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: Montant de l'acompte
+        music_preferences:
+          type: string
+          title: Préférences musicales
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Créé le
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedReview:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          title: Réservation
+        client:
+          type: integer
+          readOnly: true
+        dj:
+          type: integer
+          readOnly: true
+        rating:
+          type: integer
+          maximum: 65535
+          minimum: 0
+          title: Note
+        comment:
+          type: string
+          title: Commentaire
+          maxLength: 255
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ReviewStatusEnum'
+          title: Statut
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Créé le
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedServiceOption:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Nom
+          maxLength: 100
+        price_type:
+          allOf:
+          - $ref: '#/components/schemas/PriceTypeEnum'
+          title: Type de prix
+        unit_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Prix unitaire
+        is_active:
+          type: boolean
+          title: Actif
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    PatchedVenue:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        client:
+          type: integer
+        name:
+          type: string
+          title: Nom
+          maxLength: 120
+        street:
+          type: string
+          title: Rue
+          maxLength: 160
+        postal_code:
+          type: string
+          title: Code postal
+          maxLength: 20
+        city:
+          type: string
+          title: Ville
+          maxLength: 80
+        country:
+          type: string
+          title: Pays
+          maxLength: 80
+        has_parking:
+          type: boolean
+          title: Parking disponible
+        distance_km_from_base:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          title: Distance depuis la base (km)
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+    Payment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          readOnly: true
+          title: Réservation
+        invoice:
+          type: integer
+          readOnly: true
+          title: Facture
+        stripe_session_id:
+          type: string
+          readOnly: true
+          title: Identifiant de session Stripe
+        stripe_payment_intent_id:
+          type: string
+          readOnly: true
+          nullable: true
+          title: Identifiant d'intention de paiement Stripe
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: Montant
+        currency:
+          type: string
+          readOnly: true
+          title: Devise
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PaymentStatusEnum'
+          readOnly: true
+          title: Statut
+        refund_status:
+          type: string
+          readOnly: true
+        refunded_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        refundable_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        paid_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          title: Payé le
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - amount
+      - booking
+      - currency
+      - id
+      - invoice
+      - liens
+      - paid_at
+      - refund_status
+      - refundable_amount
+      - refunded_amount
+      - status
+      - stripe_payment_intent_id
+      - stripe_session_id
+    PaymentStatusEnum:
+      enum:
+      - pending
+      - paid
+      - failed
+      - refunded
+      type: string
+      description: |-
+        * `pending` - En attente
+        * `paid` - Payé
+        * `failed` - Échoué
+        * `refunded` - Remboursé
+    Playlist:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          title: Réservation
+        main_style:
+          type: integer
+          title: Style principal
+        notes:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Créé le
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - booking
+      - created_at
+      - id
+      - liens
+      - main_style
+    PlaylistSong:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        playlist:
+          type: integer
+        title:
+          type: string
+          title: Titre
+          maxLength: 160
+        artist:
+          type: string
+          title: Artiste
+          maxLength: 120
+        preference_level:
+          allOf:
+          - $ref: '#/components/schemas/PreferenceLevelEnum'
+          title: Préférence
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PlaylistSongStatusEnum'
+          title: Statut
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - artist
+      - id
+      - liens
+      - playlist
+      - title
+    PlaylistSongStatusEnum:
+      enum:
+      - requested
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `requested` - Demandée
+        * `approved` - Acceptée
+        * `rejected` - Refusée
+    PreferenceLevelEnum:
+      enum:
+      - must_play
+      - play_if_possible
+      - do_not_play
+      type: string
+      description: |-
+        * `must_play` - À jouer absolument
+        * `play_if_possible` - À jouer si possible
+        * `do_not_play` - À ne pas jouer
+    PreferredLanguageEnum:
+      enum:
+      - fr
+      - en
+      - nl
+      type: string
+      description: |-
+        * `fr` - Français
+        * `en` - Anglais
+        * `nl` - Néerlandais
+    PreparatoryAppointment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          title: Réservation
+        scheduled_at:
+          type: string
+          format: date-time
+          title: Date et heure du rendez-vous
+        mode:
+          $ref: '#/components/schemas/ModeEnum'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PreparatoryAppointmentStatusEnum'
+          title: Statut
+        notes:
+          type: string
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - booking
+      - id
+      - liens
+      - scheduled_at
+    PreparatoryAppointmentStatusEnum:
+      enum:
+      - planned
+      - done
+      - cancelled
+      type: string
+      description: |-
+        * `planned` - Planifié
+        * `done` - Réalisé
+        * `cancelled` - Annulé
+    PriceTypeEnum:
+      enum:
+      - fixed
+      - hourly
+      type: string
+      description: |-
+        * `fixed` - Forfait
+        * `hourly` - Horaire
+    Quote:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        client:
+          type: integer
+        event_type:
+          type: integer
+          title: Type d'événement
+        package:
+          type: integer
+        venue:
+          type: integer
+          title: Lieu
+        event_date:
+          type: string
+          format: date
+          title: Date de l'événement
+        start_time:
+          type: string
+          format: time
+          title: Heure de début
+        duration_hours:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          title: Durée en heures
+        guest_count:
+          type: integer
+          maximum: 65535
+          minimum: 0
+          title: Nombre d'invités
+        distance_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          title: Distance en km
+        parking_available:
+          type: boolean
+          title: Parking disponible
+        status:
+          allOf:
+          - $ref: '#/components/schemas/QuoteStatusEnum'
+          title: Statut
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: Sous-total
+        travel_fee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: Frais de déplacement
+        total_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: Montant total
+        deposit_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: Montant de l'acompte
+        music_preferences:
+          type: string
+          title: Préférences musicales
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Créé le
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - created_at
+      - deposit_amount
+      - duration_hours
+      - event_date
+      - event_type
+      - guest_count
+      - id
+      - liens
+      - package
+      - start_time
+      - subtotal
+      - total_amount
+      - travel_fee
+      - venue
+    QuoteAcceptance:
+      type: object
+      properties:
+        dj:
+          type: integer
+          title: DJ sélectionné
+      required:
+      - dj
     QuoteCalculationRequest:
       type: object
       properties:
-        event_type_id:
-          type: integer
         package_id:
           type: integer
+          title: Identifiant du package
         duration_hours:
-          type: number
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          title: Durée en heures
         distance_km:
-          type: number
-        parking_available:
-          type: boolean
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          default: '0.00'
+          title: Distance en km
+      required:
+      - duration_hours
+      - package_id
     QuoteCalculationResponse:
       type: object
       properties:
         subtotal:
           type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Sous-total
         travel_fee:
           type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Frais de déplacement
         total_amount:
           type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Montant total
         deposit_amount:
           type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Montant de l'acompte
+        currency:
+          type: string
+          title: Devise
+        liens:
+          type: object
+          additionalProperties: {}
+      required:
+      - currency
+      - deposit_amount
+      - liens
+      - subtotal
+      - total_amount
+      - travel_fee
+    QuoteStatusEnum:
+      enum:
+      - draft
+      - sent
+      - accepted
+      - refused
+      - expired
+      type: string
+      description: |-
+        * `draft` - Brouillon
+        * `sent` - Envoyé
+        * `accepted` - Accepté
+        * `refused` - Refusé
+        * `expired` - Expiré
+    ReasonEnum:
+      enum:
+      - requested_by_customer
+      - duplicate
+      - fraudulent
+      type: string
+      description: |-
+        * `requested_by_customer` - Demandé par le client
+        * `duplicate` - Paiement en double
+        * `fraudulent` - Paiement frauduleux
+    Refund:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        payment:
+          type: integer
+          readOnly: true
+          title: Paiement
+        stripe_refund_id:
+          type: string
+          readOnly: true
+          nullable: true
+          title: Identifiant de remboursement Stripe
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: Montant
+        currency:
+          type: string
+          readOnly: true
+          title: Devise
+        reason:
+          allOf:
+          - $ref: '#/components/schemas/ReasonEnum'
+          readOnly: true
+          title: Raison Stripe
+        internal_reason:
+          type: string
+          readOnly: true
+          title: Motif interne
+        status:
+          allOf:
+          - $ref: '#/components/schemas/RefundStatusEnum'
+          readOnly: true
+          title: Statut
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Créé le
+        processed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          title: Traité le
+      required:
+      - amount
+      - created_at
+      - currency
+      - id
+      - internal_reason
+      - payment
+      - processed_at
+      - reason
+      - status
+      - stripe_refund_id
+    RefundRequest:
+      type: object
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        reason:
+          allOf:
+          - $ref: '#/components/schemas/ReasonEnum'
+          default: requested_by_customer
+        internal_reason:
+          type: string
+          maxLength: 255
+          minLength: 5
+      required:
+      - internal_reason
+    RefundStatusEnum:
+      enum:
+      - pending
+      - succeeded
+      - failed
+      - cancelled
+      type: string
+      description: |-
+        * `pending` - En attente
+        * `succeeded` - Réussi
+        * `failed` - Échoué
+        * `cancelled` - Annulé
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        booking:
+          type: integer
+          title: Réservation
+        client:
+          type: integer
+          readOnly: true
+        dj:
+          type: integer
+          readOnly: true
+        rating:
+          type: integer
+          maximum: 65535
+          minimum: 0
+          title: Note
+        comment:
+          type: string
+          title: Commentaire
+          maxLength: 255
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ReviewStatusEnum'
+          title: Statut
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Créé le
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - booking
+      - client
+      - comment
+      - created_at
+      - dj
+      - id
+      - liens
+      - rating
+    ReviewStatusEnum:
+      enum:
+      - pending
+      - published
+      - rejected
+      type: string
+      description: |-
+        * `pending` - En attente
+        * `published` - Publié
+        * `rejected` - Rejeté
+    ServiceOption:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Nom
+          maxLength: 100
+        price_type:
+          allOf:
+          - $ref: '#/components/schemas/PriceTypeEnum'
+          title: Type de prix
+        unit_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Prix unitaire
+        is_active:
+          type: boolean
+          title: Actif
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - id
+      - liens
+      - name
+      - unit_price
+    TokenObtainPair:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - password
+      - refresh
+      - username
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    Venue:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        client:
+          type: integer
+        name:
+          type: string
+          title: Nom
+          maxLength: 120
+        street:
+          type: string
+          title: Rue
+          maxLength: 160
+        postal_code:
+          type: string
+          title: Code postal
+          maxLength: 20
+        city:
+          type: string
+          title: Ville
+          maxLength: 80
+        country:
+          type: string
+          title: Pays
+          maxLength: 80
+        has_parking:
+          type: boolean
+          title: Parking disponible
+        distance_km_from_base:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          title: Distance depuis la base (km)
+        liens:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - city
+      - distance_km_from_base
+      - id
+      - liens
+      - name
+      - postal_code
+      - street
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

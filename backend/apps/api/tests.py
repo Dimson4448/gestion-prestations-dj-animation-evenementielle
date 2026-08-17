@@ -1,4 +1,5 @@
 import json
+import tempfile
 from datetime import date, timedelta
 from io import BytesIO
 from urllib.error import URLError
@@ -9,12 +10,14 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJProfile
+from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJApplication, DJProfile
+from apps.accounts.services import DJApplicationApprovalError, approve_dj_application
 from apps.availability.models import DJAvailability
 from apps.bookings.models import Booking, CancellationRequest, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Review, Venue
 from apps.catalog.models import EventType, MusicStyle, Package
@@ -500,6 +503,61 @@ class ApiUltimateDJTests(APITestCase):
         duplicate = self.client.post("/api/v1/auth/register/", base_payload, format="json")
         self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("username", duplicate.data)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
+    def test_candidature_dj_exige_verification_et_approbation(self):
+        reviewer = get_user_model().objects.create_superuser(
+            username="admin_candidature_dj", email="admin.candidature@example.com", password="MotDePasseAdmin2026!"
+        )
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            response = self.client.post(
+                "/api/v1/auth/register-dj/",
+                {
+                    "username": "candidate_dj",
+                    "email": "candidate.dj@example.com",
+                    "password": "MotDePasseDJ2026!",
+                    "first_name": "Dalia",
+                    "last_name": "Mix",
+                    "stage_name": "DJ Dalia",
+                    "date_of_birth": "1994-05-12",
+                    "phone": "+32473333333",
+                    "city": "Mons",
+                    "preferred_language": "fr",
+                    "bio": "DJ spécialisée dans les mariages et soirées privées.",
+                    "music_styles": "Afrobeats, pop, disco",
+                    "base_hourly_rate": "85.00",
+                    "years_experience": 4,
+                    "identity_document": SimpleUploadedFile("identite.pdf", b"%PDF-1.4 test", content_type="application/pdf"),
+                    "insurance_document": SimpleUploadedFile("assurance.pdf", b"%PDF-1.4 test", content_type="application/pdf"),
+                },
+                format="multipart",
+            )
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+            application = DJApplication.objects.select_related("user").get(stage_name="DJ Dalia")
+            self.assertFalse(application.user.is_active)
+            self.assertFalse(DJProfile.objects.filter(user=application.user).exists())
+            with self.assertRaises(DJApplicationApprovalError):
+                approve_dj_application(application, reviewer)
+
+            verification_url = next(line for line in mail.outbox[-1].body.splitlines() if line.startswith("http://"))
+            parameters = parse_qs(urlparse(verification_url).query)
+            verified = self.client.post(
+                "/api/v1/auth/verify-email/",
+                {"uid": parameters["verify_uid"][0], "token": parameters["verify_token"][0]},
+                format="json",
+            )
+            self.assertEqual(verified.status_code, status.HTTP_204_NO_CONTENT)
+            application.user.refresh_from_db()
+            self.client.force_authenticate(user=application.user)
+            current = self.client.get("/api/v1/auth/me/")
+            self.assertEqual(current.data["role"], "dj_candidate")
+            candidate_status = self.client.get("/api/v1/auth/dj-application/")
+            self.assertEqual(candidate_status.data["status"], DJApplication.PENDING)
+
+            profile = approve_dj_application(application, reviewer)
+            self.assertFalse(profile.is_available)
+            current = self.client.get("/api/v1/auth/me/")
+            self.assertEqual(current.data["role"], "dj")
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
     def test_renvoi_verification_reste_discret_et_limite_aux_comptes_inactifs(self):

@@ -24,7 +24,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
-from apps.accounts.models import AccountDeletionRequest, DJProfile
+from apps.accounts.models import AccountDeletionRequest, DJApplication, DJProfile
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
@@ -58,6 +58,8 @@ from .serializers import (
     CurrentUserSerializer,
     DJAvailabilitySerializer,
     DJProfileSerializer,
+    DJApplicationRegistrationSerializer,
+    DJApplicationStatusSerializer,
     EquipmentSerializer,
     EventTypeSerializer,
     EmailVerificationSerializer,
@@ -292,6 +294,32 @@ def register_client(request):
         {"detail": "Votre compte a été créé. Consultez votre e-mail pour l'activer avant de vous connecter."},
         status=status.HTTP_201_CREATED,
     )
+
+
+@extend_schema(request=DJApplicationRegistrationSerializer, responses={201: DJApplicationStatusSerializer}, summary="Déposer une candidature DJ")
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([AccountActionRateThrottle])
+def register_dj_application(request):
+    serializer = DJApplicationRegistrationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    application = serializer.save()
+    send_verification_email(application.user)
+    return Response(
+        {
+            **DJApplicationStatusSerializer(application).data,
+            "detail": "Votre candidature est enregistrée. Confirmez votre e-mail, puis l’administrateur examinera vos justificatifs.",
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@extend_schema(responses={200: DJApplicationStatusSerializer}, summary="Consulter sa candidature DJ")
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def dj_application_status(request):
+    application = get_object_or_404(DJApplication, user=request.user)
+    return Response(DJApplicationStatusSerializer(application).data)
 
 
 @extend_schema(request=EmailVerificationSerializer, responses={204: None}, summary="Confirmer une adresse e-mail")
