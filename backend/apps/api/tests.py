@@ -5,6 +5,7 @@ from urllib.error import URLError
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import MagicMock, patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core import mail
@@ -22,6 +23,9 @@ from apps.bookings.services import accept_quote
 
 
 class ApiUltimateDJTests(APITestCase):
+    def test_cle_de_signature_jwt_respecte_la_longueur_minimale(self):
+        self.assertGreaterEqual(len(settings.SECRET_KEY.encode("utf-8")), 32)
+
     def setUp(self):
         cache.clear()
         self.package = Package.objects.create(
