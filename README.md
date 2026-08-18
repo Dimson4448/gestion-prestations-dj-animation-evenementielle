@@ -401,6 +401,10 @@ libres saisis par les utilisateurs restent inchangés.
 - **Administration** : traitement des devis, affectation du DJ, suivi des
   réservations et clôture des prestations.
 
+Le lien vers Django Admin est réservé aux comptes administrateurs (`is_staff`).
+Un DJ confirmé utilise exclusivement l'espace DJ React et ne reçoit aucun accès
+aux données administratives globales.
+
 Les disponibilités disponibles sont publiques. Un DJ ne peut gérer que ses
 propres créneaux et ne peut ni modifier ni supprimer un créneau déjà réservé.
 
