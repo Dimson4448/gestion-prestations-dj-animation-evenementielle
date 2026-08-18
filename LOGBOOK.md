@@ -8,15 +8,35 @@ Dernière mise à jour : 18 août 2026
 
 ## Objectif du logbook
 
-Ce logbook retrace les principales décisions, productions et étapes de travail du projet TFE. Il sert à garder une mémoire claire de l'évolution du projet, depuis la récupération des conversations de travail jusqu'à la consolidation actuelle de l'application Django/React. Il couvre le développement des versions alpha et beta ainsi que les parcours client, DJ et administration.
+Ce journal présente l'évolution de mon projet TFE Ultimate DJ. J'y note les
+choix que j'ai faits, les fonctionnalités que j'ai développées, les difficultés
+rencontrées et les vérifications réalisées. Il couvre la préparation du projet,
+les versions alpha et beta ainsi que la consolidation des parcours client, DJ
+et administration.
+
+## Règle de mise à jour
+
+Le logbook est actualisé à la fin de chaque journée pendant laquelle le projet
+évolue. Chaque entrée quotidienne indique, selon les travaux concernés :
+
+- les fonctionnalités développées ou corrigées ;
+- les décisions techniques et métier importantes ;
+- les tests et vérifications réalisés ;
+- les migrations Django et la nécessité éventuelle d'actualiser le dump MariaDB ;
+- les documents ou livrables modifiés ;
+- les commits, Pull Requests et fusions effectués ;
+- les difficultés rencontrées et les prochaines étapes.
+
+Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 
 ## Historique des étapes
 
-### 2026-06-10 - Récupération des conversations de travail
+### 2026-06-10 - Démarrage et organisation du projet
 
-- Export des conversations ChatGPT contenant les travaux en attente.
-- Organisation des conversations récupérées afin de pouvoir poursuivre le projet dans Codex.
-- Reprise de la conversation liée à la gestion des prestations DJ et animation événementielle.
+- J'ai rassemblé mes notes, les consignes de l'école et les livrables déjà préparés afin d'avoir une vue claire du travail à réaliser.
+- J'ai organisé le projet par grandes étapes : analyse, modélisation, base de données, backend, frontend, tests et documentation.
+- J'ai choisi de développer une application centrée sur la réservation et le suivi de prestations DJ adaptées à mon cahier des charges.
+- Pour quelques tâches particulièrement complexes, notamment la vérification de certaines règles techniques, j'ai utilisé ChatGPT comme outil d'aide. J'ai ensuite contrôlé et adapté les propositions au contexte réel de mon projet.
 
 ### 2026-06-10 à 2026-06-30 - Analyse et modélisation UML
 
