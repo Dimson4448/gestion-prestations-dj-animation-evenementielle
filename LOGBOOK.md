@@ -292,6 +292,7 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - Création et versionnement du manuel d'utilisation détaillé.
 - Développement de la candidature DJ sécurisée avec justificatifs privés, validation de majorité, confirmation de l'e-mail et approbation administrative.
 - Création automatique du profil DJ uniquement après validation de la candidature.
+- Ajout dans l'espace du candidat du statut réel de sa candidature, des dates de suivi et de la réponse administrative en français, anglais et néerlandais.
 - Séparation stricte des rôles : Django Admin réservé aux administrateurs et espace React dédié aux DJ confirmés.
 - Validation complète de 91 tests Django et 37 tests frontend.
 - Actualisation de la note de version beta selon l'état réel du dépôt.

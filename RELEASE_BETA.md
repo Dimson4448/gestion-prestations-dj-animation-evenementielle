@@ -41,6 +41,7 @@ Framework, l'authentification JWT et le frontend React/Vite.
 - limitation par adresse IP des connexions et actions sensibles d'authentification ;
 - inscription réelle d'un client avec validation Django et création de son profil ;
 - candidature DJ multilingue avec justificatifs privés, confirmation de l'e-mail et approbation administrative avant création du profil ;
+- suivi multilingue de la candidature DJ avec statut, dates et réponse administrative ;
 - activation du compte par lien temporaire de vérification de l'adresse e-mail ;
 - renvoi confidentiel du lien d'activation pour les comptes encore inactifs ;
 - consultation et modification sécurisées des coordonnées du profil client ;
