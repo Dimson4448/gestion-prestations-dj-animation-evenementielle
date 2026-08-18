@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 
-import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
+import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getDJApplicationStatus, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
 import { validateRefundAmount } from "./utils/refunds";
 import SiteFooter from "./components/SiteFooter";
 import SiteHeader from "./components/SiteHeader";
@@ -101,6 +101,8 @@ export default function App() {
   const [loginPending, setLoginPending] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [djApplicationOpen, setDjApplicationOpen] = useState(false);
+  const [djApplicationStatus, setDjApplicationStatus] = useState(null);
+  const [djApplicationStatusMessage, setDjApplicationStatusMessage] = useState("");
   const [registrationPending, setRegistrationPending] = useState(false);
   const [registrationStatus, setRegistrationStatus] = useState("");
   const [registration, setRegistration] = useState({
@@ -238,6 +240,26 @@ export default function App() {
       });
     return () => { mounted = false; };
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || currentUser?.role !== "dj_candidate") {
+      setDjApplicationStatus(null);
+      setDjApplicationStatusMessage("");
+      return;
+    }
+    let mounted = true;
+    setDjApplicationStatusMessage(t("djApplication.loadingStatus"));
+    getDJApplicationStatus()
+      .then((application) => {
+        if (!mounted) return;
+        setDjApplicationStatus(application);
+        setDjApplicationStatusMessage("");
+      })
+      .catch(() => {
+        if (mounted) setDjApplicationStatusMessage(t("djApplication.unavailableStatus"));
+      });
+    return () => { mounted = false; };
+  }, [currentUser?.role, isAuthenticated, t]);
 
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
@@ -831,7 +853,9 @@ export default function App() {
           ? "Connexion réussie. L’espace administrateur est accessible."
           : profile.role === "dj"
             ? "Connexion réussie. Votre espace DJ est maintenant accessible."
-            : "Connexion réussie. Votre espace client est maintenant accessible.",
+            : profile.role === "dj_candidate"
+              ? t("djApplication.loginSuccess")
+              : "Connexion réussie. Votre espace client est maintenant accessible.",
       );
     } catch (error) {
       setLoginStatus(
@@ -1694,6 +1718,17 @@ export default function App() {
                   <div className="confirmation-icon"><Check /></div><h2>Session active</h2>
                   <p>{currentUser?.is_staff ? "Vous êtes connecté avec un compte administrateur." : currentUser?.role === "dj" ? "Vous êtes connecté avec un compte DJ." : currentUser?.role === "dj_candidate" ? t("djApplication.pendingAccount") : "Vous pouvez maintenant suivre vos devis, vos factures et vos paiements sécurisés."}</p>
                   {loginStatus && <p className="form-message success" role="status">{loginStatus}</p>}
+                  {currentUser?.role === "dj_candidate" && <section className={`dj-application-followup ${djApplicationStatus?.status || "loading"}`} aria-labelledby="dj-application-status-title">
+                    <h3 id="dj-application-status-title">{t("djApplication.statusTitle")}</h3>
+                    {djApplicationStatusMessage && <p role="status">{djApplicationStatusMessage}</p>}
+                    {djApplicationStatus && <>
+                      <div className="dj-application-followup-heading"><strong>{djApplicationStatus.stage_name}</strong><span>{t(`djApplication.status.${djApplicationStatus.status}`)}</span></div>
+                      <p>{t(`djApplication.statusText.${djApplicationStatus.status}`)}</p>
+                      <small>{t("djApplication.submittedAt")} {new Date(djApplicationStatus.submitted_at).toLocaleDateString(i18n.language)}</small>
+                      {djApplicationStatus.reviewed_at && <small>{t("djApplication.reviewedAt")} {new Date(djApplicationStatus.reviewed_at).toLocaleDateString(i18n.language)}</small>}
+                      {djApplicationStatus.review_message && <p><strong>{t("djApplication.adminResponse")}</strong> {djApplicationStatus.review_message}</p>}
+                    </>}
+                  </section>}
                   {currentUser?.is_staff && <button className="primary-button" type="button" onClick={() => navigate("administration")}><Settings /> Ouvrir l’espace administrateur</button>}
                   {currentUser?.role === "dj" && <button className="primary-button" type="button" onClick={() => navigate("dj")}><Headphones /> Ouvrir l’espace DJ</button>}
                   {currentUser?.role === "client" && <>

@@ -225,6 +225,15 @@ svg { width: 20px; height: 20px; }
 .form-message { margin: 0; padding: 10px 12px; border-radius: 8px; color: #9f2d3d; background: #fff0f2; font-size: .85rem; font-weight: 700; }
 .form-message.success { color: #17633f; background: #eaf8f1; }
 .connected-card p { margin: 0; line-height: 1.6; }
+.dj-application-followup { display: grid; gap: 10px; margin: 8px 0; padding: 18px; border: 1px solid #cbd9eb; border-left: 4px solid #00bfe8; border-radius: 12px; background: #f7f9fc; }
+.dj-application-followup.rejected { border-left-color: #d5485f; background: #fff6f7; }
+.dj-application-followup.approved { border-left-color: #1f9d69; background: #f1fbf6; }
+.dj-application-followup h3 { margin: 0; }
+.dj-application-followup small { color: #5f6d86; }
+.dj-application-followup-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dj-application-followup-heading span { padding: 6px 10px; border-radius: 999px; color: #07566c; background: #dff7fc; font-size: .78rem; font-weight: 800; text-transform: uppercase; }
+.dj-application-followup.rejected .dj-application-followup-heading span { color: #8b2536; background: #ffe2e7; }
+.dj-application-followup.approved .dj-application-followup-heading span { color: #17633f; background: #dff5e9; }
 .profile-panel { display: grid; gap: 14px; margin: 8px 0; padding: 18px; border: 1px solid #cbd9eb; border-radius: 12px; background: #f7f9fc; }
 .profile-form { gap: 14px 18px; padding-top: 4px; }
 .profile-form input[readonly] { color: #69758b; background: #edf1f6; cursor: not-allowed; }
