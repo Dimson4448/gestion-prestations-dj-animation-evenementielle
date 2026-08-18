@@ -49,13 +49,12 @@ documents/   Livrables de conception et documents TFE
 
 ## Journal de bord
 
-Le logbook du projet se trouve dans :
+Le journal de bord est disponible directement à la racine du dépôt :
+[`LOGBOOK.md`](LOGBOOK.md).
 
-```text
-documents/logbook/logbook-projet-ultimate-dj.md
-```
-
-Il retrace les principales décisions, productions et étapes de travail depuis la récupération des conversations de départ jusqu'au développement du backend.
+Il retrace les principales décisions, productions et étapes de travail depuis
+la récupération des conversations de départ jusqu'à la consolidation actuelle
+des parcours client, DJ et administration.
 
 ## Démarrage backend
 

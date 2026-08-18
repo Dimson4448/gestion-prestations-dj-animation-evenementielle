@@ -3,8 +3,7 @@
 ## Identification
 
 - Version : `0.2.0-beta.1`
-- Tag prévu : `v0.2.0-beta.1`
-- Branche de préparation : `beta/stripe-checkout`
+- Tag GitHub : `v0.2.0-beta.1`
 
 ## Objectif de la remise
 
@@ -74,12 +73,12 @@ Framework, l'authentification JWT et le frontend React/Vite.
 
 ## Validation effectuée
 
-- 83 tests Django réussis ;
+- 91 tests Django réussis ;
 - `manage.py check` sans erreur ;
 - aucune migration Django manquante dans le code ;
 - migration `payments.0003` appliquée à la base locale ;
 - `pip check` sans dépendance Python cassée ;
-- 26 tests unitaires frontend réussis avec Node.js ;
+- 37 tests unitaires frontend réussis avec Node.js ;
 - build de production Vite réussi ;
 - audit npm sans vulnérabilité détectée ;
 - aucun secret Stripe réel versionné.
