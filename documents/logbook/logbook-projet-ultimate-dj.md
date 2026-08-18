@@ -4,9 +4,11 @@ Projet : Gestion des prestations DJ et animation événementielle
 Étudiant : Tchamako Vianney Dimitri  
 Dépôt GitHub : https://github.com/Dimson4448/gestion-prestations-dj-animation-evenementielle
 
+Dernière mise à jour : 18 août 2026
+
 ## Objectif du logbook
 
-Ce logbook retrace les principales décisions, productions et étapes de travail du projet TFE. Il sert à garder une mémoire claire de l'évolution du projet, depuis la récupération des conversations de travail jusqu'au début du développement Django/React.
+Ce logbook retrace les principales décisions, productions et étapes de travail du projet TFE. Il sert à garder une mémoire claire de l'évolution du projet, depuis la récupération des conversations de travail jusqu'à la consolidation actuelle de l'application Django/React. Il couvre le développement des versions alpha et beta ainsi que les parcours client, DJ et administration.
 
 ## Historique des étapes
 
@@ -186,8 +188,98 @@ Ce logbook retrace les principales décisions, productions et étapes de travail
 - Ajout d'une note de release locale `RELEASE_ALPHA.md` avec le tag proposé `v0.1.0-alpha`.
 - Validation locale du backend Django, des tests API et du build frontend.
 
-## Prochaines étapes prévues
+### 2026-07-19 - Finalisation et publication de la version alpha
 
-- Enrichir les fixtures de test côté Django.
-- Compléter progressivement les endpoints REST.
-- Développer les parcours backend avant de reprendre le frontend.
+- Finalisation de l'interface alpha React et de la page d'accueil Ultimate DJ.
+- Intégration du logo officiel, des couleurs du rapport graphique et du favicon Vite demandé.
+- Ajout d'une page d'accueil Django sur `http://127.0.0.1:8000/` avec un accès à l'administration.
+- Prise en compte des quatre prestations du cahier des charges : anniversaire enfant, anniversaire adulte, mariage et soirée privée.
+- Vérification du frontend, du backend et de la documentation de remise alpha.
+- Fusion de la Pull Request alpha dans `main` et création de la première version GitHub.
+
+### 2026-07-20 au 2026-07-21 - Développement de la version beta Stripe
+
+- Découpage du travail beta en tâches courtes et versionnées.
+- Intégration de Stripe Checkout en environnement de test pour les acomptes.
+- Création sécurisée des sessions de paiement côté Django.
+- Ajout du webhook Stripe signé, idempotent et contrôlé par montant, devise et métadonnées.
+- Connexion de l'espace client React à l'API avec authentification JWT.
+- Affichage des factures réelles et limitation du paiement aux factures envoyées et impayées.
+- Gestion des retours de succès et d'annulation de Stripe Checkout.
+- Ajout de tests d'autorisation, de cas d'erreur et d'une procédure de démonstration locale.
+- Rédaction de `BETA_PLAN.md`, `STRIPE_TESTING.md` et `RELEASE_BETA.md`.
+- Fusion de la version beta Stripe Checkout dans `main`.
+
+### 2026-07-23 au 2026-07-27 - Parcours réel de devis et synchronisation MariaDB
+
+- Sécurisation de la création des devis par les clients connectés.
+- Gestion des lieux, calcul des estimations et enregistrement réel des demandes de devis.
+- Affichage des devis réels dans l'espace client et ajout du suivi administratif.
+- Configuration du backend Django sur la base MariaDB `ultimate_dj_django`.
+- Import des données historiques : catalogue, comptes, lieux, disponibilités, devis, réservations, prestations et finances.
+- Mise à jour du dump SQL selon les migrations Django appliquées.
+- Automatisation de l'acceptation des devis et création de la réservation correspondante.
+- Ajout de l'espace administrateur React, de la signature des contrats et de la génération des contrats et factures PDF.
+- Sécurisation des ressources propres à chaque client.
+- Développement des playlists et des rendez-vous préparatoires dans Django et React.
+
+### 2026-08-03 - Finalisation des parcours client et DJ
+
+- Ajout du workflow des avis clients après une prestation réalisée.
+- Gestion de la facture de solde et de son paiement dans l'espace client.
+- Création de l'espace DJ React pour consulter les prestations affectées.
+- Ajout des outils DJ : rendez-vous, validation des chansons, clôture de prestation et disponibilités.
+- Protection des créneaux réservés contre la modification ou la suppression par un DJ.
+
+### 2026-08-04 - Annulations, remboursements et comptes utilisateurs
+
+- Traçabilité des remboursements Stripe et synchronisation par webhook.
+- Ajout des demandes d'annulation client et de leur traitement administratif.
+- Mise à jour des contrats et factures PDF après annulation ou remboursement.
+- Envoi de notifications par e-mail pour les annulations, paiements et remboursements.
+- Rotation automatique des jetons JWT et révocation à la déconnexion.
+- Création réelle des comptes clients avec validation de majorité à 18 ans.
+- Vérification de l'adresse e-mail, renvoi des liens d'activation et récupération sécurisée du mot de passe.
+- Modification du profil, changement du mot de passe et demandes de suppression de compte.
+
+### 2026-08-06 au 2026-08-09 - Qualité, sécurité et données réelles
+
+- Limitation des tentatives d'authentification par adresse IP.
+- Mise en place de GitHub Actions pour les tests Django, les migrations et le build React.
+- Renforcement de la configuration de déploiement et séparation des secrets dans les fichiers `.env` ignorés par Git.
+- Ajout des premiers tests unitaires frontend et des tests des règles métier React.
+- Découpage de la navigation en composants et ajout d'une gestion globale des erreurs.
+- Amélioration de l'accessibilité au clavier.
+- Remplacement des données fictives par le catalogue, les disponibilités et les avis réels provenant de Django.
+- Configuration centralisée des URL du backend et de l'API.
+
+### 2026-08-10 au 2026-08-11 - Cohérence métier et internationalisation
+
+- Verrouillage des versions des dépendances Python et JavaScript.
+- Configuration de l'identité légale utilisée dans les PDF.
+- Restriction définitive du catalogue aux quatre prestations prévues par le cahier des charges.
+- Association des formules aux prestations compatibles.
+- Internationalisation du frontend avec `i18next` en français, anglais et néerlandais.
+- Traduction des espaces client, DJ et administration avec conservation des accents UTF-8.
+- Ajout de la recherche mondiale des villes avec priorité aux villes et communes belges.
+- Traduction des noms de lieux selon la langue active et suppression des valeurs présélectionnées.
+- Restauration des styles de Django Admin et masquage des messages techniques du catalogue.
+
+### 2026-08-14 au 2026-08-18 - Consolidation du projet TFE
+
+- Ajout des remboursements partiels Stripe avec validation des montants.
+- Renforcement de la clé JWT utilisée par les tests automatisés.
+- Création et versionnement du manuel d'utilisation détaillé.
+- Développement de la candidature DJ sécurisée avec justificatifs privés, validation de majorité, confirmation de l'e-mail et approbation administrative.
+- Création automatique du profil DJ uniquement après validation de la candidature.
+- Séparation stricte des rôles : Django Admin réservé aux administrateurs et espace React dédié aux DJ confirmés.
+- Validation complète de 91 tests Django et 37 tests frontend.
+- Actualisation de la note de version beta selon l'état réel du dépôt.
+
+## État actuel et prochaines étapes
+
+- Le backend Django, le frontend React, MariaDB, Stripe en mode test et les principaux parcours métier sont intégrés.
+- Les quatre prestations prévues par le cahier des charges sont respectées.
+- Les espaces client, DJ et administration disposent de contrôles d'accès distincts.
+- Les prochaines étapes portent sur les tests manuels de bout en bout, la préparation d'un déploiement HTTPS et la configuration ultérieure de Stripe en production.
+- Le dump MariaDB doit continuer à être actualisé lorsqu'une migration ou une modification de données de référence le nécessite.
