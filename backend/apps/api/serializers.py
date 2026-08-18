@@ -16,7 +16,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJProfile, validate_adult
+from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJApplication, DJProfile, validate_adult
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
@@ -48,6 +48,8 @@ class CurrentUserSerializer(serializers.Serializer):
             return "admin"
         if hasattr(user, "dj_profile"):
             return "dj"
+        if hasattr(user, "dj_application"):
+            return "dj_candidate"
         if hasattr(user, "client_profile"):
             return "client"
         return "user"
@@ -226,6 +228,63 @@ class ClientRegistrationSerializer(serializers.Serializer):
         user = get_user_model().objects.create_user(password=password, is_active=False, **validated_data)
         ClientProfile.objects.create(user=user, **profile_fields)
         return user
+
+
+class DJApplicationRegistrationSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(max_length=150, write_only=True)
+    email = serializers.EmailField(write_only=True)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+    first_name = serializers.CharField(max_length=150, write_only=True)
+    last_name = serializers.CharField(max_length=150, write_only=True)
+
+    class Meta:
+        model = DJApplication
+        fields = [
+            "username", "email", "password", "first_name", "last_name", "stage_name",
+            "date_of_birth", "phone", "city", "preferred_language", "bio", "music_styles",
+            "base_hourly_rate", "years_experience", "identity_document", "insurance_document",
+        ]
+
+    def validate_username(self, value):
+        if get_user_model().objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError("Cet identifiant est déjà utilisé.")
+        return value
+
+    def validate_email(self, value):
+        value = get_user_model().objects.normalize_email(value)
+        if get_user_model().objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("Cette adresse e-mail est déjà utilisée.")
+        return value
+
+    def validate_stage_name(self, value):
+        if DJProfile.objects.filter(stage_name__iexact=value).exists() or DJApplication.objects.filter(stage_name__iexact=value).exists():
+            raise serializers.ValidationError("Ce nom de scène est déjà utilisé.")
+        return value
+
+    def validate(self, attrs):
+        candidate = get_user_model()(
+            username=attrs["username"], email=attrs["email"],
+            first_name=attrs["first_name"], last_name=attrs["last_name"],
+        )
+        try:
+            validate_password(attrs["password"], user=candidate)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)}) from exc
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        user_fields = {key: validated_data.pop(key) for key in ("username", "email", "first_name", "last_name")}
+        password = validated_data.pop("password")
+        user = get_user_model().objects.create_user(password=password, is_active=False, **user_fields)
+        return DJApplication.objects.create(user=user, **validated_data)
+
+
+class DJApplicationStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DJApplication
+        fields = ["stage_name", "status", "review_message", "submitted_at", "reviewed_at"]
+        read_only_fields = fields
 
 
 class EmailVerificationSerializer(serializers.Serializer):

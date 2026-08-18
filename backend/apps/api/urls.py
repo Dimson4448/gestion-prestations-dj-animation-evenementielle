@@ -31,6 +31,8 @@ from .views import (
     location_search,
     confirm_password_reset,
     register_client,
+    register_dj_application,
+    dj_application_status,
     resend_verification_email,
     review_account_deletion_request,
     request_password_reset,
@@ -59,6 +61,8 @@ router.register("reviews", ReviewViewSet, basename="review")
 
 urlpatterns = [
     path("auth/register/", register_client, name="register-client"),
+    path("auth/register-dj/", register_dj_application, name="register-dj-application"),
+    path("auth/dj-application/", dj_application_status, name="dj-application-status"),
     path("auth/verify-email/", verify_email, name="verify-email"),
     path("auth/verify-email/resend/", resend_verification_email, name="resend-verification-email"),
     path("auth/password-reset/", request_password_reset, name="request-password-reset"),

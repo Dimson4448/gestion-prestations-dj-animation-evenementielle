@@ -25,10 +25,12 @@ import { validateRefundAmount } from "./utils/refunds";
 import SiteFooter from "./components/SiteFooter";
 import SiteHeader from "./components/SiteHeader";
 import LocalizedContent from "./components/LocalizedContent";
+import DJApplicationForm from "./components/DJApplicationForm";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
 import { allowedEventTypeNames, filterAllowedEventTypes } from "./utils/eventTypes";
+import { getAdultBirthDateMax } from "./utils/registration";
 
 const unassignedDj = {
   id: null,
@@ -40,6 +42,7 @@ const unassignedDj = {
 };
 
 const todayIso = new Date().toISOString().slice(0, 10);
+const adultBirthDateMax = getAdultBirthDateMax();
 
 const quoteStatusLabels = {
   draft: "Brouillon",
@@ -57,7 +60,7 @@ const contractStatusLabels = {
 };
 
 export default function App() {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const [page, setPage] = useState("accueil");
   const language = (i18n.resolvedLanguage || i18n.language || "fr").toUpperCase();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -97,6 +100,7 @@ export default function App() {
   const [loginStatus, setLoginStatus] = useState("");
   const [loginPending, setLoginPending] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(false);
+  const [djApplicationOpen, setDjApplicationOpen] = useState(false);
   const [registrationPending, setRegistrationPending] = useState(false);
   const [registrationStatus, setRegistrationStatus] = useState("");
   const [registration, setRegistration] = useState({
@@ -1641,11 +1645,12 @@ export default function App() {
                 <>
                   <form className="account-card" onSubmit={handleLogin}>
                     <CircleUserRound /><h2>Connexion</h2>
-                    <label>Identifiant Django<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
+                    <label>Identifiant<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
                     <label>Mot de passe<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
                     {loginStatus && <p className="form-message" role="status">{loginStatus}</p>}
                     <button className="primary-button" type="submit" disabled={loginPending}>{loginPending ? "Connexion…" : "Se connecter"}</button>
                     <button className="secondary-button" type="button" onClick={() => setRegistrationOpen((open) => !open)}>{registrationOpen ? "Fermer l’inscription" : "Créer un compte client"}</button>
+                    <button className="secondary-button" type="button" onClick={() => setDjApplicationOpen((open) => !open)}>{djApplicationOpen ? t("djApplication.close") : t("djApplication.open")}</button>
                     <button className="text-button" type="button" onClick={() => setVerificationResendOpen((open) => !open)}>Renvoyer l’e-mail d’activation</button>
                     <button className="text-button" type="button" onClick={() => setPasswordResetOpen((open) => !open)}>Mot de passe oublié ?</button>
                   </form>
@@ -1657,7 +1662,7 @@ export default function App() {
                       <label>Identifiant<input value={registration.username} onChange={(event) => updateRegistration("username", event.target.value)} autoComplete="username" required /></label>
                       <label>E-mail<input type="email" value={registration.email} onChange={(event) => updateRegistration("email", event.target.value)} autoComplete="email" required /></label>
                       <label className="full-field">Mot de passe<input type="password" minLength="8" value={registration.password} onChange={(event) => updateRegistration("password", event.target.value)} autoComplete="new-password" required /></label>
-                      <label>Date de naissance<input type="date" max={todayIso} value={registration.date_of_birth} onChange={(event) => updateRegistration("date_of_birth", event.target.value)} required /></label>
+                      <label>Date de naissance<input type="date" max={adultBirthDateMax} value={registration.date_of_birth} onChange={(event) => updateRegistration("date_of_birth", event.target.value)} required /></label>
                       <label>Téléphone<input type="tel" value={registration.phone} onChange={(event) => updateRegistration("phone", event.target.value)} autoComplete="tel" required /></label>
                       <label className="full-field">Adresse de facturation<input value={registration.billing_address} onChange={(event) => updateRegistration("billing_address", event.target.value)} autoComplete="street-address" required /></label>
                       <label>Code postal<input value={registration.billing_postal_code} onChange={(event) => updateRegistration("billing_postal_code", event.target.value)} autoComplete="postal-code" required /></label>
@@ -1668,6 +1673,7 @@ export default function App() {
                     {registrationStatus && <p className="form-message" role="alert">{registrationStatus}</p>}
                     <button className="primary-button" type="submit" disabled={registrationPending}>{registrationPending ? "Création…" : "Créer mon compte"}</button>
                   </form>}
+                  {djApplicationOpen && <DJApplicationForm onCompleted={() => setVerificationResendOpen(false)} />}
                   {passwordResetOpen && <form className="account-card password-reset-card" onSubmit={passwordResetCredentials.token ? handlePasswordResetConfirm : handlePasswordResetRequest}>
                     <ShieldCheck /><h2>{passwordResetCredentials.token ? "Nouveau mot de passe" : "Réinitialiser le mot de passe"}</h2>
                     {passwordResetCredentials.token
@@ -1686,7 +1692,7 @@ export default function App() {
               ) : (
                 <div className="account-card connected-card">
                   <div className="confirmation-icon"><Check /></div><h2>Session active</h2>
-                  <p>{currentUser?.is_staff ? "Vous êtes connecté avec un compte administrateur." : currentUser?.role === "dj" ? "Vous êtes connecté avec un compte DJ." : "Vous pouvez maintenant suivre vos devis, vos factures et vos paiements sécurisés."}</p>
+                  <p>{currentUser?.is_staff ? "Vous êtes connecté avec un compte administrateur." : currentUser?.role === "dj" ? "Vous êtes connecté avec un compte DJ." : currentUser?.role === "dj_candidate" ? t("djApplication.pendingAccount") : "Vous pouvez maintenant suivre vos devis, vos factures et vos paiements sécurisés."}</p>
                   {loginStatus && <p className="form-message success" role="status">{loginStatus}</p>}
                   {currentUser?.is_staff && <button className="primary-button" type="button" onClick={() => navigate("administration")}><Settings /> Ouvrir l’espace administrateur</button>}
                   {currentUser?.role === "dj" && <button className="primary-button" type="button" onClick={() => navigate("dj")}><Headphones /> Ouvrir l’espace DJ</button>}
@@ -1700,7 +1706,7 @@ export default function App() {
                       <label>Prénom<input value={clientProfile.first_name} onChange={(event) => changeClientProfile("first_name", event.target.value)} required /></label>
                       <label>Nom<input value={clientProfile.last_name} onChange={(event) => changeClientProfile("last_name", event.target.value)} required /></label>
                       <label className="full-field">E-mail vérifié<input type="email" value={clientProfile.email} readOnly /></label>
-                      <label>Date de naissance<input type="date" max={todayIso} value={clientProfile.date_of_birth} onChange={(event) => changeClientProfile("date_of_birth", event.target.value)} required /></label>
+                      <label>Date de naissance<input type="date" max={adultBirthDateMax} value={clientProfile.date_of_birth} onChange={(event) => changeClientProfile("date_of_birth", event.target.value)} required /></label>
                       <label>Téléphone<input type="tel" value={clientProfile.phone} onChange={(event) => changeClientProfile("phone", event.target.value)} required /></label>
                       <label className="full-field">Adresse de facturation<input value={clientProfile.billing_address} onChange={(event) => changeClientProfile("billing_address", event.target.value)} required /></label>
                       <label>Code postal<input value={clientProfile.billing_postal_code} onChange={(event) => changeClientProfile("billing_postal_code", event.target.value)} required /></label>
@@ -1863,7 +1869,7 @@ export default function App() {
         </LocalizedContent>
       </main>
 
-      <SiteFooter onNavigate={navigate} />
+      <SiteFooter currentUser={currentUser} onNavigate={navigate} />
     </div>
   );
 }

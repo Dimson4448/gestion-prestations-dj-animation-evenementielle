@@ -2,6 +2,7 @@ import { CircleUserRound, Headphones, Menu, Settings, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { backendBaseUrl } from "../api";
+import { canSeeAdministrationLink } from "../utils/access";
 
 const languages = ["FR", "EN", "NL"];
 
@@ -47,9 +48,11 @@ export default function SiteHeader({
             <Headphones aria-hidden="true" /> {t("nav.djSpace")}
           </button>
         )}
-        <a className="admin-link" href={`${backendBaseUrl}/admin/`} target="_blank" rel="noreferrer">
-          {t("nav.djangoAdmin")}
-        </a>
+        {canSeeAdministrationLink(currentUser) && (
+          <a className="admin-link" href={`${backendBaseUrl}/admin/`} target="_blank" rel="noreferrer">
+            {t("nav.administration")}
+          </a>
+        )}
         <div className="language-switcher" aria-label={t("language.choice")}>
           {languages.map((item) => (
             <button

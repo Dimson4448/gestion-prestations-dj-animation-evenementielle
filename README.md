@@ -294,6 +294,22 @@ confirmation ne peut être utilisé qu'une fois. Si le message est perdu ou si
 le lien expire, le formulaire de connexion permet d'en demander un nouveau
 sans révéler si l'adresse correspond réellement à un compte en attente.
 
+Un DJ peut déposer une candidature distincte depuis le bouton `Devenir DJ`.
+Django contrôle sa majorité, l'unicité de son compte et de son nom de scène,
+son expérience, son tarif souhaité ainsi que deux justificatifs obligatoires
+(pièce d'identité et assurance responsabilité civile, au format PDF, JPG ou
+PNG, limités à 5 Mo chacun). Le compte doit d'abord confirmer son adresse
+e-mail. Il reste ensuite au rôle `dj_candidate` et ne peut publier aucun
+créneau. L'administrateur consulte les justificatifs par des téléchargements
+protégés dans Django Admin et approuve ou refuse la candidature. Seule
+l'approbation crée un profil DJ, initialement indisponible jusqu'à sa
+configuration par l'administration.
+
+Points d'entrée associés :
+
+- `POST /api/v1/auth/register-dj/` : déposer la candidature multipart ;
+- `GET /api/v1/auth/dj-application/` : consulter son statut après connexion.
+
 Le lien « Mot de passe oublié » envoie une URL temporaire à l'adresse du
 compte sans révéler publiquement si celle-ci existe. Après validation du lien,
 Django applique les mêmes règles de robustesse au nouveau mot de passe et

@@ -67,6 +67,9 @@ export const clearAuthentication = () => {
 };
 
 export const registerClient = async (payload) => (await apiClient.post("/auth/register/", payload)).data;
+export const registerDJApplication = async (payload) => (
+  await apiClient.post("/auth/register-dj/", payload, { headers: { "Content-Type": "multipart/form-data" } })
+).data;
 export const verifyEmail = async (uid, token) => apiClient.post("/auth/verify-email/", { uid, token });
 export const resendVerificationEmail = async (email) => (await apiClient.post("/auth/verify-email/resend/", { email })).data;
 export const requestPasswordReset = async (email) => (await apiClient.post("/auth/password-reset/", { email })).data;
