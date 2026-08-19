@@ -310,6 +310,7 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - J'ai ajouté le logo officiel Ultimate DJ aux factures PDF et contrôlé visuellement le rendu du document.
 - J'ai isolé les contrats du client dans un composant dédié et traduit les actions de signature et de téléchargement dans les trois langues.
 - J'ai extrait la planification des rendez-vous préparatoires et traduit le formulaire, les modes et les statuts en français, anglais et néerlandais.
+- J'ai isolé les avis clients et traduit le formulaire, les notes et les statuts de modération dans les trois langues.
 - J'ai ajouté quatre tests unitaires pour vérifier les rôles et empêcher qu'un compte inconnu reçoive un accès privilégié.
 - La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.
 - Aucun modèle Django n'a changé ; le dump MariaDB ne nécessite donc pas de mise à jour.
