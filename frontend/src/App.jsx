@@ -30,6 +30,7 @@ import AccountBenefits from "./components/AccountBenefits";
 import ClientInvoices from "./components/ClientInvoices";
 import ClientContracts from "./components/ClientContracts";
 import ClientAppointments from "./components/ClientAppointments";
+import ClientReviews from "./components/ClientReviews";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
@@ -1837,22 +1838,19 @@ export default function App() {
                       </div>
                     </>}
                   </div>
-                  <div className="review-panel">
-                    <div className="playlist-heading"><div><h3>Mon avis</h3><p>Partagez votre expérience après la prestation.</p></div><Star /></div>
-                    {reviewStatus && <p className={reviewStatus.includes("Merci") ? "form-message success" : "invoice-empty"} role="status">{reviewStatus}</p>}
-                    {eligibleReviewBookings.length > 0 && (
-                      <form className="playlist-form" onSubmit={createClientReview}>
-                        <label>Prestation réalisée<select value={reviewBookingId} onChange={(event) => setReviewBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligibleReviewBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</option>)}</select></label>
-                        <label>Note<select value={reviewRating} onChange={(event) => setReviewRating(event.target.value)}>{[5, 4, 3, 2, 1].map((rating) => <option value={rating} key={rating}>{rating} / 5</option>)}</select></label>
-                        <label>Commentaire<textarea rows="3" maxLength="255" value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} placeholder="Décrivez la qualité de la prestation…" required /></label>
-                        <small>{reviewComment.length}/255 caractères</small>
-                        <button className="primary-button" type="submit" disabled={reviewPending}>{reviewPending ? "Envoi…" : "Envoyer mon avis"}</button>
-                      </form>
-                    )}
-                    <div className="review-list">
-                      {reviews.map((review) => <article key={review.id}><div className="review-stars" aria-label={`${review.rating} étoiles`}>{[1, 2, 3, 4, 5].map((value) => <Star key={value} className={value <= review.rating ? "filled" : ""} />)}</div><p>{review.comment}</p><span className={`review-status ${review.status}`}>{review.status === "published" ? "Publié" : review.status === "rejected" ? "Rejeté" : "En modération"}</span></article>)}
-                    </div>
-                  </div>
+                  <ClientReviews
+                    comment={reviewComment}
+                    eligibleBookings={eligibleReviewBookings}
+                    onBookingChange={setReviewBookingId}
+                    onCommentChange={setReviewComment}
+                    onRatingChange={setReviewRating}
+                    onSubmit={createClientReview}
+                    pending={reviewPending}
+                    rating={reviewRating}
+                    reviewBookingId={reviewBookingId}
+                    reviews={reviews}
+                    statusMessage={reviewStatus}
+                  />
                   </>}
                 </ConnectedAccountSession>
               )}
