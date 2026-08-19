@@ -4,7 +4,7 @@ Projet : Gestion des prestations DJ et animation événementielle
 Étudiant : Tchamako Vianney Dimitri  
 Dépôt GitHub : https://github.com/Dimson4448/gestion-prestations-dj-animation-evenementielle
 
-Dernière mise à jour : 18 août 2026
+Dernière mise à jour : 19 août 2026
 
 ## Objectif du logbook
 
@@ -293,9 +293,19 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - Développement de la candidature DJ sécurisée avec justificatifs privés, validation de majorité, confirmation de l'e-mail et approbation administrative.
 - Création automatique du profil DJ uniquement après validation de la candidature.
 - Ajout dans l'espace du candidat du statut réel de sa candidature, des dates de suivi et de la réponse administrative en français, anglais et néerlandais.
+- J'ai extrait l'affichage de ce suivi dans un composant React dédié afin de rendre `App.jsx` plus lisible et de faciliter les prochaines évolutions.
 - Séparation stricte des rôles : Django Admin réservé aux administrateurs et espace React dédié aux DJ confirmés.
 - Validation complète de 91 tests Django et 37 tests frontend.
 - Actualisation de la note de version beta selon l'état réel du dépôt.
+
+### 2026-08-19 - Amélioration de la lisibilité du frontend
+
+- J'ai extrait le suivi des candidatures DJ de `App.jsx` vers un composant React dédié afin de rendre le code plus facile à lire et à faire évoluer.
+- J'ai remplacé les conditions imbriquées des messages de connexion par une règle de rôle centralisée et explicite.
+- J'ai regroupé les messages de session dans les ressources de traduction françaises, anglaises et néerlandaises.
+- J'ai ajouté quatre tests unitaires pour vérifier les rôles et empêcher qu'un compte inconnu reçoive un accès privilégié.
+- La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.
+- Aucun modèle Django n'a changé ; le dump MariaDB ne nécessite donc pas de mise à jour.
 
 ## État actuel et prochaines étapes
 
