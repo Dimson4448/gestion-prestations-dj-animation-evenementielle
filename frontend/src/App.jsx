@@ -26,11 +26,13 @@ import SiteFooter from "./components/SiteFooter";
 import SiteHeader from "./components/SiteHeader";
 import LocalizedContent from "./components/LocalizedContent";
 import DJApplicationForm from "./components/DJApplicationForm";
+import DJApplicationFollowup from "./components/DJApplicationFollowup";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
 import { allowedEventTypeNames, filterAllowedEventTypes } from "./utils/eventTypes";
 import { getAdultBirthDateMax } from "./utils/registration";
+import { getAccountSummaryKey, getLoginSuccessKey } from "./utils/authentication";
 
 const unassignedDj = {
   id: null,
@@ -848,15 +850,7 @@ export default function App() {
       setIsAuthenticated(true);
       setCurrentUser(profile);
       setPassword("");
-      setLoginStatus(
-        profile.is_staff
-          ? "Connexion réussie. L’espace administrateur est accessible."
-          : profile.role === "dj"
-            ? "Connexion réussie. Votre espace DJ est maintenant accessible."
-            : profile.role === "dj_candidate"
-              ? t("djApplication.loginSuccess")
-              : "Connexion réussie. Votre espace client est maintenant accessible.",
-      );
+      setLoginStatus(t(getLoginSuccessKey(profile)));
     } catch (error) {
       setLoginStatus(
         error.response?.status === 429
@@ -1716,19 +1710,9 @@ export default function App() {
               ) : (
                 <div className="account-card connected-card">
                   <div className="confirmation-icon"><Check /></div><h2>Session active</h2>
-                  <p>{currentUser?.is_staff ? "Vous êtes connecté avec un compte administrateur." : currentUser?.role === "dj" ? "Vous êtes connecté avec un compte DJ." : currentUser?.role === "dj_candidate" ? t("djApplication.pendingAccount") : "Vous pouvez maintenant suivre vos devis, vos factures et vos paiements sécurisés."}</p>
+                  <p>{t(getAccountSummaryKey(currentUser))}</p>
                   {loginStatus && <p className="form-message success" role="status">{loginStatus}</p>}
-                  {currentUser?.role === "dj_candidate" && <section className={`dj-application-followup ${djApplicationStatus?.status || "loading"}`} aria-labelledby="dj-application-status-title">
-                    <h3 id="dj-application-status-title">{t("djApplication.statusTitle")}</h3>
-                    {djApplicationStatusMessage && <p role="status">{djApplicationStatusMessage}</p>}
-                    {djApplicationStatus && <>
-                      <div className="dj-application-followup-heading"><strong>{djApplicationStatus.stage_name}</strong><span>{t(`djApplication.status.${djApplicationStatus.status}`)}</span></div>
-                      <p>{t(`djApplication.statusText.${djApplicationStatus.status}`)}</p>
-                      <small>{t("djApplication.submittedAt")} {new Date(djApplicationStatus.submitted_at).toLocaleDateString(i18n.language)}</small>
-                      {djApplicationStatus.reviewed_at && <small>{t("djApplication.reviewedAt")} {new Date(djApplicationStatus.reviewed_at).toLocaleDateString(i18n.language)}</small>}
-                      {djApplicationStatus.review_message && <p><strong>{t("djApplication.adminResponse")}</strong> {djApplicationStatus.review_message}</p>}
-                    </>}
-                  </section>}
+                  {currentUser?.role === "dj_candidate" && <DJApplicationFollowup application={djApplicationStatus} message={djApplicationStatusMessage} />}
                   {currentUser?.is_staff && <button className="primary-button" type="button" onClick={() => navigate("administration")}><Settings /> Ouvrir l’espace administrateur</button>}
                   {currentUser?.role === "dj" && <button className="primary-button" type="button" onClick={() => navigate("dj")}><Headphones /> Ouvrir l’espace DJ</button>}
                   {currentUser?.role === "client" && <>

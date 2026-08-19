@@ -1,6 +1,10 @@
 export default {
   language: { choice: "Choix de la langue", fr: "Français", en: "Anglais", nl: "Néerlandais" },
   nav: { skip: "Aller au contenu principal", home: "Accueil", offers: "Offres & DJs", quote: "Demander un devis", account: "Mon compte", adminSpace: "Espace administrateur", djSpace: "Espace DJ", administration: "Administration", main: "Navigation principale", footer: "Navigation de pied de page", openMenu: "Ouvrir le menu", closeMenu: "Fermer le menu" },
+  authentication: {
+    loginSuccess: { admin: "Connexion réussie. L’espace administrateur est accessible.", dj: "Connexion réussie. Votre espace DJ est maintenant accessible.", dj_candidate: "Connexion réussie. Vous pouvez maintenant suivre votre candidature DJ.", client: "Connexion réussie. Votre espace client est maintenant accessible." },
+    accountSummary: { admin: "Vous êtes connecté avec un compte administrateur.", dj: "Vous êtes connecté avec un compte DJ.", dj_candidate: "Votre e-mail est confirmé. Vous pouvez suivre ci-dessous l’avancement de votre candidature DJ.", client: "Vous pouvez maintenant suivre vos devis, vos factures et vos paiements sécurisés." },
+  },
   eventTypes: { childBirthday: "Anniversaire enfant", adultBirthday: "Anniversaire adulte", wedding: "Mariage", privateParty: "Soirée privée" },
   eventPrompt: "Sélectionnez un événement",
   home: {
@@ -15,7 +19,7 @@ export default {
     birthDate: "Date de naissance", phone: "Téléphone", city: "Ville", language: "Langue", experience: "Années d’expérience", rate: "Tarif horaire souhaité (€)",
     styles: "Styles musicaux", stylesPlaceholder: "Afrobeats, pop, disco…", bio: "Présentation professionnelle", identity: "Pièce d’identité", insurance: "Assurance responsabilité civile",
     security: "PDF, JPG ou PNG, 5 Mo maximum par fichier. Les documents sont accessibles uniquement à l’administration.", open: "Devenir DJ", close: "Fermer la candidature DJ", submit: "Envoyer ma candidature", sending: "Envoi…", success: "Votre candidature est enregistrée. Confirmez votre e-mail, puis l’administration examinera vos justificatifs.", pendingAccount: "Votre e-mail est confirmé. Vous pouvez suivre ci-dessous l’avancement de votre candidature DJ.", error: "La candidature n’a pas pu être envoyée. Vérifiez les champs, les fichiers et l’unicité de l’e-mail ou du nom de scène.",
-    statusTitle: "Suivi de ma candidature DJ", loginSuccess: "Connexion réussie. Vous pouvez maintenant suivre votre candidature DJ.", loadingStatus: "Chargement de votre candidature…", unavailableStatus: "Le statut de votre candidature est momentanément indisponible.", submittedAt: "Candidature envoyée le", reviewedAt: "Décision prise le", adminResponse: "Réponse de l’administration :",
+    statusTitle: "Suivi de ma candidature DJ", loadingStatus: "Chargement de votre candidature…", unavailableStatus: "Le statut de votre candidature est momentanément indisponible.", submittedAt: "Candidature envoyée le", reviewedAt: "Décision prise le", adminResponse: "Réponse de l’administration :",
     status: { pending: "En attente", approved: "Acceptée", rejected: "Refusée" },
     statusText: { pending: "L’administration doit encore examiner vos justificatifs.", approved: "Votre candidature est acceptée. Votre espace DJ sera disponible après actualisation de votre session.", rejected: "Votre candidature n’a pas été retenue. Consultez la réponse de l’administration pour connaître le motif." },
   },

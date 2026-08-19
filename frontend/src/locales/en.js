@@ -1,6 +1,10 @@
 export default {
   language: { choice: "Language selection", fr: "French", en: "English", nl: "Dutch" },
   nav: { skip: "Skip to main content", home: "Home", offers: "Offers & DJs", quote: "Request a quote", account: "My account", adminSpace: "Admin area", djSpace: "DJ area", administration: "Administration", main: "Main navigation", footer: "Footer navigation", openMenu: "Open menu", closeMenu: "Close menu" },
+  authentication: {
+    loginSuccess: { admin: "You are signed in. The administration area is available.", dj: "You are signed in. Your DJ area is now available.", dj_candidate: "You are signed in. You can now track your DJ application.", client: "You are signed in. Your client area is now available." },
+    accountSummary: { admin: "You are signed in with an administrator account.", dj: "You are signed in with a DJ account.", dj_candidate: "Your email is confirmed. You can track the progress of your DJ application below.", client: "You can now track your quotes, invoices and secure payments." },
+  },
   eventTypes: { childBirthday: "Children’s birthday", adultBirthday: "Adult birthday", wedding: "Wedding", privateParty: "Private party" },
   eventPrompt: "Select an event",
   home: {
@@ -15,7 +19,7 @@ export default {
     birthDate: "Date of birth", phone: "Phone", city: "City", language: "Language", experience: "Years of experience", rate: "Desired hourly rate (€)",
     styles: "Music styles", stylesPlaceholder: "Afrobeats, pop, disco…", bio: "Professional introduction", identity: "Identity document", insurance: "Public liability insurance",
     security: "PDF, JPG or PNG, maximum 5 MB per file. Documents are only accessible to administrators.", open: "Become a DJ", close: "Close the DJ application", submit: "Submit my application", sending: "Submitting…", success: "Your application has been recorded. Confirm your email, then the admin team will review your documents.", pendingAccount: "Your email is confirmed. You can track the progress of your DJ application below.", error: "The application could not be submitted. Check the fields, files, and that the email and stage name are unique.",
-    statusTitle: "My DJ application", loginSuccess: "You are signed in. You can now track your DJ application.", loadingStatus: "Loading your application…", unavailableStatus: "Your application status is temporarily unavailable.", submittedAt: "Application submitted on", reviewedAt: "Decision made on", adminResponse: "Administration response:",
+    statusTitle: "My DJ application", loadingStatus: "Loading your application…", unavailableStatus: "Your application status is temporarily unavailable.", submittedAt: "Application submitted on", reviewedAt: "Decision made on", adminResponse: "Administration response:",
     status: { pending: "Pending", approved: "Approved", rejected: "Rejected" },
     statusText: { pending: "The administration still needs to review your supporting documents.", approved: "Your application has been approved. Your DJ area will be available after refreshing your session.", rejected: "Your application was not approved. Read the administration response to understand the reason." },
   },

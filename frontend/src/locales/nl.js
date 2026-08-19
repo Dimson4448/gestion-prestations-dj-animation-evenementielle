@@ -1,6 +1,10 @@
 export default {
   language: { choice: "Taalkeuze", fr: "Frans", en: "Engels", nl: "Nederlands" },
   nav: { skip: "Ga naar de hoofdinhoud", home: "Home", offers: "Aanbiedingen & dj's", quote: "Offerte aanvragen", account: "Mijn account", adminSpace: "Beheerdersruimte", djSpace: "DJ-ruimte", administration: "Beheer", main: "Hoofdnavigatie", footer: "Voettekstnavigatie", openMenu: "Menu openen", closeMenu: "Menu sluiten" },
+  authentication: {
+    loginSuccess: { admin: "U bent aangemeld. De beheerdersruimte is beschikbaar.", dj: "U bent aangemeld. Uw DJ-ruimte is nu beschikbaar.", dj_candidate: "U bent aangemeld. U kunt nu uw DJ-kandidatuur volgen.", client: "U bent aangemeld. Uw klantenruimte is nu beschikbaar." },
+    accountSummary: { admin: "U bent aangemeld met een beheerdersaccount.", dj: "U bent aangemeld met een DJ-account.", dj_candidate: "Uw e-mail is bevestigd. Hieronder kunt u de voortgang van uw DJ-kandidatuur volgen.", client: "U kunt nu uw offertes, facturen en beveiligde betalingen volgen." },
+  },
   eventTypes: { childBirthday: "Kinderverjaardag", adultBirthday: "Verjaardag voor volwassenen", wedding: "Bruiloft", privateParty: "Privéfeest" },
   eventPrompt: "Selecteer een evenement",
   home: {
@@ -15,7 +19,7 @@ export default {
     birthDate: "Geboortedatum", phone: "Telefoon", city: "Stad", language: "Taal", experience: "Jaren ervaring", rate: "Gewenst uurtarief (€)",
     styles: "Muziekstijlen", stylesPlaceholder: "Afrobeats, pop, disco…", bio: "Professionele voorstelling", identity: "Identiteitsbewijs", insurance: "Burgerlijke aansprakelijkheidsverzekering",
     security: "PDF, JPG of PNG, maximaal 5 MB per bestand. Documenten zijn alleen toegankelijk voor beheerders.", open: "DJ worden", close: "DJ-kandidatuur sluiten", submit: "Mijn kandidatuur indienen", sending: "Verzenden…", success: "Uw kandidatuur is geregistreerd. Bevestig uw e-mail; daarna beoordeelt de beheerder uw documenten.", pendingAccount: "Uw e-mail is bevestigd. Hieronder kunt u de voortgang van uw DJ-kandidatuur volgen.", error: "De kandidatuur kon niet worden verzonden. Controleer de velden en bestanden en of het e-mailadres en de artiestennaam uniek zijn.",
-    statusTitle: "Mijn DJ-kandidatuur", loginSuccess: "U bent aangemeld. U kunt nu uw DJ-kandidatuur volgen.", loadingStatus: "Uw kandidatuur wordt geladen…", unavailableStatus: "De status van uw kandidatuur is tijdelijk niet beschikbaar.", submittedAt: "Kandidatuur ingediend op", reviewedAt: "Beslissing genomen op", adminResponse: "Antwoord van de beheerder:",
+    statusTitle: "Mijn DJ-kandidatuur", loadingStatus: "Uw kandidatuur wordt geladen…", unavailableStatus: "De status van uw kandidatuur is tijdelijk niet beschikbaar.", submittedAt: "Kandidatuur ingediend op", reviewedAt: "Beslissing genomen op", adminResponse: "Antwoord van de beheerder:",
     status: { pending: "In behandeling", approved: "Goedgekeurd", rejected: "Afgewezen" },
     statusText: { pending: "De beheerder moet uw bewijsstukken nog beoordelen.", approved: "Uw kandidatuur is goedgekeurd. Uw DJ-ruimte is beschikbaar nadat uw sessie is vernieuwd.", rejected: "Uw kandidatuur werd niet goedgekeurd. Lees het antwoord van de beheerder voor de reden." },
   },
