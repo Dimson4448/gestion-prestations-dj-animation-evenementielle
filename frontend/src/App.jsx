@@ -29,6 +29,7 @@ import ConnectedAccountSession from "./components/ConnectedAccountSession";
 import AccountBenefits from "./components/AccountBenefits";
 import ClientInvoices from "./components/ClientInvoices";
 import ClientContracts from "./components/ClientContracts";
+import ClientAppointments from "./components/ClientAppointments";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
@@ -1795,22 +1796,21 @@ export default function App() {
                     invoiceStatus={invoiceStatus}
                     startCheckout={startInvoiceCheckout}
                   />
-                  <div className="appointment-panel">
-                    <div className="playlist-heading"><div><h3>Rendez-vous préparatoire</h3><p>Planifiez la préparation avec votre DJ avant le jour de l’événement.</p></div><CalendarDays /></div>
-                    {appointmentStatus && <p className={appointmentStatus.includes("planifié") ? "form-message success" : "invoice-empty"} role="status">{appointmentStatus}</p>}
-                    {eligibleAppointmentBookings.length > 0 && (
-                      <form className="playlist-form" onSubmit={createPreparatoryAppointment}>
-                        <label>Réservation<select value={appointmentBookingId} onChange={(event) => setAppointmentBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligibleAppointmentBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</option>)}</select></label>
-                        <label>Date et heure<input type="datetime-local" value={appointmentDateTime} onChange={(event) => setAppointmentDateTime(event.target.value)} required /></label>
-                        <label>Mode<select value={appointmentMode} onChange={(event) => setAppointmentMode(event.target.value)}><option value="online">En ligne</option><option value="in_person">En présentiel</option></select></label>
-                        <label>Notes<textarea rows="2" value={appointmentNotes} onChange={(event) => setAppointmentNotes(event.target.value)} placeholder="Sujets à préparer, disponibilité particulière…" /></label>
-                        <button className="primary-button" type="submit" disabled={appointmentPending}>{appointmentPending ? "Planification…" : "Planifier le rendez-vous"}</button>
-                      </form>
-                    )}
-                    <div className="appointment-list">
-                      {appointments.map((appointment) => <article key={appointment.id}><div><strong>{new Date(appointment.scheduled_at).toLocaleString(i18n.language)}</strong><span>Réservation n°{appointment.booking} · {appointment.mode === "online" ? "En ligne" : "En présentiel"}</span>{appointment.notes && <small>{appointment.notes}</small>}</div><span className={`appointment-status ${appointment.status}`}>{appointment.status === "done" ? "Réalisé" : appointment.status === "cancelled" ? "Annulé" : "Planifié"}</span></article>)}
-                    </div>
-                  </div>
+                  <ClientAppointments
+                    appointmentBookingId={appointmentBookingId}
+                    appointmentDateTime={appointmentDateTime}
+                    appointmentMode={appointmentMode}
+                    appointmentNotes={appointmentNotes}
+                    appointments={appointments}
+                    appointmentPending={appointmentPending}
+                    appointmentStatus={appointmentStatus}
+                    eligibleBookings={eligibleAppointmentBookings}
+                    onBookingChange={setAppointmentBookingId}
+                    onDateTimeChange={setAppointmentDateTime}
+                    onModeChange={setAppointmentMode}
+                    onNotesChange={setAppointmentNotes}
+                    onSubmit={createPreparatoryAppointment}
+                  />
                   <div className="playlist-panel">
                     <div className="playlist-heading"><div><h3>Ma playlist</h3><p>Proposez vos morceaux au DJ et indiquez vos priorités.</p></div><Music2 /></div>
                     {playlistStatus && <p className={playlistStatus.includes("créée") || playlistStatus.includes("ajoutée") ? "form-message success" : "invoice-empty"} role="status">{playlistStatus}</p>}
