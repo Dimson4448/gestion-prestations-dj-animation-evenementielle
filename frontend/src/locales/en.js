@@ -7,6 +7,7 @@ export default {
     session: { title: "Active session", openAdministration: "Open the admin area", openDjArea: "Open the DJ area", logout: "Sign out" },
     guidance: { eyebrow: "Your personalised tracking", title: "A clear journey, step by step", documents: "View your quotes and contracts", payments: "Track your deposit and invoices", playlist: "Prepare your playlist", review: "Leave a review after the event" },
   },
+  clientInvoices: { title: "My invoices", dueDate: "Due date", payment: "Payment no. {{id}} · {{amount}}", preparing: "Preparing…", download: "Download PDF", redirecting: "Redirecting…", payDeposit: "Pay the deposit", payBalance: "Pay the balance", type: { deposit: "Deposit", balance: "Balance", full: "Full invoice" }, status: { paid: "Paid", sent: "To pay", cancelled: "Cancelled" }, refund: { pending: "Refund being processed by Stripe", partial: "Partially refunded: {{amount}}", succeeded: "Refunded: {{amount}}", failed: "The refund failed — the administration must retry it." } },
   eventTypes: { childBirthday: "Children’s birthday", adultBirthday: "Adult birthday", wedding: "Wedding", privateParty: "Private party" },
   eventPrompt: "Select an event",
   home: {

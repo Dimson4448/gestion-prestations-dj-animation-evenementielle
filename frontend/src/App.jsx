@@ -27,6 +27,7 @@ import LocalizedContent from "./components/LocalizedContent";
 import DJApplicationForm from "./components/DJApplicationForm";
 import ConnectedAccountSession from "./components/ConnectedAccountSession";
 import AccountBenefits from "./components/AccountBenefits";
+import ClientInvoices from "./components/ClientInvoices";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
@@ -1797,29 +1798,16 @@ export default function App() {
                       </article>
                     ))}
                   </div>
-                  <div className="invoice-list">
-                    <h3>Mes factures</h3>
-                    {invoiceStatus && <p className="invoice-empty" role="status">{invoiceStatus}</p>}
-                    {checkoutStatus && <p className="form-message" role="alert">{checkoutStatus}</p>}
-                    {invoices.map((invoice) => {
-                      const invoicePayments = clientPayments.filter((payment) => payment.invoice === invoice.id);
-                      return (
-                        <article className="invoice-row" key={invoice.id}>
-                          <div><strong>{invoice.invoice_number}</strong><span>{invoice.invoice_type === "deposit" ? "Acompte" : invoice.invoice_type === "balance" ? "Solde" : "Facture complète"} · Échéance : {new Date(invoice.due_at).toLocaleDateString(i18n.language)}</span>{invoicePayments.map((payment) => <div className="client-payment-trace" key={payment.id}><span>Paiement n°{payment.id} · {formatEuro(payment.amount)}</span>{payment.refund_status !== "none" && <small>{payment.refund_status === "pending" ? "Remboursement en cours chez Stripe" : payment.refund_status === "partial" ? `Remboursé partiellement : ${formatEuro(payment.refunded_amount)}` : payment.refund_status === "succeeded" ? `Remboursé : ${formatEuro(payment.refunded_amount)}` : "Le remboursement a échoué — l'administration doit le relancer."}</small>}</div>)}</div>
-                          <div className="invoice-actions">
-                            <strong>{formatEuro(invoice.amount)}</strong>
-                            <span className={`invoice-status ${invoice.status}`}>{invoice.status === "paid" ? "Payée" : invoice.status === "sent" ? "À payer" : invoice.status === "cancelled" ? "Annulée" : invoice.status}</span>
-                            <button className="document-button" type="button" onClick={() => downloadDocument("invoices", invoice.id, invoice.invoice_number)} disabled={downloadPending === `invoices-${invoice.id}`}><Download /> {downloadPending === `invoices-${invoice.id}` ? "Préparation…" : "Télécharger le PDF"}</button>
-                            {invoice.status === "sent" && (
-                              <button className="primary-button payment-button" type="button" onClick={() => startInvoiceCheckout(invoice)} disabled={checkoutPendingId === invoice.id}>
-                                <CreditCard /> {checkoutPendingId === invoice.id ? "Redirection…" : invoice.invoice_type === "deposit" ? "Payer l’acompte" : "Payer le solde"}
-                              </button>
-                            )}
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
+                  <ClientInvoices
+                    checkoutPendingId={checkoutPendingId}
+                    checkoutStatus={checkoutStatus}
+                    clientPayments={clientPayments}
+                    downloadDocument={downloadDocument}
+                    downloadPending={downloadPending}
+                    invoices={invoices}
+                    invoiceStatus={invoiceStatus}
+                    startCheckout={startInvoiceCheckout}
+                  />
                   <div className="appointment-panel">
                     <div className="playlist-heading"><div><h3>Rendez-vous préparatoire</h3><p>Planifiez la préparation avec votre DJ avant le jour de l’événement.</p></div><CalendarDays /></div>
                     {appointmentStatus && <p className={appointmentStatus.includes("planifié") ? "form-message success" : "invoice-empty"} role="status">{appointmentStatus}</p>}

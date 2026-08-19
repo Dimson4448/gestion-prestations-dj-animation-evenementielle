@@ -1,4 +1,5 @@
 from io import BytesIO
+from pathlib import Path
 
 from django.conf import settings
 from django.utils import timezone
@@ -8,7 +9,7 @@ from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
 NAVY = colors.HexColor("#0B1020")
@@ -16,6 +17,7 @@ CYAN = colors.HexColor("#00C8F0")
 MAGENTA = colors.HexColor("#FF2E88")
 LIGHT = colors.HexColor("#F3F6FA")
 MUTED = colors.HexColor("#526079")
+LOGO_PATH = Path(settings.BASE_DIR) / "static" / "images" / "logo-ultimate-dj.png"
 
 
 def _styles():
@@ -74,6 +76,15 @@ def _details_table(rows, styles):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
     ]))
     return table
+
+
+def _brand_logo(styles):
+    if not LOGO_PATH.is_file():
+        return Paragraph("ULTIMATE <font color='#00A9D6'>DJ</font>", styles["Brand"])
+
+    logo = Image(str(LOGO_PATH), width=24 * mm, height=27 * mm)
+    logo.hAlign = "LEFT"
+    return logo
 
 
 def business_identity_rows(primary_label):
@@ -153,7 +164,8 @@ def build_invoice_pdf(invoice):
     refunded_amount = sum((refund.amount for payment in payments for refund in payment.refunds.all() if refund.status == refund.SUCCEEDED), 0)
     story = [
         Spacer(1, 6 * mm),
-        Paragraph("ULTIMATE <font color='#00A9D6'>DJ</font>", styles["Brand"]),
+        _brand_logo(styles),
+        Spacer(1, 2 * mm),
         Paragraph(invoice_titles[invoice.invoice_type], styles["DocumentTitle"]),
         Paragraph(f"Facture {escape(invoice.invoice_number)}", styles["Right"]),
         Spacer(1, 8 * mm),

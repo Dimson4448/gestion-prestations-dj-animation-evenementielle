@@ -1235,6 +1235,7 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(invoice_response["Content-Type"], "application/pdf")
         self.assertTrue(contract_response.content.startswith(b"%PDF-"))
         self.assertTrue(invoice_response.content.startswith(b"%PDF-"))
+        self.assertIn(b"/Subtype /Image", invoice_response.content)
         self.assertGreater(len(contract_response.content), 2000)
         self.assertGreater(len(invoice_response.content), 2000)
         self.assertIn(contract.contract_number, contract_response["Content-Disposition"])
