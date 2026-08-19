@@ -303,6 +303,8 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - J'ai extrait le suivi des candidatures DJ de `App.jsx` vers un composant React dédié afin de rendre le code plus facile à lire et à faire évoluer.
 - J'ai remplacé les conditions imbriquées des messages de connexion par une règle de rôle centralisée et explicite.
 - J'ai regroupé les messages de session dans les ressources de traduction françaises, anglaises et néerlandaises.
+- J'ai isolé l'en-tête de la session connectée, les accès liés au rôle et la déconnexion dans un composant React dédié.
+- Les nouveaux libellés de session sont disponibles en français, en anglais et en néerlandais.
 - J'ai ajouté quatre tests unitaires pour vérifier les rôles et empêcher qu'un compte inconnu reçoive un accès privilégié.
 - La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.
 - Aucun modèle Django n'a changé ; le dump MariaDB ne nécessite donc pas de mise à jour.

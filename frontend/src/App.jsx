@@ -12,7 +12,6 @@ import {
   Headphones,
   MapPin,
   Music2,
-  Settings,
   ShieldCheck,
   Sparkles,
   Star,
@@ -26,13 +25,13 @@ import SiteFooter from "./components/SiteFooter";
 import SiteHeader from "./components/SiteHeader";
 import LocalizedContent from "./components/LocalizedContent";
 import DJApplicationForm from "./components/DJApplicationForm";
-import DJApplicationFollowup from "./components/DJApplicationFollowup";
+import ConnectedAccountSession from "./components/ConnectedAccountSession";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
 import { allowedEventTypeNames, filterAllowedEventTypes } from "./utils/eventTypes";
 import { getAdultBirthDateMax } from "./utils/registration";
-import { getAccountSummaryKey, getLoginSuccessKey } from "./utils/authentication";
+import { getLoginSuccessKey } from "./utils/authentication";
 
 const unassignedDj = {
   id: null,
@@ -1708,13 +1707,14 @@ export default function App() {
                   </form>}
                 </>
               ) : (
-                <div className="account-card connected-card">
-                  <div className="confirmation-icon"><Check /></div><h2>Session active</h2>
-                  <p>{t(getAccountSummaryKey(currentUser))}</p>
-                  {loginStatus && <p className="form-message success" role="status">{loginStatus}</p>}
-                  {currentUser?.role === "dj_candidate" && <DJApplicationFollowup application={djApplicationStatus} message={djApplicationStatusMessage} />}
-                  {currentUser?.is_staff && <button className="primary-button" type="button" onClick={() => navigate("administration")}><Settings /> Ouvrir l’espace administrateur</button>}
-                  {currentUser?.role === "dj" && <button className="primary-button" type="button" onClick={() => navigate("dj")}><Headphones /> Ouvrir l’espace DJ</button>}
+                <ConnectedAccountSession
+                  currentUser={currentUser}
+                  djApplicationStatus={djApplicationStatus}
+                  djApplicationStatusMessage={djApplicationStatusMessage}
+                  loginStatus={loginStatus}
+                  onLogout={handleLogout}
+                  onNavigate={navigate}
+                >
                   {currentUser?.role === "client" && <>
                   <div className="profile-panel">
                     <div className="playlist-heading"><div><h3>Mes coordonnées</h3><p>{clientProfile ? `${clientProfile.first_name} ${clientProfile.last_name} · ${clientProfile.email} · ${clientProfile.billing_city}` : "Chargement de vos coordonnées…"}</p></div><CircleUserRound /></div>
@@ -1878,8 +1878,7 @@ export default function App() {
                     </div>
                   </div>
                   </>}
-                  <button className="secondary-button" type="button" onClick={handleLogout}>Se déconnecter</button>
-                </div>
+                </ConnectedAccountSession>
               )}
               <aside className="account-benefits"><p className="eyebrow">Votre suivi personnalisé</p><h2>Un parcours clair, étape par étape</h2>{[{ icon: FileText, text: "Consultez vos devis et contrats" }, { icon: CreditCard, text: "Suivez l’acompte et les factures" }, { icon: Music2, text: "Préparez votre playlist" }, { icon: Sparkles, text: "Laissez un avis après la prestation" }].map(({ icon: Icon, text }) => <div key={text}><Icon /><span>{text}</span></div>)}</aside>
             </div>
