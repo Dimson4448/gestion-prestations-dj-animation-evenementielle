@@ -31,6 +31,7 @@ import ClientInvoices from "./components/ClientInvoices";
 import ClientContracts from "./components/ClientContracts";
 import ClientAppointments from "./components/ClientAppointments";
 import ClientReviews from "./components/ClientReviews";
+import ClientAccountDeletion from "./components/ClientAccountDeletion";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
@@ -1738,12 +1739,15 @@ export default function App() {
                       <button className="primary-button" type="submit" disabled={passwordChangePending}>{passwordChangePending ? "Modification…" : "Modifier et me déconnecter"}</button>
                     </form>}
                   </div>
-                  <div className="account-deletion-panel">
-                    <div className="playlist-heading"><div><h3>Suppression du compte</h3><p>La demande est examinée avant toute suppression afin de préserver les documents comptables et contractuels obligatoires.</p></div><X /></div>
-                    {accountDeletionRequests.map((request) => <article className="deletion-request-row" key={request.id}><div><strong>Demande n°{request.id}</strong><span>{request.reason}</span>{request.review_message && <small>Réponse : {request.review_message}</small>}</div><div><span className={`deletion-status ${request.status}`}>{request.status === "pending" ? "En attente" : request.status === "cancelled" ? "Annulée" : request.status === "approved" ? "Approuvée" : "Refusée"}</span>{request.status === "pending" && <button className="document-button" type="button" onClick={() => cancelAccountDeletion(request.id)} disabled={accountDeletionPending}>Annuler la demande</button>}</div></article>)}
-                    {!accountDeletionRequests.some((request) => request.status === "pending") && <form className="password-change-form" onSubmit={handleAccountDeletionRequest}><label>Motif de la demande<textarea rows="3" minLength="10" value={accountDeletionReason} onChange={(event) => setAccountDeletionReason(event.target.value)} required /></label><button className="document-button danger-button" type="submit" disabled={accountDeletionPending}>{accountDeletionPending ? "Enregistrement…" : "Demander la suppression"}</button></form>}
-                    {accountDeletionStatus && <p className={accountDeletionStatus.includes("enregistrée") || accountDeletionStatus.includes("annulée") ? "form-message success" : "form-message"} role="status">{accountDeletionStatus}</p>}
-                  </div>
+                  <ClientAccountDeletion
+                    cancelRequest={cancelAccountDeletion}
+                    onReasonChange={setAccountDeletionReason}
+                    onSubmit={handleAccountDeletionRequest}
+                    pending={accountDeletionPending}
+                    reason={accountDeletionReason}
+                    requests={accountDeletionRequests}
+                    statusMessage={accountDeletionStatus}
+                  />
                   <div className="quote-list">
                     <h3>Mes demandes de devis</h3>
                     {quoteListStatus && <p className="invoice-empty" role="status">{quoteListStatus}</p>}
