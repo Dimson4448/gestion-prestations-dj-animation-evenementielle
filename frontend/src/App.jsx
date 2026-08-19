@@ -28,6 +28,7 @@ import DJApplicationForm from "./components/DJApplicationForm";
 import ConnectedAccountSession from "./components/ConnectedAccountSession";
 import AccountBenefits from "./components/AccountBenefits";
 import ClientInvoices from "./components/ClientInvoices";
+import ClientContracts from "./components/ClientContracts";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
@@ -53,13 +54,6 @@ const quoteStatusLabels = {
   accepted: "Accepté",
   refused: "Refusé",
   expired: "Expiré",
-};
-
-const contractStatusLabels = {
-  draft: "Brouillon",
-  sent: "À signer",
-  signed: "Signé",
-  cancelled: "Annulé",
 };
 
 export default function App() {
@@ -1783,21 +1777,14 @@ export default function App() {
                       {!clientBookings.some((booking) => ["preparatory_meeting", "confirmed", "paid"].includes(booking.status)) && <p className="invoice-empty">Aucune réservation ne peut actuellement faire l'objet d'une demande.</p>}
                     </div>
                   </div>
-                  <div className="contract-list">
-                    <h3>Mes contrats</h3>
-                    {contractStatus && <p className={contractStatus.includes("signé") ? "form-message success" : "invoice-empty"} role="status">{contractStatus}</p>}
-                    {contracts.map((contract) => (
-                      <article className="contract-row" key={contract.id}>
-                        <div><strong>{contract.contract_number}</strong><span>Réservation n°{contract.booking}</span><span>{contract.refund_policy}</span></div>
-                        <div className="contract-actions">
-                          <span className={`contract-status ${contract.status}`}>{contractStatusLabels[contract.status] || contract.status}</span>
-                          <button className="document-button" type="button" onClick={() => downloadDocument("contracts", contract.id, contract.contract_number)} disabled={downloadPending === `contracts-${contract.id}`}><Download /> {downloadPending === `contracts-${contract.id}` ? "Préparation…" : "Télécharger le PDF"}</button>
-                          {contract.status === "sent" && <button className="primary-button payment-button" type="button" onClick={() => signClientContract(contract.id)} disabled={contractPendingId === contract.id}><FileText /> {contractPendingId === contract.id ? "Signature…" : "Signer le contrat"}</button>}
-                          {contract.signed_by_client_at && <small>Signé le {new Date(contract.signed_by_client_at).toLocaleString(i18n.language)}</small>}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
+                  <ClientContracts
+                    contracts={contracts}
+                    contractPendingId={contractPendingId}
+                    contractStatus={contractStatus}
+                    downloadDocument={downloadDocument}
+                    downloadPending={downloadPending}
+                    signContract={signClientContract}
+                  />
                   <ClientInvoices
                     checkoutPendingId={checkoutPendingId}
                     checkoutStatus={checkoutStatus}

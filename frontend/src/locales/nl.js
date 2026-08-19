@@ -8,6 +8,7 @@ export default {
     guidance: { eyebrow: "Uw persoonlijke opvolging", title: "Een duidelijk traject, stap voor stap", documents: "Bekijk uw offertes en contracten", payments: "Volg uw voorschot en facturen", playlist: "Bereid uw afspeellijst voor", review: "Laat na het evenement een beoordeling achter" },
   },
   clientInvoices: { title: "Mijn facturen", dueDate: "Vervaldatum", payment: "Betaling nr. {{id}} · {{amount}}", preparing: "Voorbereiden…", download: "PDF downloaden", redirecting: "Doorsturen…", payDeposit: "Voorschot betalen", payBalance: "Saldo betalen", type: { deposit: "Voorschot", balance: "Saldo", full: "Volledige factuur" }, status: { paid: "Betaald", sent: "Te betalen", cancelled: "Geannuleerd" }, refund: { pending: "Terugbetaling wordt verwerkt door Stripe", partial: "Gedeeltelijk terugbetaald: {{amount}}", succeeded: "Terugbetaald: {{amount}}", failed: "De terugbetaling is mislukt — de administratie moet ze opnieuw uitvoeren." } },
+  clientContracts: { title: "Mijn contracten", booking: "Boeking nr. {{id}}", preparing: "Voorbereiden…", download: "PDF downloaden", signing: "Ondertekenen…", sign: "Contract ondertekenen", signedAt: "Ondertekend op {{date}}", status: { draft: "Concept", sent: "Te ondertekenen", signed: "Ondertekend", cancelled: "Geannuleerd" } },
   eventTypes: { childBirthday: "Kinderverjaardag", adultBirthday: "Verjaardag voor volwassenen", wedding: "Bruiloft", privateParty: "Privéfeest" },
   eventPrompt: "Selecteer een evenement",
   home: {

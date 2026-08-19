@@ -8,6 +8,7 @@ export default {
     guidance: { eyebrow: "Votre suivi personnalisé", title: "Un parcours clair, étape par étape", documents: "Consultez vos devis et contrats", payments: "Suivez l’acompte et les factures", playlist: "Préparez votre playlist", review: "Laissez un avis après la prestation" },
   },
   clientInvoices: { title: "Mes factures", dueDate: "Échéance", payment: "Paiement n°{{id}} · {{amount}}", preparing: "Préparation…", download: "Télécharger le PDF", redirecting: "Redirection…", payDeposit: "Payer l’acompte", payBalance: "Payer le solde", type: { deposit: "Acompte", balance: "Solde", full: "Facture complète" }, status: { paid: "Payée", sent: "À payer", cancelled: "Annulée" }, refund: { pending: "Remboursement en cours chez Stripe", partial: "Remboursé partiellement : {{amount}}", succeeded: "Remboursé : {{amount}}", failed: "Le remboursement a échoué — l’administration doit le relancer." } },
+  clientContracts: { title: "Mes contrats", booking: "Réservation n°{{id}}", preparing: "Préparation…", download: "Télécharger le PDF", signing: "Signature…", sign: "Signer le contrat", signedAt: "Signé le {{date}}", status: { draft: "Brouillon", sent: "À signer", signed: "Signé", cancelled: "Annulé" } },
   eventTypes: { childBirthday: "Anniversaire enfant", adultBirthday: "Anniversaire adulte", wedding: "Mariage", privateParty: "Soirée privée" },
   eventPrompt: "Sélectionnez un événement",
   home: {

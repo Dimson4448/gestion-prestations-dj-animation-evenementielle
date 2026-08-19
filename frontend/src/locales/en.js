@@ -8,6 +8,7 @@ export default {
     guidance: { eyebrow: "Your personalised tracking", title: "A clear journey, step by step", documents: "View your quotes and contracts", payments: "Track your deposit and invoices", playlist: "Prepare your playlist", review: "Leave a review after the event" },
   },
   clientInvoices: { title: "My invoices", dueDate: "Due date", payment: "Payment no. {{id}} · {{amount}}", preparing: "Preparing…", download: "Download PDF", redirecting: "Redirecting…", payDeposit: "Pay the deposit", payBalance: "Pay the balance", type: { deposit: "Deposit", balance: "Balance", full: "Full invoice" }, status: { paid: "Paid", sent: "To pay", cancelled: "Cancelled" }, refund: { pending: "Refund being processed by Stripe", partial: "Partially refunded: {{amount}}", succeeded: "Refunded: {{amount}}", failed: "The refund failed — the administration must retry it." } },
+  clientContracts: { title: "My contracts", booking: "Booking no. {{id}}", preparing: "Preparing…", download: "Download PDF", signing: "Signing…", sign: "Sign the contract", signedAt: "Signed on {{date}}", status: { draft: "Draft", sent: "To sign", signed: "Signed", cancelled: "Cancelled" } },
   eventTypes: { childBirthday: "Children’s birthday", adultBirthday: "Adult birthday", wedding: "Wedding", privateParty: "Private party" },
   eventPrompt: "Select an event",
   home: {
