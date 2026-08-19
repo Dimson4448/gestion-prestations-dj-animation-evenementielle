@@ -26,6 +26,7 @@ import SiteHeader from "./components/SiteHeader";
 import LocalizedContent from "./components/LocalizedContent";
 import DJApplicationForm from "./components/DJApplicationForm";
 import ConnectedAccountSession from "./components/ConnectedAccountSession";
+import AccountBenefits from "./components/AccountBenefits";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
 import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
@@ -1880,7 +1881,7 @@ export default function App() {
                   </>}
                 </ConnectedAccountSession>
               )}
-              <aside className="account-benefits"><p className="eyebrow">Votre suivi personnalisé</p><h2>Un parcours clair, étape par étape</h2>{[{ icon: FileText, text: "Consultez vos devis et contrats" }, { icon: CreditCard, text: "Suivez l’acompte et les factures" }, { icon: Music2, text: "Préparez votre playlist" }, { icon: Sparkles, text: "Laissez un avis après la prestation" }].map(({ icon: Icon, text }) => <div key={text}><Icon /><span>{text}</span></div>)}</aside>
+              <AccountBenefits />
             </div>
           </section>
         )}

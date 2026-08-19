@@ -5,6 +5,7 @@ export default {
     loginSuccess: { admin: "U bent aangemeld. De beheerdersruimte is beschikbaar.", dj: "U bent aangemeld. Uw DJ-ruimte is nu beschikbaar.", dj_candidate: "U bent aangemeld. U kunt nu uw DJ-kandidatuur volgen.", client: "U bent aangemeld. Uw klantenruimte is nu beschikbaar." },
     accountSummary: { admin: "U bent aangemeld met een beheerdersaccount.", dj: "U bent aangemeld met een DJ-account.", dj_candidate: "Uw e-mail is bevestigd. Hieronder kunt u de voortgang van uw DJ-kandidatuur volgen.", client: "U kunt nu uw offertes, facturen en beveiligde betalingen volgen." },
     session: { title: "Actieve sessie", openAdministration: "Beheerdersruimte openen", openDjArea: "DJ-ruimte openen", logout: "Afmelden" },
+    guidance: { eyebrow: "Uw persoonlijke opvolging", title: "Een duidelijk traject, stap voor stap", documents: "Bekijk uw offertes en contracten", payments: "Volg uw voorschot en facturen", playlist: "Bereid uw afspeellijst voor", review: "Laat na het evenement een beoordeling achter" },
   },
   eventTypes: { childBirthday: "Kinderverjaardag", adultBirthday: "Verjaardag voor volwassenen", wedding: "Bruiloft", privateParty: "Privéfeest" },
   eventPrompt: "Selecteer een evenement",

@@ -5,6 +5,7 @@ export default {
     loginSuccess: { admin: "You are signed in. The administration area is available.", dj: "You are signed in. Your DJ area is now available.", dj_candidate: "You are signed in. You can now track your DJ application.", client: "You are signed in. Your client area is now available." },
     accountSummary: { admin: "You are signed in with an administrator account.", dj: "You are signed in with a DJ account.", dj_candidate: "Your email is confirmed. You can track the progress of your DJ application below.", client: "You can now track your quotes, invoices and secure payments." },
     session: { title: "Active session", openAdministration: "Open the admin area", openDjArea: "Open the DJ area", logout: "Sign out" },
+    guidance: { eyebrow: "Your personalised tracking", title: "A clear journey, step by step", documents: "View your quotes and contracts", payments: "Track your deposit and invoices", playlist: "Prepare your playlist", review: "Leave a review after the event" },
   },
   eventTypes: { childBirthday: "Children’s birthday", adultBirthday: "Adult birthday", wedding: "Wedding", privateParty: "Private party" },
   eventPrompt: "Select an event",

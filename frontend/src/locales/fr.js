@@ -5,6 +5,7 @@ export default {
     loginSuccess: { admin: "Connexion réussie. L’espace administrateur est accessible.", dj: "Connexion réussie. Votre espace DJ est maintenant accessible.", dj_candidate: "Connexion réussie. Vous pouvez maintenant suivre votre candidature DJ.", client: "Connexion réussie. Votre espace client est maintenant accessible." },
     accountSummary: { admin: "Vous êtes connecté avec un compte administrateur.", dj: "Vous êtes connecté avec un compte DJ.", dj_candidate: "Votre e-mail est confirmé. Vous pouvez suivre ci-dessous l’avancement de votre candidature DJ.", client: "Vous pouvez maintenant suivre vos devis, vos factures et vos paiements sécurisés." },
     session: { title: "Session active", openAdministration: "Ouvrir l’espace administrateur", openDjArea: "Ouvrir l’espace DJ", logout: "Se déconnecter" },
+    guidance: { eyebrow: "Votre suivi personnalisé", title: "Un parcours clair, étape par étape", documents: "Consultez vos devis et contrats", payments: "Suivez l’acompte et les factures", playlist: "Préparez votre playlist", review: "Laissez un avis après la prestation" },
   },
   eventTypes: { childBirthday: "Anniversaire enfant", adultBirthday: "Anniversaire adulte", wedding: "Mariage", privateParty: "Soirée privée" },
   eventPrompt: "Sélectionnez un événement",
