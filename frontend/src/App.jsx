@@ -32,12 +32,16 @@ import ClientContracts from "./components/ClientContracts";
 import ClientAppointments from "./components/ClientAppointments";
 import ClientReviews from "./components/ClientReviews";
 import ClientAccountDeletion from "./components/ClientAccountDeletion";
+import ClientQuotes from "./components/ClientQuotes";
 import HomePage from "./pages/HomePage";
-import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
-import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
-import { allowedEventTypeNames, filterAllowedEventTypes } from "./utils/eventTypes";
+import OffersPage from "./pages/OffersPage";
+import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded } from "./utils/booking";
+import { filterPackagesForEventType } from "./utils/catalogue";
+import { allowedEventTypeNames } from "./utils/eventTypes";
+import useCatalogue from "./hooks/useCatalogue";
 import { getAdultBirthDateMax } from "./utils/registration";
 import { getLoginSuccessKey } from "./utils/authentication";
+import { getPageFromHash, getPageHash } from "./utils/navigation";
 
 const unassignedDj = {
   id: null,
@@ -50,6 +54,9 @@ const unassignedDj = {
 
 const todayIso = new Date().toISOString().slice(0, 10);
 const adultBirthDateMax = getAdultBirthDateMax();
+const getPageFromHistory = () => {
+  return getPageFromHash(window.location.hash);
+};
 
 const quoteStatusLabels = {
   draft: "Brouillon",
@@ -61,19 +68,21 @@ const quoteStatusLabels = {
 
 export default function App() {
   const { i18n, t } = useTranslation();
-  const [page, setPage] = useState("accueil");
+  const [page, setPage] = useState(getPageFromHistory);
   const language = (i18n.resolvedLanguage || i18n.language || "fr").toUpperCase();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [packages, setPackages] = useState([]);
-  const [catalogueStatus, setCatalogueStatus] = useState("Chargement du catalogue Django…");
-  const [catalogueReady, setCatalogueReady] = useState(false);
-  const [availableDjs, setAvailableDjs] = useState([]);
-  const [publicAvailabilityStatus, setPublicAvailabilityStatus] = useState("Recherche des créneaux Django…");
-  const [eventTypeRecords, setEventTypeRecords] = useState([]);
+  const [eventDate, setEventDate] = useState("2026-09-12");
+  const {
+    availableDjs,
+    catalogueReady,
+    catalogueStatus,
+    eventTypeRecords,
+    packages,
+    publicAvailabilityStatus,
+  } = useCatalogue(eventDate);
   const [selectedPackageId, setSelectedPackageId] = useState("mariage");
   const [selectedDj, setSelectedDj] = useState(unassignedDj);
   const [eventType, setEventType] = useState("");
-  const [eventDate, setEventDate] = useState("2026-09-12");
   const [startTime, setStartTime] = useState("18:00");
   const [location, setLocation] = useState("");
   const [venueName, setVenueName] = useState("Lieu de l’événement");
@@ -127,6 +136,16 @@ export default function App() {
   const [verificationResendOpen, setVerificationResendOpen] = useState(false);
   const [verificationResendEmail, setVerificationResendEmail] = useState("");
   const [verificationResendPending, setVerificationResendPending] = useState(false);
+
+  useEffect(() => {
+    if (!packages.length) return;
+    setSelectedPackageId((current) => packages.some((item) => String(item.id) === String(current)) ? current : packages[0].id);
+  }, [packages]);
+
+  useEffect(() => {
+    if (!eventTypeRecords.length) return;
+    setEventType((current) => eventTypeRecords.some((item) => item.name === current) ? current : "");
+  }, [eventTypeRecords]);
   const [verificationResendStatus, setVerificationResendStatus] = useState("");
   const [clientProfile, setClientProfile] = useState(null);
   const [clientProfileOpen, setClientProfileOpen] = useState(false);
@@ -299,87 +318,6 @@ export default function App() {
       setPaymentReturnStatus("Paiement annulé : aucun acompte n’a été confirmé. Vous pourrez réessayer.");
     }
     window.history.replaceState({}, document.title, window.location.pathname);
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    apiClient
-      .get("/packages/")
-      .then((response) => {
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        if (mounted && Array.isArray(data) && data.length) {
-          const mappedPackages = decoratePackages(data);
-          setPackages(mappedPackages);
-          setSelectedPackageId((current) => mappedPackages.some((item) => String(item.id) === String(current)) ? current : mappedPackages[0].id);
-          setCatalogueReady(true);
-          setCatalogueStatus("Catalogue synchronisé avec l’API locale");
-        } else if (mounted) {
-          setPackages([]);
-          setCatalogueReady(false);
-          setCatalogueStatus("Aucune offre active dans le catalogue Django");
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setPackages([]);
-          setCatalogueReady(false);
-          setCatalogueStatus("Catalogue indisponible · vérifiez la connexion au backend Django");
-        }
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!eventDate) return undefined;
-
-    let mounted = true;
-    setPublicAvailabilityStatus("Recherche des créneaux disponibles…");
-    apiClient
-      .get("/availability/", { params: { date: eventDate } })
-      .then((response) => {
-        if (!mounted) return;
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        const slots = Array.isArray(data) ? data : [];
-        const records = mapAvailableDjs(slots);
-        setAvailableDjs(records);
-        setPublicAvailabilityStatus(
-          records.length
-            ? "Disponibilités synchronisées avec Django"
-            : "Aucun DJ disponible à cette date",
-        );
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setAvailableDjs([]);
-        setPublicAvailabilityStatus("Disponibilités indisponibles · vérifiez la connexion au backend Django");
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [eventDate]);
-
-  useEffect(() => {
-    let mounted = true;
-    apiClient
-      .get("/event-types/")
-      .then((response) => {
-        if (!mounted) return;
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        if (Array.isArray(data) && data.length) {
-          const supportedRecords = filterAllowedEventTypes(data);
-          setEventTypeRecords(supportedRecords);
-          if (supportedRecords.length) {
-            setEventType((current) => supportedRecords.some((item) => item.name === current) ? current : "");
-          }
-        }
-      })
-      .catch(() => mounted && setEventTypeRecords([]));
-    return () => {
-      mounted = false;
-    };
   }, []);
 
   useEffect(() => {
@@ -702,6 +640,17 @@ export default function App() {
   const reviewedBookingIds = new Set(reviews.map((item) => item.booking));
   const eligibleReviewBookings = clientBookings.filter((item) => canSubmitReview(item, reviewedBookingIds));
 
+  useEffect(() => {
+    const handleHistoryNavigation = () => {
+      setPage(getPageFromHistory());
+      setMobileNavOpen(false);
+      setQuoteSubmitted(false);
+      window.scrollTo({ top: 0, behavior: "auto" });
+    };
+    window.addEventListener("popstate", handleHistoryNavigation);
+    return () => window.removeEventListener("popstate", handleHistoryNavigation);
+  }, []);
+
   const quote = useMemo(() => {
     return calculateQuoteEstimate({
       basePrice: selectedPackage?.base_price,
@@ -712,6 +661,10 @@ export default function App() {
   }, [distanceKm, durationHours, selectedPackage]);
 
   const navigate = (target) => {
+    const targetHash = getPageHash(target);
+    if (window.location.hash !== targetHash) {
+      window.history.pushState({ page: target }, "", targetHash);
+    }
     setPage(target);
     setMobileNavOpen(false);
     setQuoteSubmitted(false);
@@ -1466,24 +1419,20 @@ export default function App() {
           />
         )}
 
-        {page === "offres" && (
-          <section className="section-wrap catalogue-page">
-            <div className="page-heading"><p className="eyebrow dark">Offres & DJs</p><h1>Trouvez la prestation qui vous ressemble</h1><p>{eventType} · {eventDate.split("-").reverse().join("/")} · {location}</p></div>
-            <div className="catalogue-layout">
-              <aside className="filters"><div className="filter-heading"><h2>Filtres</h2><button onClick={() => { setEventType(""); setLocation(""); }}>Réinitialiser</button></div>
-                <label>Type d’événement<select value={eventType} onChange={(event) => setEventType(event.target.value)}><option value="">Toutes les prestations</option>{availableEventTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
-                <label>Date<input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} /></label>
-                <label>Lieu<input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
-                <label>Budget<select defaultValue="1500"><option value="700">Moins de 700 €</option><option value="1500">700 € – 1 500 €</option><option value="more">Plus de 1 500 €</option></select></label>
-                <fieldset><legend>Services</legend><label className="check-row"><input type="checkbox" defaultChecked /> Sonorisation</label><label className="check-row"><input type="checkbox" defaultChecked /> Éclairage</label><label className="check-row"><input type="checkbox" /> Animation micro</label></fieldset>
-              </aside>
-              <div className="results"><div className="results-heading"><div><h2>DJs disponibles à {location}</h2><p>{availableDjs.length} résultat{availableDjs.length > 1 ? "s" : ""} · {publicAvailabilityStatus}</p></div></div>
-                {compatiblePackages.length > 0 && availableDjs.map((dj, index) => { const item = compatiblePackages[index % compatiblePackages.length]; return <article className="dj-card" key={dj.id}><div className={`dj-avatar avatar-${index + 1}`}><Headphones /></div><div className="dj-copy"><div className="dj-title"><h3>{dj.name}</h3><span><Star /> {dj.rating ? `${dj.rating} (${dj.reviews} avis)` : "Profil vérifié"}</span></div><p>{dj.styles}</p><p className="availability"><Clock3 /> Disponible {dj.slot}</p><strong>À partir de {formatEuro(item.base_price)}</strong></div><button className="primary-button" type="button" onClick={() => openDetail(item, dj)}>Voir le détail <ChevronRight /></button></article>; })}
-                {(!availableDjs.length || !compatiblePackages.length) && <p className="invoice-empty">{!compatiblePackages.length ? "Aucune formule compatible avec cette prestation." : "Modifiez la date pour rechercher un autre créneau."}</p>}
-              </div>
-            </div>
-          </section>
-        )}
+        {page === "offres" && <OffersPage
+          availableDjs={availableDjs}
+          availableEventTypes={availableEventTypes}
+          compatiblePackages={compatiblePackages}
+          eventDate={eventDate}
+          eventType={eventType}
+          location={location}
+          onDateChange={setEventDate}
+          onEventTypeChange={setEventType}
+          onLocationChange={setLocation}
+          onOpenDetail={openDetail}
+          onReset={() => { setEventType(""); setLocation(""); }}
+          publicAvailabilityStatus={publicAvailabilityStatus}
+        />}
 
         {page === "detail" && selectedPackage && (
           <>
@@ -1748,23 +1697,13 @@ export default function App() {
                     requests={accountDeletionRequests}
                     statusMessage={accountDeletionStatus}
                   />
-                  <div className="quote-list">
-                    <h3>Mes demandes de devis</h3>
-                    {quoteListStatus && <p className="invoice-empty" role="status">{quoteListStatus}</p>}
-                    {clientQuotes.map((item) => {
-                      const itemPackage = packages.find((entry) => String(entry.id) === String(item.package));
-                      const itemVenue = venues.find((entry) => String(entry.id) === String(item.venue));
-                      const itemEventType = eventTypeRecords.find((entry) => String(entry.id) === String(item.event_type));
-                      return (
-                        <article className="quote-row" key={item.id}>
-                          <div className="quote-row-heading"><strong>Devis n°{item.id}</strong><span className={`quote-status ${item.status}`}>{quoteStatusLabels[item.status] || item.status}</span></div>
-                          <span>{itemEventType?.name || "Événement"} · {new Date(`${item.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</span>
-                          <span>{itemPackage?.name || `Formule n°${item.package}`} · {itemVenue ? `${itemVenue.name}, ${itemVenue.city}` : `Lieu n°${item.venue}`}</span>
-                          <div className="quote-row-amounts"><span>Total : <strong>{formatEuro(item.total_amount)}</strong></span><span>Acompte : <strong>{formatEuro(item.deposit_amount)}</strong></span></div>
-                        </article>
-                      );
-                    })}
-                  </div>
+                  <ClientQuotes
+                    eventTypes={eventTypeRecords}
+                    packages={packages}
+                    quotes={clientQuotes}
+                    statusMessage={quoteListStatus}
+                    venues={venues}
+                  />
                   <div className="cancellation-panel client-cancellation-panel">
                     <div className="playlist-heading"><div><h3>Mes demandes d'annulation</h3><p>Une demande n'annule pas automatiquement la prestation et ne déclenche aucun remboursement.</p></div><FileText /></div>
                     {cancellationStatus && <p className={cancellationStatus.includes("transmise") ? "form-message success" : "form-message"} role="status">{cancellationStatus}</p>}

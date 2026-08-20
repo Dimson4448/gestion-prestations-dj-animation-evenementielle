@@ -312,6 +312,13 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - J'ai extrait la planification des rendez-vous préparatoires et traduit le formulaire, les modes et les statuts en français, anglais et néerlandais.
 - J'ai isolé les avis clients et traduit le formulaire, les notes et les statuts de modération dans les trois langues.
 - J'ai extrait le suivi des demandes de suppression de compte et traduit les statuts et actions sans modifier les obligations de conservation documentaire.
+- J'ai isolé la liste des demandes de devis du client et traduit les statuts, montants et libellés de référence dans les trois langues.
+- J'ai intégré sur l'accueil quatre photographies personnelles retravaillées pour illustrer les anniversaires enfant et adulte, le mariage et la soirée privée, avec des descriptions traduites, un format WebP optimisé et un accès direct aux offres correspondantes.
+- J'ai relié les pages React à l'historique du navigateur afin que les flèches Précédent et Suivant restent dans l'application au lieu de revenir vers une ancienne page de paiement Stripe.
+- J'ai appliqué les traductions du catalogue Django aux noms et descriptions des formules affichées sur l'accueil.
+- J'ai commencé la réorganisation du frontend en isolant les appels du catalogue, des prestations et des disponibilités dans un hook React dédié.
+- J'ai extrait la page de recherche des offres de `App.jsx` vers un composant de page autonome, sans modifier le parcours utilisateur.
+- Cette réorganisation a été contrôlée avec 43 tests frontend réussis et un build Vite de production réussi.
 - J'ai ajouté quatre tests unitaires pour vérifier les rôles et empêcher qu'un compte inconnu reçoive un accès privilégié.
 - La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.
 - Aucun modèle Django n'a changé ; le dump MariaDB ne nécessite donc pas de mise à jour.
