@@ -324,7 +324,10 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - Cette extraction retire les effets API du compte de `App.jsx` et centralise la remise à zéro des données lors d'une déconnexion ou d'un changement de rôle.
 - J'ai isolé le chargement des tableaux de bord DJ et Administration dans `useOperationalWorkspaces()`, tout en conservant les contrôles de rôle et les messages d'erreur existants.
 - L'actualisation manuelle de l'administration réutilise désormais la même fonction de chargement que l'initialisation du tableau de bord.
-- Cette réorganisation a été contrôlée avec 43 tests frontend réussis et un build Vite de production réussi.
+- J'ai extrait la page de détail d'une formule et supprimé de `App.jsx` les dépendances visuelles devenues inutiles.
+- J'ai centralisé la lecture des listes Django REST paginées ou directes et ajouté quatre tests sur cette adaptation et les contrôles de rôle.
+- J'ai rédigé une note d'architecture du frontend pour présenter clairement les pages, hooks, composants, flux et patterns réellement utilisés.
+- Cette réorganisation a été contrôlée avec 47 tests frontend, 91 tests Django et un build Vite de production réussis.
 - J'ai ajouté quatre tests unitaires pour vérifier les rôles et empêcher qu'un compte inconnu reçoive un accès privilégié.
 - La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.
 - Aucun modèle Django n'a changé ; le dump MariaDB ne nécessite donc pas de mise à jour.

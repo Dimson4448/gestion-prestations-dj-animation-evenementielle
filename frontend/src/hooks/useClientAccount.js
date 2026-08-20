@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 import { apiClient, clearAuthentication, getAccountDeletionRequests, getClientProfile } from "../api";
+import { isUserInRole, unwrapApiList } from "../utils/apiCollections";
 
 export default function useClientAccount(account) {
   const {
@@ -13,7 +14,7 @@ export default function useClientAccount(account) {
   } = account;
 
 useEffect(() => {
-  if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
+    if (!isUserInRole(isAuthenticated, currentUser, "client")) {
     setInvoices([]);
     setClientPayments([]);
     setClientQuotes([]);
@@ -30,10 +31,10 @@ useEffect(() => {
   ])
     .then(([invoiceResponse, paymentResponse]) => {
       if (!mounted) return;
-      const invoices = Array.isArray(invoiceResponse.data?.results) ? invoiceResponse.data.results : invoiceResponse.data;
-      const payments = Array.isArray(paymentResponse.data?.results) ? paymentResponse.data.results : paymentResponse.data;
-      setInvoices(Array.isArray(invoices) ? invoices : []);
-      setClientPayments(Array.isArray(payments) ? payments : []);
+        const invoices = unwrapApiList(invoiceResponse.data);
+        const payments = unwrapApiList(paymentResponse.data);
+        setInvoices(invoices);
+        setClientPayments(payments);
       setInvoiceStatus(invoices?.length ? "" : "Aucune facture disponible.");
     })
     .catch((error) => {
@@ -53,7 +54,7 @@ useEffect(() => {
 }, [isAuthenticated, currentUser]);
 
 useEffect(() => {
-  if (!isAuthenticated || currentUser?.role !== "client") {
+    if (!isUserInRole(isAuthenticated, currentUser, "client")) {
     setAccountDeletionRequests([]);
     return;
   }
@@ -65,7 +66,7 @@ useEffect(() => {
 }, [isAuthenticated, currentUser]);
 
 useEffect(() => {
-  if (!isAuthenticated || currentUser?.role !== "client") {
+    if (!isUserInRole(isAuthenticated, currentUser, "client")) {
     setClientProfile(null);
     return;
   }
@@ -77,7 +78,7 @@ useEffect(() => {
 }, [isAuthenticated, currentUser]);
 
 useEffect(() => {
-  if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
+    if (!isUserInRole(isAuthenticated, currentUser, "client")) {
     setReviews([]);
     return;
   }
@@ -86,8 +87,7 @@ useEffect(() => {
   apiClient.get("/reviews/", { params: { ordering: "-created_at" } })
     .then((response) => {
       if (!mounted) return;
-      const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-      const records = Array.isArray(data) ? data : [];
+        const records = unwrapApiList(response.data);
       setReviews(records);
       setReviewStatus(records.length ? "" : "Aucun avis déposé.");
     })
@@ -96,7 +96,7 @@ useEffect(() => {
 }, [isAuthenticated, currentUser]);
 
 useEffect(() => {
-  if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
+    if (!isUserInRole(isAuthenticated, currentUser, "client")) {
     setAppointments([]);
     return;
   }
@@ -105,8 +105,7 @@ useEffect(() => {
   apiClient.get("/appointments/", { params: { ordering: "scheduled_at" } })
     .then((response) => {
       if (!mounted) return;
-      const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-      const records = Array.isArray(data) ? data : [];
+        const records = unwrapApiList(response.data);
       setAppointments(records);
       setAppointmentStatus(records.length ? "" : "Aucun rendez-vous préparatoire planifié.");
     })
@@ -115,7 +114,7 @@ useEffect(() => {
 }, [isAuthenticated, currentUser]);
 
 useEffect(() => {
-  if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
+    if (!isUserInRole(isAuthenticated, currentUser, "client")) {
     setClientBookings([]);
     setCancellationRequests([]);
     setPlaylists([]);
@@ -132,11 +131,10 @@ useEffect(() => {
   ])
     .then(async ([bookingsResponse, playlistsResponse, songsResponse, stylesResponse]) => {
       if (!mounted) return;
-      const records = (response) => Array.isArray(response.data?.results) ? response.data.results : (Array.isArray(response.data) ? response.data : []);
-      const bookingRecords = records(bookingsResponse);
-      const playlistRecords = records(playlistsResponse);
-      const songRecords = records(songsResponse);
-      const styleRecords = records(stylesResponse);
+        const bookingRecords = unwrapApiList(bookingsResponse.data);
+        const playlistRecords = unwrapApiList(playlistsResponse.data);
+        const songRecords = unwrapApiList(songsResponse.data);
+        const styleRecords = unwrapApiList(stylesResponse.data);
       setClientBookings(bookingRecords);
       const requestResponses = await Promise.all(
         bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
@@ -157,7 +155,7 @@ useEffect(() => {
 }, [isAuthenticated, currentUser]);
 
 useEffect(() => {
-  if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
+    if (!isUserInRole(isAuthenticated, currentUser, "client")) {
     setContracts([]);
     return;
   }
@@ -166,8 +164,7 @@ useEffect(() => {
   apiClient.get("/contracts/", { params: { ordering: "-created_at" } })
     .then((response) => {
       if (!mounted) return;
-      const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-      const records = Array.isArray(data) ? data : [];
+        const records = unwrapApiList(response.data);
       setContracts(records);
       setContractStatus(records.length ? "" : "Aucun contrat disponible.");
     })
@@ -179,7 +176,7 @@ useEffect(() => {
 }, [isAuthenticated, currentUser]);
 
 useEffect(() => {
-  if (!isAuthenticated || !currentUser || currentUser.role !== "client") return;
+    if (!isUserInRole(isAuthenticated, currentUser, "client")) return;
 
   let mounted = true;
   setQuoteListStatus("Chargement de vos devis…");
@@ -187,8 +184,7 @@ useEffect(() => {
     .get("/quotes/", { params: { ordering: "-created_at" } })
     .then((response) => {
       if (!mounted) return;
-      const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-      const quotes = Array.isArray(data) ? data : [];
+        const quotes = unwrapApiList(response.data);
       setClientQuotes(quotes);
       setQuoteListStatus(quotes.length ? "" : "Aucun devis enregistré.");
     })
@@ -209,15 +205,14 @@ useEffect(() => {
 }, [isAuthenticated, currentUser]);
 
 useEffect(() => {
-  if (!isAuthenticated || !currentUser || currentUser.role !== "client") return;
+    if (!isUserInRole(isAuthenticated, currentUser, "client")) return;
 
   let mounted = true;
   apiClient
     .get("/venues/", { params: { ordering: "city,name" } })
     .then((response) => {
       if (!mounted) return;
-      const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-      setVenues(Array.isArray(data) ? data : []);
+        setVenues(unwrapApiList(response.data));
     })
     .catch((error) => {
       if (mounted && error.response?.status !== 401) {
@@ -230,4 +225,3 @@ useEffect(() => {
 }, [isAuthenticated, currentUser]);
 
 }
-

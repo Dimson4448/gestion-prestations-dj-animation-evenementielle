@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 
 import { apiClient, getAccountDeletionRequests } from "../api";
 import { hasBookingEnded } from "../utils/booking";
+import { unwrapApiList } from "../utils/apiCollections";
 
 export default function useOperationalWorkspaces(workspaces) {
   const {
@@ -20,17 +21,16 @@ export default function useOperationalWorkspaces(workspaces) {
         apiClient.get("/payments/", { params: { ordering: "-paid_at" } }),
         getAccountDeletionRequests(),
       ]);
-      const quotes = Array.isArray(quotesResponse.data?.results) ? quotesResponse.data.results : quotesResponse.data;
-      const djs = Array.isArray(djsResponse.data?.results) ? djsResponse.data.results : djsResponse.data;
-      const bookings = Array.isArray(bookingsResponse.data?.results) ? bookingsResponse.data.results : bookingsResponse.data;
-      const payments = Array.isArray(paymentsResponse.data?.results) ? paymentsResponse.data.results : paymentsResponse.data;
-      const bookingRecords = Array.isArray(bookings) ? bookings : [];
+      const quotes = unwrapApiList(quotesResponse.data);
+      const djs = unwrapApiList(djsResponse.data);
+      const bookingRecords = unwrapApiList(bookingsResponse.data);
+      const payments = unwrapApiList(paymentsResponse.data);
       const requestResponses = await Promise.all(
         bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
       );
-      setAdminQuotes((Array.isArray(quotes) ? quotes : []).filter((item) => ["draft", "sent"].includes(item.status)));
-      setAdminDjs(Array.isArray(djs) ? djs : []);
-      setAdminPayments(Array.isArray(payments) ? payments : []);
+      setAdminQuotes(quotes.filter((item) => ["draft", "sent"].includes(item.status)));
+      setAdminDjs(djs);
+      setAdminPayments(payments);
       setAdminDeletionRequests((Array.isArray(deletionResponse) ? deletionResponse : []).filter((item) => item.status === "pending"));
       setAdminBookings(bookingRecords.filter((item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item)));
       setAdminCancellationRequests(requestResponses.flatMap((response) => response.data).filter((item) => item.status === "pending"));
@@ -61,11 +61,10 @@ export default function useOperationalWorkspaces(workspaces) {
       apiClient.get("/availability/"),
     ]).then(([bookingsResponse, appointmentsResponse, songsResponse, availabilitiesResponse]) => {
       if (!active) return;
-      const records = (response) => Array.isArray(response.data?.results) ? response.data.results : (Array.isArray(response.data) ? response.data : []);
-      const bookings = records(bookingsResponse);
-      const appointments = records(appointmentsResponse);
-      const songs = records(songsResponse);
-      const availabilities = records(availabilitiesResponse);
+      const bookings = unwrapApiList(bookingsResponse.data);
+      const appointments = unwrapApiList(appointmentsResponse.data);
+      const songs = unwrapApiList(songsResponse.data);
+      const availabilities = unwrapApiList(availabilitiesResponse.data);
       setDjBookings(bookings);
       setDjAppointments(appointments);
       setDjSongs(songs);

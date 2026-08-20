@@ -4,6 +4,7 @@ import { apiClient } from "../api";
 import { mapAvailableDjs } from "../utils/booking";
 import { decoratePackages } from "../utils/catalogue";
 import { filterAllowedEventTypes } from "../utils/eventTypes";
+import { unwrapApiList } from "../utils/apiCollections";
 
 export default function useCatalogue(eventDate) {
   const [packages, setPackages] = useState([]);
@@ -17,8 +18,7 @@ export default function useCatalogue(eventDate) {
     let active = true;
     apiClient.get("/packages/").then((response) => {
       if (!active) return;
-      const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-      const nextPackages = Array.isArray(data) ? decoratePackages(data) : [];
+      const nextPackages = decoratePackages(unwrapApiList(response.data));
       setPackages(nextPackages);
       setCatalogueReady(nextPackages.length > 0);
       setCatalogueStatus(nextPackages.length
@@ -39,8 +39,7 @@ export default function useCatalogue(eventDate) {
     setPublicAvailabilityStatus("Recherche des créneaux disponibles…");
     apiClient.get("/availability/", { params: { date: eventDate } }).then((response) => {
       if (!active) return;
-      const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-      const records = mapAvailableDjs(Array.isArray(data) ? data : []);
+      const records = mapAvailableDjs(unwrapApiList(response.data));
       setAvailableDjs(records);
       setPublicAvailabilityStatus(records.length
         ? "Disponibilités synchronisées avec Django"
@@ -57,8 +56,7 @@ export default function useCatalogue(eventDate) {
     let active = true;
     apiClient.get("/event-types/").then((response) => {
       if (!active) return;
-      const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-      setEventTypeRecords(Array.isArray(data) ? filterAllowedEventTypes(data) : []);
+      setEventTypeRecords(filterAllowedEventTypes(unwrapApiList(response.data)));
     }).catch(() => active && setEventTypeRecords([]));
     return () => { active = false; };
   }, []);

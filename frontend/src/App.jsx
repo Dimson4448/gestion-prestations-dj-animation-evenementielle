@@ -1,15 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Check,
-  ChevronRight,
   CircleUserRound,
-  Clock3,
   FileText,
-  Headphones,
   Music2,
   ShieldCheck,
-  Star,
   UsersRound,
 } from "lucide-react";
 
@@ -32,6 +27,7 @@ import OffersPage from "./pages/OffersPage";
 import DJWorkspacePage from "./pages/DJWorkspacePage";
 import AdminWorkspacePage from "./pages/AdminWorkspacePage";
 import QuoteRequestPage from "./pages/QuoteRequestPage";
+import PackageDetailPage from "./pages/PackageDetailPage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro } from "./utils/booking";
 import { filterPackagesForEventType } from "./utils/catalogue";
 import { allowedEventTypeNames } from "./utils/eventTypes";
@@ -1156,13 +1152,9 @@ export default function App() {
           publicAvailabilityStatus={publicAvailabilityStatus}
         />}
 
-        {page === "detail" && selectedPackage && (
-          <>
-            <section className="detail-hero"><div className="breadcrumb"><button onClick={() => navigate("accueil")}>Accueil</button><span>/</span><button onClick={() => navigate("offres")}>Offres & DJs</button><span>/</span><span>{selectedPackage.name}</span></div><div className="detail-heading"><div><p className="eyebrow">{selectedPackage.event || "Prestation événementielle"}</p><h1>{selectedPackage.name}</h1><p>{selectedPackage.description}</p><div className="detail-badges"><span>{selectedDj.rating ? <><Star /> {selectedDj.rating} · {selectedDj.reviews} avis vérifiés</> : <><ShieldCheck /> Profil DJ vérifié</>}</span><span><Clock3 /> {Number(selectedPackage.included_hours)} heures incluses</span></div></div><div className="dj-signature"><div className="dj-avatar"><Headphones /></div><div><small>Votre DJ</small><strong>{selectedDj.name}</strong><span>{selectedDj.styles}</span></div></div></div></section>
-            <section className="detail-layout section-wrap"><div className="detail-content"><article><h2>Ce qui est inclus</h2><ul className="feature-list"><li><Check /> Préparation musicale personnalisée</li><li><Check /> Sonorisation professionnelle</li><li><Check /> Éclairage adapté à la salle</li><li><Check /> Coordination avec le lieu de réception</li></ul></article><article><h2>Options & matériel</h2><p>Ajoutez une animation micro, un éclairage architectural ou du matériel supplémentaire. Chaque option apparaît clairement dans le devis.</p></article><article><h2>Playlist et styles</h2><p>Indiquez vos styles favoris, les chansons incontournables et celles à éviter. La playlist reste modifiable pendant la préparation.</p></article><article><h2>Conditions d’acompte</h2><p>Un acompte indicatif de 30 % confirme la réservation. Le créneau est bloqué uniquement après validation du contrat et paiement accepté.</p></article></div><aside className="booking-card"><p className="eyebrow dark">Réserver ce package</p><h2>À partir de {formatEuro(selectedPackage.base_price)}</h2><label>Date<input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} /></label><label>Créneau<select defaultValue={selectedDj.slot}><option>{selectedDj.slot}</option><option>À confirmer avec le DJ</option></select></label><label>Lieu<input value={location} onChange={(event) => setLocation(event.target.value)} /></label><button className="primary-button" onClick={startQuote}>Demander un devis <ChevronRight /></button><p className="secure-note"><ShieldCheck /> Aucun paiement à cette étape</p></aside></section>
-          </>
-        )}
-
+        {page === "detail" && selectedPackage && <PackageDetailPage detail={{
+          eventDate, location, navigate, selectedDj, selectedPackage, setEventDate, setLocation, startQuote,
+        }} />}
         {page === "devis" && <QuoteRequestPage form={{
           availableEventTypes, compatiblePackages, createVenue, createdQuote, distanceKm, durationHours,
           eventDate, eventType, guestCount, location, musicPreferences, navigate, parking, quote,
