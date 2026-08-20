@@ -320,6 +320,8 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - J'ai extrait la page de recherche des offres de `App.jsx` vers un composant de page autonome, sans modifier le parcours utilisateur.
 - J'ai poursuivi le découpage de `App.jsx` en séparant le formulaire de devis, l'espace DJ et l'espace d'administration dans trois pages React dédiées.
 - Les données et actions transmises à ces pages sont maintenant regroupées par domaine, ce qui rend les responsabilités de chaque espace plus faciles à identifier et à maintenir.
+- J'ai regroupé dans `useClientAccount()` le chargement du profil client, des devis, factures, paiements, contrats, lieux, réservations, playlists, rendez-vous, avis et demandes de suppression.
+- Cette extraction retire les effets API du compte de `App.jsx` et centralise la remise à zéro des données lors d'une déconnexion ou d'un changement de rôle.
 - Cette réorganisation a été contrôlée avec 43 tests frontend réussis et un build Vite de production réussi.
 - J'ai ajouté quatre tests unitaires pour vérifier les rôles et empêcher qu'un compte inconnu reçoive un accès privilégié.
 - La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.
