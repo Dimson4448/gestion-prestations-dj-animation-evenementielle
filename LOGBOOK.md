@@ -327,6 +327,8 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - J'ai extrait la page de détail d'une formule et supprimé de `App.jsx` les dépendances visuelles devenues inutiles.
 - J'ai centralisé la lecture des listes Django REST paginées ou directes et ajouté quatre tests sur cette adaptation et les contrôles de rôle.
 - J'ai rédigé une note d'architecture du frontend pour présenter clairement les pages, hooks, composants, flux et patterns réellement utilisés.
+- J'ai ajouté le chargement à la demande des pages Offres, Détail, Devis, DJ et Administration afin d'alléger le JavaScript initial de l'accueil.
+- Le build Vite produit maintenant cinq fichiers métier séparés et le fichier principal est passé d'environ 454 Ko à 425 Ko avant compression.
 - Cette réorganisation a été contrôlée avec 47 tests frontend, 91 tests Django et un build Vite de production réussis.
 - J'ai ajouté quatre tests unitaires pour vérifier les rôles et empêcher qu'un compte inconnu reçoive un accès privilégié.
 - La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.

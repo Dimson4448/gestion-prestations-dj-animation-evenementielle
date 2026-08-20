@@ -17,6 +17,8 @@ Le découpage actuel évite de concentrer toute l'interface et tous les chargeme
 - `DJWorkspacePage` : prestations affectées, rendez-vous, demandes musicales et disponibilités.
 - `AdminWorkspacePage` : traitement des devis, affectation des DJ, annulations, remboursements et suppressions de compte.
 
+Les pages secondaires sont chargées à la demande avec `React.lazy` et `Suspense`. L'accueil ne télécharge donc pas immédiatement le code des tableaux de bord ou du formulaire de devis. Vite produit un fichier JavaScript distinct pour chaque page métier.
+
 ### Hooks métier
 
 - `useCatalogue()` charge les formules, les types d'événements autorisés et les disponibilités publiques.

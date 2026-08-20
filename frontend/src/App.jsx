@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   CircleUserRound,
@@ -23,11 +23,6 @@ import ClientReviews from "./components/ClientReviews";
 import ClientAccountDeletion from "./components/ClientAccountDeletion";
 import ClientQuotes from "./components/ClientQuotes";
 import HomePage from "./pages/HomePage";
-import OffersPage from "./pages/OffersPage";
-import DJWorkspacePage from "./pages/DJWorkspacePage";
-import AdminWorkspacePage from "./pages/AdminWorkspacePage";
-import QuoteRequestPage from "./pages/QuoteRequestPage";
-import PackageDetailPage from "./pages/PackageDetailPage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro } from "./utils/booking";
 import { filterPackagesForEventType } from "./utils/catalogue";
 import { allowedEventTypeNames } from "./utils/eventTypes";
@@ -37,6 +32,12 @@ import useOperationalWorkspaces from "./hooks/useOperationalWorkspaces";
 import { getAdultBirthDateMax } from "./utils/registration";
 import { getLoginSuccessKey } from "./utils/authentication";
 import { getPageFromHash, getPageHash } from "./utils/navigation";
+
+const OffersPage = lazy(() => import("./pages/OffersPage"));
+const PackageDetailPage = lazy(() => import("./pages/PackageDetailPage"));
+const QuoteRequestPage = lazy(() => import("./pages/QuoteRequestPage"));
+const AdminWorkspacePage = lazy(() => import("./pages/AdminWorkspacePage"));
+const DJWorkspacePage = lazy(() => import("./pages/DJWorkspacePage"));
 
 const unassignedDj = {
   id: null,
@@ -1120,6 +1121,7 @@ export default function App() {
       />
 
       <main id="main-content" tabIndex="-1">
+        <Suspense fallback={<div className="section-wrap page-loading" role="status">Chargement de la page…</div>}>
         <LocalizedContent>
         {page === "accueil" && (
           <HomePage
@@ -1381,6 +1383,7 @@ export default function App() {
           </section>
         )}
         </LocalizedContent>
+        </Suspense>
       </main>
 
       <SiteFooter currentUser={currentUser} onNavigate={navigate} />
