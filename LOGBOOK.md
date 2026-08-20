@@ -318,6 +318,8 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - J'ai appliqué les traductions du catalogue Django aux noms et descriptions des formules affichées sur l'accueil.
 - J'ai commencé la réorganisation du frontend en isolant les appels du catalogue, des prestations et des disponibilités dans un hook React dédié.
 - J'ai extrait la page de recherche des offres de `App.jsx` vers un composant de page autonome, sans modifier le parcours utilisateur.
+- J'ai poursuivi le découpage de `App.jsx` en séparant le formulaire de devis, l'espace DJ et l'espace d'administration dans trois pages React dédiées.
+- Les données et actions transmises à ces pages sont maintenant regroupées par domaine, ce qui rend les responsabilités de chaque espace plus faciles à identifier et à maintenir.
 - Cette réorganisation a été contrôlée avec 43 tests frontend réussis et un build Vite de production réussi.
 - J'ai ajouté quatre tests unitaires pour vérifier les rôles et empêcher qu'un compte inconnu reçoive un accès privilégié.
 - La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.
