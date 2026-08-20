@@ -13,7 +13,7 @@ import {
   UsersRound,
 } from "lucide-react";
 
-import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getCurrentUser, getDJApplicationStatus, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
+import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getCurrentUser, getDJApplicationStatus, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
 import { validateRefundAmount } from "./utils/refunds";
 import SiteFooter from "./components/SiteFooter";
 import SiteHeader from "./components/SiteHeader";
@@ -32,11 +32,12 @@ import OffersPage from "./pages/OffersPage";
 import DJWorkspacePage from "./pages/DJWorkspacePage";
 import AdminWorkspacePage from "./pages/AdminWorkspacePage";
 import QuoteRequestPage from "./pages/QuoteRequestPage";
-import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded } from "./utils/booking";
+import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro } from "./utils/booking";
 import { filterPackagesForEventType } from "./utils/catalogue";
 import { allowedEventTypeNames } from "./utils/eventTypes";
 import useCatalogue from "./hooks/useCatalogue";
 import useClientAccount from "./hooks/useClientAccount";
+import useOperationalWorkspaces from "./hooks/useOperationalWorkspaces";
 import { getAdultBirthDateMax } from "./utils/registration";
 import { getLoginSuccessKey } from "./utils/authentication";
 import { getPageFromHash, getPageHash } from "./utils/navigation";
@@ -327,80 +328,11 @@ export default function App() {
     window.history.replaceState({}, document.title, window.location.pathname);
   }, []);
 
-  const loadAdminDashboard = async () => {
-    setAdminStatus("Chargement des devis, réservations et DJs…");
-    try {
-      const [quotesResponse, djsResponse, bookingsResponse, paymentsResponse, deletionResponse] = await Promise.all([
-        apiClient.get("/quotes/", { params: { ordering: "-created_at" } }),
-        apiClient.get("/djs/", { params: { ordering: "stage_name" } }),
-        apiClient.get("/bookings/", { params: { ordering: "-event_date" } }),
-        apiClient.get("/payments/", { params: { ordering: "-paid_at" } }),
-        getAccountDeletionRequests(),
-      ]);
-      const quotes = Array.isArray(quotesResponse.data?.results) ? quotesResponse.data.results : quotesResponse.data;
-      const djs = Array.isArray(djsResponse.data?.results) ? djsResponse.data.results : djsResponse.data;
-      const bookings = Array.isArray(bookingsResponse.data?.results) ? bookingsResponse.data.results : bookingsResponse.data;
-      const payments = Array.isArray(paymentsResponse.data?.results) ? paymentsResponse.data.results : paymentsResponse.data;
-      const bookingRecords = Array.isArray(bookings) ? bookings : [];
-      const requestResponses = await Promise.all(
-        bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
-      );
-      setAdminQuotes((Array.isArray(quotes) ? quotes : []).filter((item) => ["draft", "sent"].includes(item.status)));
-      setAdminDjs(Array.isArray(djs) ? djs : []);
-      setAdminPayments(Array.isArray(payments) ? payments : []);
-      setAdminDeletionRequests((Array.isArray(deletionResponse) ? deletionResponse : []).filter((item) => item.status === "pending"));
-      setAdminBookings(
-        bookingRecords.filter(
-          (item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item),
-        ),
-      );
-      setAdminCancellationRequests(
-        requestResponses.flatMap((response) => response.data).filter((item) => item.status === "pending"),
-      );
-      setAdminStatus("");
-    } catch (error) {
-      setAdminStatus(error.response?.status === 403 ? "Ce compte n’a pas les droits administrateur." : "Impossible de charger l’espace administrateur.");
-    }
-  };
-
-  useEffect(() => {
-    if (currentUser?.is_staff) loadAdminDashboard();
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (!isAuthenticated || currentUser?.role !== "dj") {
-      setDjBookings([]);
-      setDjAppointments([]);
-      setDjSongs([]);
-      setDjAvailabilities([]);
-      return;
-    }
-    let mounted = true;
-    setDjStatus("Chargement de votre espace DJ…");
-    Promise.all([
-      apiClient.get("/bookings/", { params: { ordering: "event_date" } }),
-      apiClient.get("/appointments/", { params: { ordering: "scheduled_at" } }),
-      apiClient.get("/playlist-songs/", { params: { ordering: "title" } }),
-      apiClient.get("/availability/"),
-    ])
-      .then(([bookingsResponse, appointmentsResponse, songsResponse, availabilitiesResponse]) => {
-        if (!mounted) return;
-        const records = (response) => Array.isArray(response.data?.results) ? response.data.results : (Array.isArray(response.data) ? response.data : []);
-        const bookings = records(bookingsResponse);
-        const appointments = records(appointmentsResponse);
-        const songs = records(songsResponse);
-        const availabilities = records(availabilitiesResponse);
-        setDjBookings(bookings);
-        setDjAppointments(appointments);
-        setDjSongs(songs);
-        setDjAvailabilities(availabilities);
-        setDjStatus(bookings.length || appointments.length || songs.length || availabilities.length ? "" : "Aucun dossier ne vous est affecté.");
-      })
-      .catch((error) => {
-        if (mounted) setDjStatus(error.response?.status === 403 ? "Ce compte n’a pas accès à l’espace DJ." : "Impossible de charger vos prestations.");
-      });
-    return () => { mounted = false; };
-  }, [isAuthenticated, currentUser]);
+  const { loadAdminDashboard } = useOperationalWorkspaces({
+    currentUser, isAuthenticated, setAdminBookings, setAdminCancellationRequests,
+    setAdminDeletionRequests, setAdminDjs, setAdminPayments, setAdminQuotes, setAdminStatus,
+    setDjAppointments, setDjAvailabilities, setDjBookings, setDjSongs, setDjStatus,
+  });
 
   const availableEventTypes = eventTypeRecords.length ? eventTypeRecords.map((item) => item.name) : allowedEventTypeNames;
   const selectedEventTypeRecord = eventTypeRecords.find((item) => item.name === eventType);

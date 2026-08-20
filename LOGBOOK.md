@@ -322,6 +322,8 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - Les données et actions transmises à ces pages sont maintenant regroupées par domaine, ce qui rend les responsabilités de chaque espace plus faciles à identifier et à maintenir.
 - J'ai regroupé dans `useClientAccount()` le chargement du profil client, des devis, factures, paiements, contrats, lieux, réservations, playlists, rendez-vous, avis et demandes de suppression.
 - Cette extraction retire les effets API du compte de `App.jsx` et centralise la remise à zéro des données lors d'une déconnexion ou d'un changement de rôle.
+- J'ai isolé le chargement des tableaux de bord DJ et Administration dans `useOperationalWorkspaces()`, tout en conservant les contrôles de rôle et les messages d'erreur existants.
+- L'actualisation manuelle de l'administration réutilise désormais la même fonction de chargement que l'initialisation du tableau de bord.
 - Cette réorganisation a été contrôlée avec 43 tests frontend réussis et un build Vite de production réussi.
 - J'ai ajouté quatre tests unitaires pour vérifier les rôles et empêcher qu'un compte inconnu reçoive un accès privilégié.
 - La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.
