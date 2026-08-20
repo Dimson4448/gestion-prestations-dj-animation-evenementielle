@@ -1,6 +1,7 @@
 import { CalendarDays, Clock3, FileText, Music2, ShieldCheck } from "lucide-react";
 
 import { formatEuro, hasBookingEnded } from "../utils/booking";
+import LocalizedContent from "../components/LocalizedContent";
 
 const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -12,7 +13,7 @@ export default function DJWorkspacePage({ workspace }) {
     i18n, setAvailabilityDate, setAvailabilityEnd, setAvailabilityReason, setAvailabilityStart,
     setAvailabilityStatus, updateDjAppointment, updateDjAvailability, updateDjSong,
   } = workspace;
-  return (
+  return <LocalizedContent>
           <section className="section-wrap admin-page">
             <div className="page-heading"><p className="eyebrow dark">Espace DJ</p><h1>Mes prestations</h1><p>Consultez les événements qui vous sont affectés et clôturez une prestation lorsque celle-ci est terminée.</p></div>
             <div className="admin-toolbar"><div><strong>{djBookings.length}</strong><span> prestations affectées</span></div></div>
@@ -87,6 +88,6 @@ export default function DJWorkspacePage({ workspace }) {
               </div>
             </section>
           </section>
-  );
+  </LocalizedContent>;
 }
 

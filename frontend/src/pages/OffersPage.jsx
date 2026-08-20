@@ -1,6 +1,7 @@
 import { ChevronRight, Clock3, Headphones, Star } from "lucide-react";
 
 import { formatEuro } from "../utils/booking";
+import LocalizedContent from "../components/LocalizedContent";
 
 export default function OffersPage({
   availableDjs,
@@ -16,7 +17,7 @@ export default function OffersPage({
   onReset,
   publicAvailabilityStatus,
 }) {
-  return (
+  return <LocalizedContent>
     <section className="section-wrap catalogue-page">
       <div className="page-heading">
         <p className="eyebrow dark">Offres & DJs</p>
@@ -42,5 +43,5 @@ export default function OffersPage({
         </div>
       </div>
     </section>
-  );
+  </LocalizedContent>;
 }

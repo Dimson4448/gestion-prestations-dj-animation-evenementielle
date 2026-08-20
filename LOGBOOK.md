@@ -329,7 +329,10 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - J'ai rédigé une note d'architecture du frontend pour présenter clairement les pages, hooks, composants, flux et patterns réellement utilisés.
 - J'ai ajouté le chargement à la demande des pages Offres, Détail, Devis, DJ et Administration afin d'alléger le JavaScript initial de l'accueil.
 - Le build Vite produit maintenant cinq fichiers métier séparés et le fichier principal est passé d'environ 454 Ko à 425 Ko avant compression.
-- Cette réorganisation a été contrôlée avec 47 tests frontend, 91 tests Django et un build Vite de production réussis.
+- Après le découpage des pages, j'ai corrigé leur prise en charge multilingue afin que leurs textes internes soient de nouveau traduits en anglais et en néerlandais.
+- J'ai complété les traductions des messages de chargement et d'indisponibilité du catalogue, des comptes clients et des tableaux de bord métier.
+- Un test vérifie désormais que chaque page métier extraite applique bien la couche de traduction ; le frontend compte 48 tests réussis.
+- Cette réorganisation a été contrôlée avec 48 tests frontend, 91 tests Django et un build Vite de production réussis.
 - J'ai ajouté quatre tests unitaires pour vérifier les rôles et empêcher qu'un compte inconnu reçoive un accès privilégié.
 - La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.
 - Aucun modèle Django n'a changé ; le dump MariaDB ne nécessite donc pas de mise à jour.
