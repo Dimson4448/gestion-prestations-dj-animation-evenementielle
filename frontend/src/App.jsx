@@ -1,25 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  CalendarDays,
-  Check,
-  ChevronRight,
   CircleUserRound,
-  Clock3,
-  CreditCard,
-  Download,
   FileText,
-  Headphones,
-  MapPin,
   Music2,
   ShieldCheck,
-  Sparkles,
-  Star,
   UsersRound,
-  X,
 } from "lucide-react";
 
-import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getAccountDeletionRequests, getClientProfile, getCurrentUser, getDJApplicationStatus, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
+import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getCurrentUser, getDJApplicationStatus, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
 import { validateRefundAmount } from "./utils/refunds";
 import SiteFooter from "./components/SiteFooter";
 import SiteHeader from "./components/SiteHeader";
@@ -32,12 +21,23 @@ import ClientContracts from "./components/ClientContracts";
 import ClientAppointments from "./components/ClientAppointments";
 import ClientReviews from "./components/ClientReviews";
 import ClientAccountDeletion from "./components/ClientAccountDeletion";
+import ClientQuotes from "./components/ClientQuotes";
 import HomePage from "./pages/HomePage";
-import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro, hasBookingEnded, mapAvailableDjs } from "./utils/booking";
-import { decoratePackages, filterPackagesForEventType } from "./utils/catalogue";
-import { allowedEventTypeNames, filterAllowedEventTypes } from "./utils/eventTypes";
+import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro } from "./utils/booking";
+import { filterPackagesForEventType } from "./utils/catalogue";
+import { allowedEventTypeNames } from "./utils/eventTypes";
+import useCatalogue from "./hooks/useCatalogue";
+import useClientAccount from "./hooks/useClientAccount";
+import useOperationalWorkspaces from "./hooks/useOperationalWorkspaces";
 import { getAdultBirthDateMax } from "./utils/registration";
 import { getLoginSuccessKey } from "./utils/authentication";
+import { getPageFromHash, getPageHash } from "./utils/navigation";
+
+const OffersPage = lazy(() => import("./pages/OffersPage"));
+const PackageDetailPage = lazy(() => import("./pages/PackageDetailPage"));
+const QuoteRequestPage = lazy(() => import("./pages/QuoteRequestPage"));
+const AdminWorkspacePage = lazy(() => import("./pages/AdminWorkspacePage"));
+const DJWorkspacePage = lazy(() => import("./pages/DJWorkspacePage"));
 
 const unassignedDj = {
   id: null,
@@ -50,6 +50,9 @@ const unassignedDj = {
 
 const todayIso = new Date().toISOString().slice(0, 10);
 const adultBirthDateMax = getAdultBirthDateMax();
+const getPageFromHistory = () => {
+  return getPageFromHash(window.location.hash);
+};
 
 const quoteStatusLabels = {
   draft: "Brouillon",
@@ -61,19 +64,21 @@ const quoteStatusLabels = {
 
 export default function App() {
   const { i18n, t } = useTranslation();
-  const [page, setPage] = useState("accueil");
+  const [page, setPage] = useState(getPageFromHistory);
   const language = (i18n.resolvedLanguage || i18n.language || "fr").toUpperCase();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [packages, setPackages] = useState([]);
-  const [catalogueStatus, setCatalogueStatus] = useState("Chargement du catalogue Django…");
-  const [catalogueReady, setCatalogueReady] = useState(false);
-  const [availableDjs, setAvailableDjs] = useState([]);
-  const [publicAvailabilityStatus, setPublicAvailabilityStatus] = useState("Recherche des créneaux Django…");
-  const [eventTypeRecords, setEventTypeRecords] = useState([]);
+  const [eventDate, setEventDate] = useState("2026-09-12");
+  const {
+    availableDjs,
+    catalogueReady,
+    catalogueStatus,
+    eventTypeRecords,
+    packages,
+    publicAvailabilityStatus,
+  } = useCatalogue(eventDate);
   const [selectedPackageId, setSelectedPackageId] = useState("mariage");
   const [selectedDj, setSelectedDj] = useState(unassignedDj);
   const [eventType, setEventType] = useState("");
-  const [eventDate, setEventDate] = useState("2026-09-12");
   const [startTime, setStartTime] = useState("18:00");
   const [location, setLocation] = useState("");
   const [venueName, setVenueName] = useState("Lieu de l’événement");
@@ -127,6 +132,16 @@ export default function App() {
   const [verificationResendOpen, setVerificationResendOpen] = useState(false);
   const [verificationResendEmail, setVerificationResendEmail] = useState("");
   const [verificationResendPending, setVerificationResendPending] = useState(false);
+
+  useEffect(() => {
+    if (!packages.length) return;
+    setSelectedPackageId((current) => packages.some((item) => String(item.id) === String(current)) ? current : packages[0].id);
+  }, [packages]);
+
+  useEffect(() => {
+    if (!eventTypeRecords.length) return;
+    setEventType((current) => eventTypeRecords.some((item) => item.name === current) ? current : "");
+  }, [eventTypeRecords]);
   const [verificationResendStatus, setVerificationResendStatus] = useState("");
   const [clientProfile, setClientProfile] = useState(null);
   const [clientProfileOpen, setClientProfileOpen] = useState(false);
@@ -213,6 +228,15 @@ export default function App() {
   const [reviewBookingId, setReviewBookingId] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
+
+  useClientAccount({
+    currentUser, isAuthenticated, setAccountDeletionRequests, setAccountDeletionStatus, setAppointmentStatus,
+    setAppointments, setCancellationRequests, setClientBookings, setClientPayments, setClientProfile,
+    setClientProfileStatus, setClientQuotes, setContractStatus, setContracts, setInvoiceStatus, setInvoices,
+    setIsAuthenticated, setLoginStatus, setMusicStyles, setPlaylistBookingId, setPlaylistSongs,
+    setPlaylistStatus, setPlaylistStyleId, setPlaylists, setQuoteListStatus, setReviews, setReviewStatus,
+    setSelectedVenueId, setSongPlaylistId, setVenues, setVenueStatus,
+  });
 
   useEffect(() => {
     const handleSessionExpired = () => {
@@ -301,378 +325,11 @@ export default function App() {
     window.history.replaceState({}, document.title, window.location.pathname);
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-    apiClient
-      .get("/packages/")
-      .then((response) => {
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        if (mounted && Array.isArray(data) && data.length) {
-          const mappedPackages = decoratePackages(data);
-          setPackages(mappedPackages);
-          setSelectedPackageId((current) => mappedPackages.some((item) => String(item.id) === String(current)) ? current : mappedPackages[0].id);
-          setCatalogueReady(true);
-          setCatalogueStatus("Catalogue synchronisé avec l’API locale");
-        } else if (mounted) {
-          setPackages([]);
-          setCatalogueReady(false);
-          setCatalogueStatus("Aucune offre active dans le catalogue Django");
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setPackages([]);
-          setCatalogueReady(false);
-          setCatalogueStatus("Catalogue indisponible · vérifiez la connexion au backend Django");
-        }
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!eventDate) return undefined;
-
-    let mounted = true;
-    setPublicAvailabilityStatus("Recherche des créneaux disponibles…");
-    apiClient
-      .get("/availability/", { params: { date: eventDate } })
-      .then((response) => {
-        if (!mounted) return;
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        const slots = Array.isArray(data) ? data : [];
-        const records = mapAvailableDjs(slots);
-        setAvailableDjs(records);
-        setPublicAvailabilityStatus(
-          records.length
-            ? "Disponibilités synchronisées avec Django"
-            : "Aucun DJ disponible à cette date",
-        );
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setAvailableDjs([]);
-        setPublicAvailabilityStatus("Disponibilités indisponibles · vérifiez la connexion au backend Django");
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [eventDate]);
-
-  useEffect(() => {
-    let mounted = true;
-    apiClient
-      .get("/event-types/")
-      .then((response) => {
-        if (!mounted) return;
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        if (Array.isArray(data) && data.length) {
-          const supportedRecords = filterAllowedEventTypes(data);
-          setEventTypeRecords(supportedRecords);
-          if (supportedRecords.length) {
-            setEventType((current) => supportedRecords.some((item) => item.name === current) ? current : "");
-          }
-        }
-      })
-      .catch(() => mounted && setEventTypeRecords([]));
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
-      setInvoices([]);
-      setClientPayments([]);
-      setClientQuotes([]);
-      setVenues([]);
-      setSelectedVenueId("new");
-      return;
-    }
-
-    let mounted = true;
-    setInvoiceStatus("Chargement de vos factures…");
-    Promise.all([
-      apiClient.get("/invoices/", { params: { ordering: "-issued_at" } }),
-      apiClient.get("/payments/", { params: { ordering: "-paid_at" } }),
-    ])
-      .then(([invoiceResponse, paymentResponse]) => {
-        if (!mounted) return;
-        const invoices = Array.isArray(invoiceResponse.data?.results) ? invoiceResponse.data.results : invoiceResponse.data;
-        const payments = Array.isArray(paymentResponse.data?.results) ? paymentResponse.data.results : paymentResponse.data;
-        setInvoices(Array.isArray(invoices) ? invoices : []);
-        setClientPayments(Array.isArray(payments) ? payments : []);
-        setInvoiceStatus(invoices?.length ? "" : "Aucune facture disponible.");
-      })
-      .catch((error) => {
-        if (!mounted) return;
-        if (error.response?.status === 401) {
-          clearAuthentication();
-          setIsAuthenticated(false);
-          setInvoiceStatus("");
-          setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
-        } else {
-          setInvoiceStatus("Impossible de charger les factures pour le moment.");
-        }
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [isAuthenticated, currentUser]);
-
-  useEffect(() => {
-    if (!isAuthenticated || currentUser?.role !== "client") {
-      setAccountDeletionRequests([]);
-      return;
-    }
-    let mounted = true;
-    getAccountDeletionRequests()
-      .then((requests) => mounted && setAccountDeletionRequests(requests))
-      .catch(() => mounted && setAccountDeletionStatus("Impossible de charger vos demandes de suppression."));
-    return () => { mounted = false; };
-  }, [isAuthenticated, currentUser]);
-
-  useEffect(() => {
-    if (!isAuthenticated || currentUser?.role !== "client") {
-      setClientProfile(null);
-      return;
-    }
-    let mounted = true;
-    getClientProfile()
-      .then((profile) => mounted && setClientProfile(profile))
-      .catch(() => mounted && setClientProfileStatus("Impossible de charger vos coordonnées."));
-    return () => { mounted = false; };
-  }, [isAuthenticated, currentUser]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
-      setReviews([]);
-      return;
-    }
-    let mounted = true;
-    setReviewStatus("Chargement de vos avis…");
-    apiClient.get("/reviews/", { params: { ordering: "-created_at" } })
-      .then((response) => {
-        if (!mounted) return;
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        const records = Array.isArray(data) ? data : [];
-        setReviews(records);
-        setReviewStatus(records.length ? "" : "Aucun avis déposé.");
-      })
-      .catch(() => mounted && setReviewStatus("Impossible de charger vos avis."));
-    return () => { mounted = false; };
-  }, [isAuthenticated, currentUser]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
-      setAppointments([]);
-      return;
-    }
-    let mounted = true;
-    setAppointmentStatus("Chargement de vos rendez-vous…");
-    apiClient.get("/appointments/", { params: { ordering: "scheduled_at" } })
-      .then((response) => {
-        if (!mounted) return;
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        const records = Array.isArray(data) ? data : [];
-        setAppointments(records);
-        setAppointmentStatus(records.length ? "" : "Aucun rendez-vous préparatoire planifié.");
-      })
-      .catch(() => mounted && setAppointmentStatus("Impossible de charger les rendez-vous."));
-    return () => { mounted = false; };
-  }, [isAuthenticated, currentUser]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
-      setClientBookings([]);
-      setCancellationRequests([]);
-      setPlaylists([]);
-      setPlaylistSongs([]);
-      return;
-    }
-    let mounted = true;
-    setPlaylistStatus("Chargement de vos playlists…");
-    Promise.all([
-      apiClient.get("/bookings/", { params: { ordering: "-event_date" } }),
-      apiClient.get("/playlists/"),
-      apiClient.get("/playlist-songs/", { params: { ordering: "title" } }),
-      apiClient.get("/music-styles/", { params: { ordering: "name" } }),
-    ])
-      .then(async ([bookingsResponse, playlistsResponse, songsResponse, stylesResponse]) => {
-        if (!mounted) return;
-        const records = (response) => Array.isArray(response.data?.results) ? response.data.results : (Array.isArray(response.data) ? response.data : []);
-        const bookingRecords = records(bookingsResponse);
-        const playlistRecords = records(playlistsResponse);
-        const songRecords = records(songsResponse);
-        const styleRecords = records(stylesResponse);
-        setClientBookings(bookingRecords);
-        const requestResponses = await Promise.all(
-          bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
-        );
-        if (!mounted) return;
-        setCancellationRequests(requestResponses.flatMap((response) => response.data));
-        setPlaylists(playlistRecords);
-        setPlaylistSongs(songRecords);
-        setMusicStyles(styleRecords);
-        const eligible = bookingRecords.filter((item) => item.deposit_paid && ["confirmed", "performed", "paid"].includes(item.status) && !playlistRecords.some((playlist) => playlist.booking === item.id));
-        setPlaylistBookingId((current) => current || String(eligible[0]?.id || ""));
-        setPlaylistStyleId((current) => current || String(styleRecords[0]?.id || ""));
-        setSongPlaylistId((current) => current || String(playlistRecords[0]?.id || ""));
-        setPlaylistStatus(playlistRecords.length || eligible.length ? "" : "La playlist sera disponible après confirmation de l’acompte.");
-      })
-      .catch(() => mounted && setPlaylistStatus("Impossible de charger les playlists pour le moment."));
-    return () => { mounted = false; };
-  }, [isAuthenticated, currentUser]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.role !== "client") {
-      setContracts([]);
-      return;
-    }
-    let mounted = true;
-    setContractStatus("Chargement de vos contrats…");
-    apiClient.get("/contracts/", { params: { ordering: "-created_at" } })
-      .then((response) => {
-        if (!mounted) return;
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        const records = Array.isArray(data) ? data : [];
-        setContracts(records);
-        setContractStatus(records.length ? "" : "Aucun contrat disponible.");
-      })
-      .catch((error) => {
-        if (!mounted) return;
-        setContractStatus(error.response?.status === 401 ? "Votre session a expiré." : "Impossible de charger vos contrats.");
-      });
-    return () => { mounted = false; };
-  }, [isAuthenticated, currentUser]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.role !== "client") return;
-
-    let mounted = true;
-    setQuoteListStatus("Chargement de vos devis…");
-    apiClient
-      .get("/quotes/", { params: { ordering: "-created_at" } })
-      .then((response) => {
-        if (!mounted) return;
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        const quotes = Array.isArray(data) ? data : [];
-        setClientQuotes(quotes);
-        setQuoteListStatus(quotes.length ? "" : "Aucun devis enregistré.");
-      })
-      .catch((error) => {
-        if (!mounted) return;
-        if (error.response?.status === 401) {
-          clearAuthentication();
-          setIsAuthenticated(false);
-          setQuoteListStatus("");
-          setLoginStatus("Votre session a expiré. Veuillez vous reconnecter.");
-        } else {
-          setQuoteListStatus("Impossible de charger vos devis pour le moment.");
-        }
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [isAuthenticated, currentUser]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !currentUser || currentUser.role !== "client") return;
-
-    let mounted = true;
-    apiClient
-      .get("/venues/", { params: { ordering: "city,name" } })
-      .then((response) => {
-        if (!mounted) return;
-        const data = Array.isArray(response.data?.results) ? response.data.results : response.data;
-        setVenues(Array.isArray(data) ? data : []);
-      })
-      .catch((error) => {
-        if (mounted && error.response?.status !== 401) {
-          setVenueStatus("Impossible de charger vos lieux enregistrés.");
-        }
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [isAuthenticated, currentUser]);
-
-  const loadAdminDashboard = async () => {
-    setAdminStatus("Chargement des devis, réservations et DJs…");
-    try {
-      const [quotesResponse, djsResponse, bookingsResponse, paymentsResponse, deletionResponse] = await Promise.all([
-        apiClient.get("/quotes/", { params: { ordering: "-created_at" } }),
-        apiClient.get("/djs/", { params: { ordering: "stage_name" } }),
-        apiClient.get("/bookings/", { params: { ordering: "-event_date" } }),
-        apiClient.get("/payments/", { params: { ordering: "-paid_at" } }),
-        getAccountDeletionRequests(),
-      ]);
-      const quotes = Array.isArray(quotesResponse.data?.results) ? quotesResponse.data.results : quotesResponse.data;
-      const djs = Array.isArray(djsResponse.data?.results) ? djsResponse.data.results : djsResponse.data;
-      const bookings = Array.isArray(bookingsResponse.data?.results) ? bookingsResponse.data.results : bookingsResponse.data;
-      const payments = Array.isArray(paymentsResponse.data?.results) ? paymentsResponse.data.results : paymentsResponse.data;
-      const bookingRecords = Array.isArray(bookings) ? bookings : [];
-      const requestResponses = await Promise.all(
-        bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
-      );
-      setAdminQuotes((Array.isArray(quotes) ? quotes : []).filter((item) => ["draft", "sent"].includes(item.status)));
-      setAdminDjs(Array.isArray(djs) ? djs : []);
-      setAdminPayments(Array.isArray(payments) ? payments : []);
-      setAdminDeletionRequests((Array.isArray(deletionResponse) ? deletionResponse : []).filter((item) => item.status === "pending"));
-      setAdminBookings(
-        bookingRecords.filter(
-          (item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item),
-        ),
-      );
-      setAdminCancellationRequests(
-        requestResponses.flatMap((response) => response.data).filter((item) => item.status === "pending"),
-      );
-      setAdminStatus("");
-    } catch (error) {
-      setAdminStatus(error.response?.status === 403 ? "Ce compte n’a pas les droits administrateur." : "Impossible de charger l’espace administrateur.");
-    }
-  };
-
-  useEffect(() => {
-    if (currentUser?.is_staff) loadAdminDashboard();
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (!isAuthenticated || currentUser?.role !== "dj") {
-      setDjBookings([]);
-      setDjAppointments([]);
-      setDjSongs([]);
-      setDjAvailabilities([]);
-      return;
-    }
-    let mounted = true;
-    setDjStatus("Chargement de votre espace DJ…");
-    Promise.all([
-      apiClient.get("/bookings/", { params: { ordering: "event_date" } }),
-      apiClient.get("/appointments/", { params: { ordering: "scheduled_at" } }),
-      apiClient.get("/playlist-songs/", { params: { ordering: "title" } }),
-      apiClient.get("/availability/"),
-    ])
-      .then(([bookingsResponse, appointmentsResponse, songsResponse, availabilitiesResponse]) => {
-        if (!mounted) return;
-        const records = (response) => Array.isArray(response.data?.results) ? response.data.results : (Array.isArray(response.data) ? response.data : []);
-        const bookings = records(bookingsResponse);
-        const appointments = records(appointmentsResponse);
-        const songs = records(songsResponse);
-        const availabilities = records(availabilitiesResponse);
-        setDjBookings(bookings);
-        setDjAppointments(appointments);
-        setDjSongs(songs);
-        setDjAvailabilities(availabilities);
-        setDjStatus(bookings.length || appointments.length || songs.length || availabilities.length ? "" : "Aucun dossier ne vous est affecté.");
-      })
-      .catch((error) => {
-        if (mounted) setDjStatus(error.response?.status === 403 ? "Ce compte n’a pas accès à l’espace DJ." : "Impossible de charger vos prestations.");
-      });
-    return () => { mounted = false; };
-  }, [isAuthenticated, currentUser]);
+  const { loadAdminDashboard } = useOperationalWorkspaces({
+    currentUser, isAuthenticated, setAdminBookings, setAdminCancellationRequests,
+    setAdminDeletionRequests, setAdminDjs, setAdminPayments, setAdminQuotes, setAdminStatus,
+    setDjAppointments, setDjAvailabilities, setDjBookings, setDjSongs, setDjStatus,
+  });
 
   const availableEventTypes = eventTypeRecords.length ? eventTypeRecords.map((item) => item.name) : allowedEventTypeNames;
   const selectedEventTypeRecord = eventTypeRecords.find((item) => item.name === eventType);
@@ -702,6 +359,17 @@ export default function App() {
   const reviewedBookingIds = new Set(reviews.map((item) => item.booking));
   const eligibleReviewBookings = clientBookings.filter((item) => canSubmitReview(item, reviewedBookingIds));
 
+  useEffect(() => {
+    const handleHistoryNavigation = () => {
+      setPage(getPageFromHistory());
+      setMobileNavOpen(false);
+      setQuoteSubmitted(false);
+      window.scrollTo({ top: 0, behavior: "auto" });
+    };
+    window.addEventListener("popstate", handleHistoryNavigation);
+    return () => window.removeEventListener("popstate", handleHistoryNavigation);
+  }, []);
+
   const quote = useMemo(() => {
     return calculateQuoteEstimate({
       basePrice: selectedPackage?.base_price,
@@ -712,6 +380,10 @@ export default function App() {
   }, [distanceKm, durationHours, selectedPackage]);
 
   const navigate = (target) => {
+    const targetHash = getPageHash(target);
+    if (window.location.hash !== targetHash) {
+      window.history.pushState({ page: target }, "", targetHash);
+    }
     setPage(target);
     setMobileNavOpen(false);
     setQuoteSubmitted(false);
@@ -1449,6 +1121,7 @@ export default function App() {
       />
 
       <main id="main-content" tabIndex="-1">
+        <Suspense fallback={<div className="section-wrap page-loading" role="status">Chargement de la page…</div>}>
         <LocalizedContent>
         {page === "accueil" && (
           <HomePage
@@ -1466,192 +1139,49 @@ export default function App() {
           />
         )}
 
-        {page === "offres" && (
-          <section className="section-wrap catalogue-page">
-            <div className="page-heading"><p className="eyebrow dark">Offres & DJs</p><h1>Trouvez la prestation qui vous ressemble</h1><p>{eventType} · {eventDate.split("-").reverse().join("/")} · {location}</p></div>
-            <div className="catalogue-layout">
-              <aside className="filters"><div className="filter-heading"><h2>Filtres</h2><button onClick={() => { setEventType(""); setLocation(""); }}>Réinitialiser</button></div>
-                <label>Type d’événement<select value={eventType} onChange={(event) => setEventType(event.target.value)}><option value="">Toutes les prestations</option>{availableEventTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
-                <label>Date<input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} /></label>
-                <label>Lieu<input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
-                <label>Budget<select defaultValue="1500"><option value="700">Moins de 700 €</option><option value="1500">700 € – 1 500 €</option><option value="more">Plus de 1 500 €</option></select></label>
-                <fieldset><legend>Services</legend><label className="check-row"><input type="checkbox" defaultChecked /> Sonorisation</label><label className="check-row"><input type="checkbox" defaultChecked /> Éclairage</label><label className="check-row"><input type="checkbox" /> Animation micro</label></fieldset>
-              </aside>
-              <div className="results"><div className="results-heading"><div><h2>DJs disponibles à {location}</h2><p>{availableDjs.length} résultat{availableDjs.length > 1 ? "s" : ""} · {publicAvailabilityStatus}</p></div></div>
-                {compatiblePackages.length > 0 && availableDjs.map((dj, index) => { const item = compatiblePackages[index % compatiblePackages.length]; return <article className="dj-card" key={dj.id}><div className={`dj-avatar avatar-${index + 1}`}><Headphones /></div><div className="dj-copy"><div className="dj-title"><h3>{dj.name}</h3><span><Star /> {dj.rating ? `${dj.rating} (${dj.reviews} avis)` : "Profil vérifié"}</span></div><p>{dj.styles}</p><p className="availability"><Clock3 /> Disponible {dj.slot}</p><strong>À partir de {formatEuro(item.base_price)}</strong></div><button className="primary-button" type="button" onClick={() => openDetail(item, dj)}>Voir le détail <ChevronRight /></button></article>; })}
-                {(!availableDjs.length || !compatiblePackages.length) && <p className="invoice-empty">{!compatiblePackages.length ? "Aucune formule compatible avec cette prestation." : "Modifiez la date pour rechercher un autre créneau."}</p>}
-              </div>
-            </div>
-          </section>
-        )}
+        {page === "offres" && <OffersPage
+          availableDjs={availableDjs}
+          availableEventTypes={availableEventTypes}
+          compatiblePackages={compatiblePackages}
+          eventDate={eventDate}
+          eventType={eventType}
+          location={location}
+          onDateChange={setEventDate}
+          onEventTypeChange={setEventType}
+          onLocationChange={setLocation}
+          onOpenDetail={openDetail}
+          onReset={() => { setEventType(""); setLocation(""); }}
+          publicAvailabilityStatus={publicAvailabilityStatus}
+        />}
 
-        {page === "detail" && selectedPackage && (
-          <>
-            <section className="detail-hero"><div className="breadcrumb"><button onClick={() => navigate("accueil")}>Accueil</button><span>/</span><button onClick={() => navigate("offres")}>Offres & DJs</button><span>/</span><span>{selectedPackage.name}</span></div><div className="detail-heading"><div><p className="eyebrow">{selectedPackage.event || "Prestation événementielle"}</p><h1>{selectedPackage.name}</h1><p>{selectedPackage.description}</p><div className="detail-badges"><span>{selectedDj.rating ? <><Star /> {selectedDj.rating} · {selectedDj.reviews} avis vérifiés</> : <><ShieldCheck /> Profil DJ vérifié</>}</span><span><Clock3 /> {Number(selectedPackage.included_hours)} heures incluses</span></div></div><div className="dj-signature"><div className="dj-avatar"><Headphones /></div><div><small>Votre DJ</small><strong>{selectedDj.name}</strong><span>{selectedDj.styles}</span></div></div></div></section>
-            <section className="detail-layout section-wrap"><div className="detail-content"><article><h2>Ce qui est inclus</h2><ul className="feature-list"><li><Check /> Préparation musicale personnalisée</li><li><Check /> Sonorisation professionnelle</li><li><Check /> Éclairage adapté à la salle</li><li><Check /> Coordination avec le lieu de réception</li></ul></article><article><h2>Options & matériel</h2><p>Ajoutez une animation micro, un éclairage architectural ou du matériel supplémentaire. Chaque option apparaît clairement dans le devis.</p></article><article><h2>Playlist et styles</h2><p>Indiquez vos styles favoris, les chansons incontournables et celles à éviter. La playlist reste modifiable pendant la préparation.</p></article><article><h2>Conditions d’acompte</h2><p>Un acompte indicatif de 30 % confirme la réservation. Le créneau est bloqué uniquement après validation du contrat et paiement accepté.</p></article></div><aside className="booking-card"><p className="eyebrow dark">Réserver ce package</p><h2>À partir de {formatEuro(selectedPackage.base_price)}</h2><label>Date<input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} /></label><label>Créneau<select defaultValue={selectedDj.slot}><option>{selectedDj.slot}</option><option>À confirmer avec le DJ</option></select></label><label>Lieu<input value={location} onChange={(event) => setLocation(event.target.value)} /></label><button className="primary-button" onClick={startQuote}>Demander un devis <ChevronRight /></button><p className="secure-note"><ShieldCheck /> Aucun paiement à cette étape</p></aside></section>
-          </>
-        )}
-
-        {page === "devis" && (
-          <section className="section-wrap quote-page"><div className="page-heading"><p className="eyebrow dark">Demande de devis</p><h1>Parlez-nous de votre événement</h1><p>Les informations obligatoires suivent le scénario de demande validé dans les diagrammes.</p></div>
-            {!quoteSubmitted ? <div className="quote-layout"><form className="quote-form" onSubmit={submitQuote}><fieldset><legend><span>1</span> Votre événement</legend><div className="form-grid"><label>Type d’événement<select value={eventType} onChange={(event) => setEventType(event.target.value)} required>{availableEventTypes.map((type) => <option key={type}>{type}</option>)}</select></label><label>Date<input type="date" value={eventDate} min={todayIso} onChange={(event) => setEventDate(event.target.value)} required /></label><label>Heure de début<input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} required /></label><label className="full-field">Lieu enregistré<select value={selectedVenueId} onChange={(event) => selectVenue(event.target.value)}><option value="new">Créer un nouveau lieu</option>{venues.map((venue) => <option value={venue.id} key={venue.id}>{venue.name} — {venue.city}</option>)}</select></label>{selectedVenueId === "new" && <><label>Nom du lieu<input value={venueName} onChange={(event) => setVenueName(event.target.value)} required /></label><label>Rue et numéro<input value={venueStreet} onChange={(event) => setVenueStreet(event.target.value)} required /></label><label>Code postal<input value={venuePostalCode} onChange={(event) => setVenuePostalCode(event.target.value)} required /></label><label>Ville<input value={location} onChange={(event) => setLocation(event.target.value)} required /></label><label>Pays<input value={venueCountry} onChange={(event) => setVenueCountry(event.target.value)} required /></label><div className="venue-actions"><button className="secondary-button" type="button" onClick={createVenue} disabled={venuePending}>{venuePending ? "Enregistrement…" : "Enregistrer ce lieu"}</button></div></>}{venueStatus && <p className={`venue-message full-field ${venueStatus.startsWith("Lieu enregistré") ? "success" : ""}`} role="status">{venueStatus}</p>}<label>Nombre d’invités<input type="number" min="1" value={guestCount} onChange={(event) => setGuestCount(event.target.value)} required /></label><label>Durée prévue (heures)<input type="number" min="1" step="0.5" value={durationHours} onChange={(event) => setDurationHours(event.target.value)} required /></label><label>Parking disponible ?<select value={parking} onChange={(event) => setParking(event.target.value)}><option value="oui">Oui</option><option value="non">Non</option><option value="inconnu">À vérifier</option></select></label></div></fieldset><fieldset><legend><span>2</span> Offre et préférences</legend><div className="form-grid"><label>Formule<select value={selectedPackageId} onChange={(event) => setSelectedPackageId(event.target.value)}>{compatiblePackages.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><label>Distance estimée (km)<input type="number" min="0" value={distanceKm} onChange={(event) => setDistanceKm(event.target.value)} /></label><label className="full-field">Préférences musicales<textarea rows="4" value={musicPreferences} onChange={(event) => setMusicPreferences(event.target.value)} placeholder="Styles, chansons souhaitées ou à éviter…" /></label></div></fieldset>{quoteStatus && <p className="form-message" role="alert">{quoteStatus}</p>}<button className="primary-button submit-quote" type="submit" disabled={quotePending}>{quotePending ? "Enregistrement…" : "Soumettre la demande"} <ChevronRight /></button></form><aside className="quote-summary"><p className="eyebrow dark">Estimation</p><h2>{selectedPackage?.name}</h2><dl><div><dt>Prestation</dt><dd>{formatEuro(quote.subtotal)}</dd></div><div><dt>Déplacement estimé</dt><dd>{formatEuro(quote.travel)}</dd></div><div className="quote-total"><dt>Total indicatif</dt><dd>{formatEuro(quote.total)}</dd></div><div><dt>Acompte proposé (30 %)</dt><dd>{formatEuro(quote.deposit)}</dd></div></dl><p><ShieldCheck /> Cette estimation sera vérifiée par l’administrateur/DJ avant l’envoi du devis.</p></aside></div> : <div className="confirmation-card"><div className="confirmation-icon"><Check /></div><p className="eyebrow dark">Demande enregistrée</p><h2>Votre devis n°{createdQuote?.id} a bien été créé.</h2><p>Statut : <strong>Brouillon — vérification administrative en attente</strong>. Les montants ci-dessous ont été calculés et enregistrés par Django.</p><div className="confirmation-details"><span><CalendarDays /> {eventDate.split("-").reverse().join("/")}</span><span><MapPin /> {location}</span><span><UsersRound /> {guestCount} invités</span><span><FileText /> {formatEuro(createdQuote?.total_amount)}</span></div><button className="secondary-button" onClick={() => navigate("compte")}>Voir mon espace client</button></div>}
-          </section>
-        )}
-
-        {page === "administration" && currentUser?.is_staff && (
-          <section className="section-wrap admin-page">
-            <div className="page-heading"><p className="eyebrow dark">Espace administrateur</p><h1>Traiter les demandes de devis</h1><p>Envoyez le devis au client, choisissez un DJ réellement disponible, puis créez automatiquement la réservation, le contrat et la facture d’acompte.</p></div>
-            <div className="admin-toolbar"><div><strong>{adminQuotes.length}</strong><span> devis à traiter</span></div><button className="secondary-button" type="button" onClick={loadAdminDashboard}>Actualiser</button></div>
-            {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") || adminStatus.includes("clôturée") || adminStatus.includes("refusée") || adminStatus.includes("remboursé") || adminStatus.includes("annulée") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
-            <div className="admin-quote-grid">
-              {adminQuotes.map((item) => {
-                const itemPackage = packages.find((entry) => String(entry.id) === String(item.package));
-                const itemEventType = eventTypeRecords.find((entry) => String(entry.id) === String(item.event_type));
-                return (
-                  <article className="admin-quote-card" key={item.id}>
-                    <div className="quote-row-heading"><h2>Devis n°{item.id}</h2><span className={`quote-status ${item.status}`}>{quoteStatusLabels[item.status]}</span></div>
-                    <p><CalendarDays /> {itemEventType?.name || "Événement"} · {new Date(`${item.event_date}T00:00:00`).toLocaleDateString(i18n.language)} à {String(item.start_time).slice(0, 5)}</p>
-                    <p><Clock3 /> {item.duration_hours} heures · {item.guest_count} invités</p>
-                    <p><FileText /> {itemPackage?.name || `Formule n°${item.package}`} · <strong>{formatEuro(item.total_amount)}</strong></p>
-                    {item.status === "draft" ? (
-                      <button className="primary-button" type="button" onClick={() => sendQuote(item.id)} disabled={adminPendingId === item.id}>{adminPendingId === item.id ? "Traitement…" : "Envoyer le devis"}</button>
-                    ) : (
-                      <div className="admin-acceptance">
-                        <label>DJ à affecter<select value={adminDjSelection[item.id] || ""} onChange={(event) => setAdminDjSelection((current) => ({ ...current, [item.id]: event.target.value }))}><option value="">Sélectionner un DJ</option>{adminDjs.map((dj) => <option value={dj.id} key={dj.id}>{dj.stage_name}</option>)}</select></label>
-                        <button className="primary-button" type="button" onClick={() => acceptAdminQuote(item.id)} disabled={adminPendingId === item.id}>{adminPendingId === item.id ? "Création…" : "Accepter et créer le dossier"}</button>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-              {!adminStatus && !adminQuotes.length && <p className="invoice-empty">Aucun devis en attente de traitement.</p>}
-            </div>
-            <div className="admin-booking-panel cancellation-panel">
-              <div className="playlist-heading"><div><h2>Demandes d'annulation</h2><p>Consultez le motif du client et répondez avant toute opération de remboursement ou d'annulation.</p></div><FileText /></div>
-              <div className="admin-quote-grid">
-                {adminCancellationRequests.map((request) => {
-                  const requestPayments = adminPayments.filter((payment) => payment.booking === request.booking);
-                  const blockingPayments = requestPayments.filter((payment) => ["paid", "pending"].includes(payment.status));
-                  return (
-                    <article className="admin-quote-card" key={request.id}>
-                      <div className="quote-row-heading"><h2>Réservation n°{request.booking}</h2><span className="quote-status sent">En attente</span></div>
-                      <p>{request.reason}</p>
-                      <small>Demandée le {new Date(request.requested_at).toLocaleString(i18n.language)}</small>
-                      <div className="cancellation-payments">
-                        <strong>Paiements liés</strong>
-                        {requestPayments.map((payment) => <div key={payment.id}><span>Paiement n°{payment.id} · {formatEuro(payment.amount)}<small>Remboursé : {formatEuro(payment.refunded_amount)} · Restant : {formatEuro(payment.refundable_amount)}</small></span><span className={`invoice-status ${payment.refund_status === "pending" ? "pending" : payment.status}`}>{payment.refund_status === "pending" ? "Remboursement en cours" : payment.refund_status === "partial" ? "Partiellement remboursé" : payment.refund_status === "failed" ? "Remboursement échoué" : payment.status === "paid" ? "Payé" : payment.status === "refunded" ? "Remboursé" : payment.status === "pending" ? "En attente" : "Échoué"}</span>{payment.status === "paid" && payment.refund_status !== "pending" && Number(payment.refundable_amount) > 0 && <div className="partial-refund-controls"><label>Montant à rembourser<input type="number" min="0.01" max={payment.refundable_amount} step="0.01" inputMode="decimal" value={refundAmounts[payment.id] || ""} onChange={(event) => setRefundAmounts((current) => ({ ...current, [payment.id]: event.target.value }))} placeholder={`Maximum ${formatEuro(payment.refundable_amount)}`} /></label><button className="document-button" type="button" onClick={() => refundCancellationPayment(payment, request)} disabled={refundPendingId === payment.id}>{refundPendingId === payment.id ? "Remboursement…" : "Rembourser ce montant"}</button></div>}</div>)}
-                        {!requestPayments.length && <small>Aucun paiement encaissé pour cette réservation.</small>}
-                      </div>
-                      <div className="cancellation-admin-actions"><button className="primary-button" type="button" onClick={() => approveCancellation(request)} disabled={adminCancellationPendingId === request.id || blockingPayments.length > 0}>{adminCancellationPendingId === request.id ? "Annulation…" : blockingPayments.length ? "Remboursement requis" : "Accepter et annuler"}</button></div>
-                      <label className="cancellation-message">Réponse en cas de refus<textarea rows="3" maxLength="255" value={adminCancellationMessages[request.id] || ""} onChange={(event) => setAdminCancellationMessages((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Expliquez clairement le refus…" /></label>
-                      <button className="document-button danger-button" type="button" onClick={() => rejectCancellation(request)} disabled={adminCancellationPendingId === request.id}>{adminCancellationPendingId === request.id ? "Traitement…" : "Refuser la demande"}</button>
-                    </article>
-                  );
-                })}
-                {!adminCancellationRequests.length && <p className="invoice-empty">Aucune demande d'annulation en attente.</p>}
-              </div>
-            </div>
-            <div className="admin-booking-panel account-deletion-panel">
-              <div className="playlist-heading"><div><h2>Suppressions de compte</h2><p>Vérifiez les obligations de conservation avant de désactiver un compte et de révoquer ses sessions.</p></div><CircleUserRound /></div>
-              <div className="admin-quote-grid">
-                {adminDeletionRequests.map((request) => <article className="admin-quote-card" key={request.id}><div className="quote-row-heading"><h2>{request.client_name}</h2><span className="quote-status sent">En attente</span></div><p>{request.client_email}</p><p>{request.reason}</p><small>Demandée le {new Date(request.requested_at).toLocaleString(i18n.language)}</small><label className="cancellation-message">Réponse au client<textarea rows="3" value={adminDeletionMessages[request.id] || ""} onChange={(event) => setAdminDeletionMessages((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Décision motivée…" required /></label><div className="cancellation-admin-actions"><button className="primary-button" type="button" onClick={() => reviewAccountDeletion(request, "approved")} disabled={adminDeletionPendingId === request.id}>{adminDeletionPendingId === request.id ? "Traitement…" : "Approuver et désactiver"}</button><button className="document-button danger-button" type="button" onClick={() => reviewAccountDeletion(request, "rejected")} disabled={adminDeletionPendingId === request.id}>Refuser</button></div></article>)}
-                {!adminDeletionRequests.length && <p className="invoice-empty">Aucune demande de suppression en attente.</p>}
-              </div>
-            </div>
-            <div className="admin-booking-panel">
-              <div className="playlist-heading"><div><h2>Clôturer les prestations</h2><p>Une clôture confirme la prestation réalisée et émet automatiquement la facture de solde.</p></div><Check /></div>
-              <div className="admin-quote-grid">
-                {adminBookings.map((booking) => (
-                  <article className="admin-quote-card" key={booking.id}>
-                    <div className="quote-row-heading"><h2>Réservation n°{booking.id}</h2><span className="quote-status accepted">Confirmée</span></div>
-                    <p><CalendarDays /> {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)} · {String(booking.start_time).slice(0, 5)}</p>
-                    <p><FileText /> Montant total : <strong>{formatEuro(booking.total_amount)}</strong></p>
-                    <button className="primary-button" type="button" onClick={() => completeAdminBooking(booking.id)} disabled={completionPendingId === booking.id}>{completionPendingId === booking.id ? "Clôture…" : "Marquer comme réalisée"}</button>
-                  </article>
-                ))}
-                {!adminBookings.length && <p className="invoice-empty">Aucune prestation confirmée à clôturer.</p>}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {page === "dj" && currentUser?.role === "dj" && (
-          <section className="section-wrap admin-page">
-            <div className="page-heading"><p className="eyebrow dark">Espace DJ</p><h1>Mes prestations</h1><p>Consultez les événements qui vous sont affectés et clôturez une prestation lorsque celle-ci est terminée.</p></div>
-            <div className="admin-toolbar"><div><strong>{djBookings.length}</strong><span> prestations affectées</span></div></div>
-            {djStatus && <p className={djStatus.includes("clôturée") || djStatus.includes("marqué") || djStatus.includes("annulé") || djStatus.includes("acceptée") || djStatus.includes("refusée") || djStatus.includes("enregistré") || djStatus.includes("maintenant") || djStatus.includes("supprimé") ? "form-message success" : "form-message"} role="status">{djStatus}</p>}
-            <div className="admin-quote-grid">
-              {djBookings.map((booking) => {
-                const canComplete = booking.status === "confirmed" && booking.deposit_paid && hasBookingEnded(booking);
-                const statusLabel = booking.status === "confirmed" ? "Confirmée" : booking.status === "performed" ? "Réalisée" : booking.status === "paid" ? "Payée" : booking.status;
-                return (
-                  <article className="admin-quote-card" key={booking.id}>
-                    <div className="quote-row-heading"><h2>Réservation n°{booking.id}</h2><span className={`quote-status ${booking.status === "paid" || booking.status === "performed" ? "accepted" : "sent"}`}>{statusLabel}</span></div>
-                    <p><CalendarDays /> {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)} · {String(booking.start_time).slice(0, 5)}–{String(booking.end_time).slice(0, 5)}</p>
-                    <p><FileText /> Montant : <strong>{formatEuro(booking.total_amount)}</strong></p>
-                    <p><ShieldCheck /> Acompte {booking.deposit_paid ? "payé" : "en attente"}</p>
-                    {canComplete && <button className="primary-button" type="button" onClick={() => completeDjBooking(booking.id)} disabled={djPendingId === booking.id}>{djPendingId === booking.id ? "Clôture…" : "Marquer comme réalisée"}</button>}
-                  </article>
-                );
-              })}
-              {!djStatus && !djBookings.length && <p className="invoice-empty">Aucune prestation ne vous est affectée.</p>}
-            </div>
-            <div className="dj-workflow-grid">
-              <section className="dj-action-panel">
-                <div className="playlist-heading"><div><h2>Rendez-vous préparatoires</h2><p>Confirmez le suivi effectué avec vos clients.</p></div><CalendarDays /></div>
-                <div className="appointment-list">
-                  {djAppointments.map((appointment) => {
-                    const appointmentDate = new Date(appointment.scheduled_at);
-                    return (
-                      <article key={appointment.id}>
-                        <div><strong>{appointmentDate.toLocaleString(i18n.language)}</strong><span>Réservation n°{appointment.booking} · {appointment.mode === "online" ? "En ligne" : "En présentiel"}</span>{appointment.notes && <small>{appointment.notes}</small>}</div>
-                        <div className="dj-action-buttons">
-                          <span className={`appointment-status ${appointment.status}`}>{appointment.status === "done" ? "Réalisé" : appointment.status === "cancelled" ? "Annulé" : "Planifié"}</span>
-                          {appointment.status === "planned" && appointmentDate <= new Date() && <button className="document-button" type="button" onClick={() => updateDjAppointment(appointment.id, "done")} disabled={djAppointmentPendingId === appointment.id}>Marquer réalisé</button>}
-                          {appointment.status === "planned" && <button className="document-button danger-button" type="button" onClick={() => updateDjAppointment(appointment.id, "cancelled")} disabled={djAppointmentPendingId === appointment.id}>Annuler</button>}
-                        </div>
-                      </article>
-                    );
-                  })}
-                  {!djAppointments.length && <p className="invoice-empty">Aucun rendez-vous préparatoire.</p>}
-                </div>
-              </section>
-              <section className="dj-action-panel">
-                <div className="playlist-heading"><div><h2>Demandes musicales</h2><p>Acceptez ou refusez les propositions des clients.</p></div><Music2 /></div>
-                <div className="playlist-songs">
-                  {djSongs.map((song) => (
-                    <article key={song.id}>
-                      <div><strong>{song.title}</strong><span>{song.artist} · Playlist n°{song.playlist}</span></div>
-                      <div className="dj-action-buttons"><small className={`song-status ${song.status}`}>{song.status === "approved" ? "Acceptée" : song.status === "rejected" ? "Refusée" : "Demandée"}</small>{song.status === "requested" && <><button className="document-button" type="button" onClick={() => updateDjSong(song.id, "approved")} disabled={djSongPendingId === song.id}>Accepter</button><button className="document-button danger-button" type="button" onClick={() => updateDjSong(song.id, "rejected")} disabled={djSongPendingId === song.id}>Refuser</button></>}</div>
-                    </article>
-                  ))}
-                  {!djSongs.length && <p className="invoice-empty">Aucune demande musicale.</p>}
-                </div>
-              </section>
-            </div>
-            <section className="availability-panel">
-              <div className="playlist-heading"><div><h2>Mes disponibilités</h2><p>Ouvrez les créneaux pendant lesquels l’administration peut vous affecter une prestation.</p></div><Clock3 /></div>
-              <form className="availability-form" onSubmit={createDjAvailability}>
-                <label>Date<input type="date" min={todayIso} value={availabilityDate} onChange={(event) => setAvailabilityDate(event.target.value)} required /></label>
-                <label>Début<input type="time" value={availabilityStart} onChange={(event) => setAvailabilityStart(event.target.value)} required /></label>
-                <label>Fin<input type="time" value={availabilityEnd} onChange={(event) => setAvailabilityEnd(event.target.value)} required /></label>
-                <label>État<select value={availabilityStatus} onChange={(event) => setAvailabilityStatus(event.target.value)}><option value="available">Disponible</option><option value="blocked">Bloqué</option></select></label>
-                {availabilityStatus === "blocked" && <label className="availability-reason">Motif<input value={availabilityReason} onChange={(event) => setAvailabilityReason(event.target.value)} placeholder="Indisponibilité personnelle" required /></label>}
-                <button className="primary-button" type="submit" disabled={availabilityPendingId === "create"}>{availabilityPendingId === "create" ? "Enregistrement…" : "Ajouter le créneau"}</button>
-              </form>
-              <div className="availability-list">
-                {djAvailabilities.map((availability) => (
-                  <article key={availability.id}>
-                    <div><strong>{new Date(`${availability.available_date}T00:00:00`).toLocaleDateString(i18n.language)}</strong><span>{String(availability.start_time).slice(0, 5)}–{String(availability.end_time).slice(0, 5)}</span>{availability.reason && <small>{availability.reason}</small>}</div>
-                    <div className="dj-action-buttons"><span className={`availability-status ${availability.status}`}>{availability.status === "available" ? "Disponible" : availability.status === "reserved" ? "Réservé" : "Bloqué"}</span>{availability.status === "available" && <button className="document-button" type="button" onClick={() => updateDjAvailability(availability, "blocked")} disabled={availabilityPendingId === availability.id}>Bloquer</button>}{availability.status === "blocked" && <button className="document-button" type="button" onClick={() => updateDjAvailability(availability, "available")} disabled={availabilityPendingId === availability.id}>Rouvrir</button>}{availability.status !== "reserved" && <button className="document-button danger-button" type="button" onClick={() => deleteDjAvailability(availability)} disabled={availabilityPendingId === availability.id}>Supprimer</button>}</div>
-                  </article>
-                ))}
-                {!djAvailabilities.length && <p className="invoice-empty">Aucun créneau enregistré.</p>}
-              </div>
-            </section>
-          </section>
-        )}
-
+        {page === "detail" && selectedPackage && <PackageDetailPage detail={{
+          eventDate, location, navigate, selectedDj, selectedPackage, setEventDate, setLocation, startQuote,
+        }} />}
+        {page === "devis" && <QuoteRequestPage form={{
+          availableEventTypes, compatiblePackages, createVenue, createdQuote, distanceKm, durationHours,
+          eventDate, eventType, guestCount, location, musicPreferences, navigate, parking, quote,
+          quotePending, quoteStatus, quoteSubmitted, selectVenue, selectedPackage, selectedPackageId,
+          selectedVenueId, setDistanceKm, setDurationHours, setEventDate, setEventType, setGuestCount,
+          setLocation, setMusicPreferences, setParking, setSelectedPackageId, setStartTime, setVenueCountry,
+          setVenueName, setVenuePostalCode, setVenueStreet, startTime, submitQuote, venueCountry, venueName,
+          venuePending, venuePostalCode, venues, venueStatus, venueStreet,
+        }} />}
+        {page === "administration" && currentUser?.is_staff && <AdminWorkspacePage workspace={{
+          acceptAdminQuote, adminBookings, adminCancellationMessages, adminCancellationPendingId,
+          adminCancellationRequests, adminDeletionMessages, adminDeletionPendingId, adminDeletionRequests,
+          adminDjs, adminDjSelection, adminPayments, adminPendingId, adminQuotes, adminStatus,
+          approveCancellation, completeAdminBooking, completionPendingId, eventTypeRecords, i18n,
+          loadAdminDashboard, packages, quoteStatusLabels, refundAmounts, refundCancellationPayment,
+          refundPendingId, rejectCancellation, reviewAccountDeletion, sendQuote, setAdminCancellationMessages,
+          setAdminDeletionMessages, setAdminDjSelection, setRefundAmounts,
+        }} />}
+        {page === "dj" && currentUser?.role === "dj" && <DJWorkspacePage workspace={{
+          availabilityDate, availabilityEnd, availabilityPendingId, availabilityReason, availabilityStart,
+          availabilityStatus, completeDjBooking, createDjAvailability, deleteDjAvailability, djAppointments,
+          djAppointmentPendingId, djAvailabilities, djBookings, djPendingId, djSongPendingId, djSongs, djStatus,
+          i18n, setAvailabilityDate, setAvailabilityEnd, setAvailabilityReason, setAvailabilityStart,
+          setAvailabilityStatus, updateDjAppointment, updateDjAvailability, updateDjSong,
+        }} />}
         {page === "compte" && (
           <section className="section-wrap account-page">
             <div className="page-heading"><p className="eyebrow dark">Espace client</p><h1>Retrouvez votre événement au même endroit</h1><p>Connectez-vous pour suivre vos devis, contrats, paiements et playlists.</p></div>
@@ -1748,23 +1278,13 @@ export default function App() {
                     requests={accountDeletionRequests}
                     statusMessage={accountDeletionStatus}
                   />
-                  <div className="quote-list">
-                    <h3>Mes demandes de devis</h3>
-                    {quoteListStatus && <p className="invoice-empty" role="status">{quoteListStatus}</p>}
-                    {clientQuotes.map((item) => {
-                      const itemPackage = packages.find((entry) => String(entry.id) === String(item.package));
-                      const itemVenue = venues.find((entry) => String(entry.id) === String(item.venue));
-                      const itemEventType = eventTypeRecords.find((entry) => String(entry.id) === String(item.event_type));
-                      return (
-                        <article className="quote-row" key={item.id}>
-                          <div className="quote-row-heading"><strong>Devis n°{item.id}</strong><span className={`quote-status ${item.status}`}>{quoteStatusLabels[item.status] || item.status}</span></div>
-                          <span>{itemEventType?.name || "Événement"} · {new Date(`${item.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</span>
-                          <span>{itemPackage?.name || `Formule n°${item.package}`} · {itemVenue ? `${itemVenue.name}, ${itemVenue.city}` : `Lieu n°${item.venue}`}</span>
-                          <div className="quote-row-amounts"><span>Total : <strong>{formatEuro(item.total_amount)}</strong></span><span>Acompte : <strong>{formatEuro(item.deposit_amount)}</strong></span></div>
-                        </article>
-                      );
-                    })}
-                  </div>
+                  <ClientQuotes
+                    eventTypes={eventTypeRecords}
+                    packages={packages}
+                    quotes={clientQuotes}
+                    statusMessage={quoteListStatus}
+                    venues={venues}
+                  />
                   <div className="cancellation-panel client-cancellation-panel">
                     <div className="playlist-heading"><div><h3>Mes demandes d'annulation</h3><p>Une demande n'annule pas automatiquement la prestation et ne déclenche aucun remboursement.</p></div><FileText /></div>
                     {cancellationStatus && <p className={cancellationStatus.includes("transmise") ? "form-message success" : "form-message"} role="status">{cancellationStatus}</p>}
@@ -1863,6 +1383,7 @@ export default function App() {
           </section>
         )}
         </LocalizedContent>
+        </Suspense>
       </main>
 
       <SiteFooter currentUser={currentUser} onNavigate={navigate} />

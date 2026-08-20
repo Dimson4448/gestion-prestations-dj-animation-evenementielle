@@ -11,6 +11,13 @@ const eventTypeTranslationKeys = {
   "Soirée privée": "eventTypes.privateParty",
 };
 
+const eventShowcase = [
+  { key: "childBirthday", eventType: "Anniversaire enfant", image: "/images/events/anniversaire-enfant.webp" },
+  { key: "adultBirthday", eventType: "Anniversaire adulte", image: "/images/events/anniversaire-adulte.webp" },
+  { key: "wedding", eventType: "Mariage", image: "/images/events/mariage.webp" },
+  { key: "privateParty", eventType: "Soirée privée", image: "/images/events/soiree-privee.webp" },
+];
+
 export default function HomePage({
   availableEventTypes,
   catalogueStatus,
@@ -25,6 +32,8 @@ export default function HomePage({
   packages,
 }) {
   const { t, i18n } = useTranslation();
+  const { t: translateInterface } = useTranslation("interface");
+  const translateCatalogueValue = (value) => translateInterface(value, { keySeparator: false, defaultValue: value });
   const journeySteps = t("home.steps", { returnObjects: true });
   return (
     <>
@@ -49,12 +58,39 @@ export default function HomePage({
         <article><Music2 /><div><strong>{t("home.clientPlaylist")}</strong><span>{t("home.clientPlaylistText")}</span></div></article>
       </section>
 
+      <section className="event-showcase section-wrap" aria-labelledby="event-showcase-title">
+        <div className="section-title">
+          <div>
+            <p className="eyebrow dark">{t("home.ambiences.eyebrow")}</p>
+            <h2 id="event-showcase-title">{t("home.ambiences.title")}</h2>
+          </div>
+          <p>{t("home.ambiences.intro")}</p>
+        </div>
+        <div className="event-showcase-grid">
+          {eventShowcase.map((item) => (
+            <button
+              className="event-showcase-card"
+              type="button"
+              key={item.key}
+              aria-label={t("home.ambiences.openOffers", { event: t(`home.ambiences.${item.key}.title`) })}
+              onClick={() => { onEventTypeChange(item.eventType); onNavigate("offres"); }}
+            >
+              <img src={item.image} alt={t(`home.ambiences.${item.key}.alt`)} loading="lazy" />
+              <div>
+                <h3>{t(`home.ambiences.${item.key}.title`)}</h3>
+                <p>{t(`home.ambiences.${item.key}.text`)}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section className="section-wrap">
         <div className="section-title"><div><p className="eyebrow dark">{t("home.adaptedOffers")}</p><h2>{t("home.choosePackage")}</h2></div><button className="text-link" type="button" onClick={() => onNavigate("offres")}>{t("home.allOffers")} <ChevronRight /></button></div>
         <div className="package-grid">
           {packages.slice(0, 3).map((item) => (
             <article className={`package-card ${item.accent || "cyan"}`} key={item.id}>
-              <div className="card-icon"><Headphones /></div><p className="card-kicker">{item.event || t("home.djService")}</p><h3>{item.name}</h3><p>{item.description}</p>
+              <div className="card-icon"><Headphones /></div><p className="card-kicker">{item.event ? translateCatalogueValue(item.event) : t("home.djService")}</p><h3>{translateCatalogueValue(item.name)}</h3><p>{translateCatalogueValue(item.description)}</p>
               <div className="card-meta"><span><Clock3 /> {Number(item.included_hours).toLocaleString(i18n.language)} h</span>{item.rating ? <span><Star /> {item.rating}</span> : <span><ShieldCheck /> {t("home.verifiedPrice")}</span>}</div>
               <div className="card-footer"><div><small>{t("home.from")}</small><strong>{formatEuro(item.base_price)}</strong></div><button type="button" onClick={() => onOpenDetail(item)}>{t("home.discover")} <ChevronRight /></button></div>
             </article>

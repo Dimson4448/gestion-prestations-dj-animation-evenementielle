@@ -312,6 +312,24 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - J'ai extrait la planification des rendez-vous préparatoires et traduit le formulaire, les modes et les statuts en français, anglais et néerlandais.
 - J'ai isolé les avis clients et traduit le formulaire, les notes et les statuts de modération dans les trois langues.
 - J'ai extrait le suivi des demandes de suppression de compte et traduit les statuts et actions sans modifier les obligations de conservation documentaire.
+- J'ai isolé la liste des demandes de devis du client et traduit les statuts, montants et libellés de référence dans les trois langues.
+- J'ai intégré sur l'accueil quatre photographies personnelles retravaillées pour illustrer les anniversaires enfant et adulte, le mariage et la soirée privée, avec des descriptions traduites, un format WebP optimisé et un accès direct aux offres correspondantes.
+- J'ai relié les pages React à l'historique du navigateur afin que les flèches Précédent et Suivant restent dans l'application au lieu de revenir vers une ancienne page de paiement Stripe.
+- J'ai appliqué les traductions du catalogue Django aux noms et descriptions des formules affichées sur l'accueil.
+- J'ai commencé la réorganisation du frontend en isolant les appels du catalogue, des prestations et des disponibilités dans un hook React dédié.
+- J'ai extrait la page de recherche des offres de `App.jsx` vers un composant de page autonome, sans modifier le parcours utilisateur.
+- J'ai poursuivi le découpage de `App.jsx` en séparant le formulaire de devis, l'espace DJ et l'espace d'administration dans trois pages React dédiées.
+- Les données et actions transmises à ces pages sont maintenant regroupées par domaine, ce qui rend les responsabilités de chaque espace plus faciles à identifier et à maintenir.
+- J'ai regroupé dans `useClientAccount()` le chargement du profil client, des devis, factures, paiements, contrats, lieux, réservations, playlists, rendez-vous, avis et demandes de suppression.
+- Cette extraction retire les effets API du compte de `App.jsx` et centralise la remise à zéro des données lors d'une déconnexion ou d'un changement de rôle.
+- J'ai isolé le chargement des tableaux de bord DJ et Administration dans `useOperationalWorkspaces()`, tout en conservant les contrôles de rôle et les messages d'erreur existants.
+- L'actualisation manuelle de l'administration réutilise désormais la même fonction de chargement que l'initialisation du tableau de bord.
+- J'ai extrait la page de détail d'une formule et supprimé de `App.jsx` les dépendances visuelles devenues inutiles.
+- J'ai centralisé la lecture des listes Django REST paginées ou directes et ajouté quatre tests sur cette adaptation et les contrôles de rôle.
+- J'ai rédigé une note d'architecture du frontend pour présenter clairement les pages, hooks, composants, flux et patterns réellement utilisés.
+- J'ai ajouté le chargement à la demande des pages Offres, Détail, Devis, DJ et Administration afin d'alléger le JavaScript initial de l'accueil.
+- Le build Vite produit maintenant cinq fichiers métier séparés et le fichier principal est passé d'environ 454 Ko à 425 Ko avant compression.
+- Cette réorganisation a été contrôlée avec 47 tests frontend, 91 tests Django et un build Vite de production réussis.
 - J'ai ajouté quatre tests unitaires pour vérifier les rôles et empêcher qu'un compte inconnu reçoive un accès privilégié.
 - La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.
 - Aucun modèle Django n'a changé ; le dump MariaDB ne nécessite donc pas de mise à jour.
