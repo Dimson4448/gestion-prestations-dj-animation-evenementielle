@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from rest_framework import serializers
@@ -451,7 +451,7 @@ class DJAvailabilitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DJAvailability
-        fields = ["id", "dj", "dj_id", "available_date", "start_time", "end_time", "status", "reason", "liens"]
+        fields = ["id", "dj", "dj_id", "available_date", "end_date", "start_time", "end_time", "status", "reason", "liens"]
         validators = []
 
     def validate(self, attrs):
@@ -460,19 +460,23 @@ class DJAvailabilitySerializer(serializers.ModelSerializer):
         available_date = attrs.get("available_date", getattr(self.instance, "available_date", None))
         start_time = attrs.get("start_time", getattr(self.instance, "start_time", None))
         end_time = attrs.get("end_time", getattr(self.instance, "end_time", None))
+        end_date = attrs.get("end_date", getattr(self.instance, "end_date", None)) or available_date
+        attrs["end_date"] = end_date
         target_status = attrs.get("status", getattr(self.instance, "status", DJAvailability.AVAILABLE))
 
         if available_date and available_date < date.today():
             raise serializers.ValidationError({"available_date": "Un créneau ne peut pas être placé dans le passé."})
-        if start_time and end_time and end_time <= start_time:
-            raise serializers.ValidationError({"end_time": "L'heure de fin doit être postérieure à l'heure de début."})
+        if available_date and end_date and end_date < available_date:
+            raise serializers.ValidationError({"end_date": "La date de fin ne peut pas précéder la date de début."})
+        if available_date == end_date and start_time and end_time and end_time <= start_time:
+            raise serializers.ValidationError({"end_time": "Sur une même date, l'heure de fin doit être postérieure à l'heure de début."})
         if self.instance is None and request and request.user.is_staff and "dj" not in attrs:
             raise serializers.ValidationError({"dj_id": "Sélectionnez le DJ concerné."})
         if request and not request.user.is_staff:
-            if self.instance and self.instance.status == DJAvailability.RESERVED:
-                raise serializers.ValidationError({"status": "Un créneau réservé ne peut être modifié par le DJ."})
-            if target_status == DJAvailability.RESERVED:
-                raise serializers.ValidationError({"status": "Le statut réservé est géré automatiquement par les réservations."})
+            if self.instance and self.instance.status in {DJAvailability.RESERVED, DJAvailability.OCCUPIED}:
+                raise serializers.ValidationError({"status": "Un créneau réservé ou occupé ne peut être modifié par le DJ."})
+            if target_status in {DJAvailability.RESERVED, DJAvailability.OCCUPIED}:
+                raise serializers.ValidationError({"status": "Les statuts réservé et occupé sont gérés automatiquement."})
             attrs.pop("dj", None)
 
         dj = attrs.get("dj") or getattr(self.instance, "dj", None)
@@ -523,15 +527,59 @@ class VenueSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
 
 class QuoteSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "quote"
+    client_details = serializers.SerializerMethodField()
+    venue_details = serializers.SerializerMethodField()
+    event_type_name = serializers.CharField(source="event_type.name", read_only=True)
+    package_name = serializers.CharField(source="package.name", read_only=True)
+
+    def _can_view_private_details(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        if request.user.is_staff:
+            return True
+        dj = getattr(request.user, "dj_profile", None)
+        return bool(dj and obj.requested_dj_id == dj.id)
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_client_details(self, obj):
+        if not self._can_view_private_details(obj):
+            return None
+        user = obj.client.user
+        return {
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "phone": obj.client.phone,
+        }
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_venue_details(self, obj):
+        if not self._can_view_private_details(obj):
+            return None
+        return {
+            "name": obj.venue.name,
+            "street": obj.venue.street,
+            "postal_code": obj.venue.postal_code,
+            "city": obj.venue.city,
+            "country": obj.venue.country,
+        }
 
     class Meta:
         model = Quote
         fields = [
             "id",
             "client",
+            "client_details",
+            "requested_dj",
+            "dj_decision",
+            "dj_decided_at",
             "event_type",
+            "event_type_name",
             "package",
+            "package_name",
             "venue",
+            "venue_details",
             "event_date",
             "start_time",
             "duration_hours",
@@ -547,7 +595,7 @@ class QuoteSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             "created_at",
             "liens",
         ]
-        read_only_fields = ["subtotal", "travel_fee", "total_amount", "deposit_amount", "created_at"]
+        read_only_fields = ["client_details", "venue_details", "dj_decision", "dj_decided_at", "subtotal", "travel_fee", "total_amount", "deposit_amount", "created_at"]
         extra_kwargs = {"client": {"required": False}}
 
     def validate_event_date(self, value):
@@ -589,6 +637,27 @@ class QuoteSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         if venue and venue.client_id != client.id:
             raise serializers.ValidationError({"venue": "Ce lieu n'appartient pas au client connecté."})
 
+        requested_dj = attrs.get("requested_dj") or getattr(self.instance, "requested_dj", None)
+        if requested_dj and not requested_dj.is_available:
+            raise serializers.ValidationError({"requested_dj": "Ce DJ n'est plus disponible."})
+        event_date = attrs.get("event_date") or getattr(self.instance, "event_date", None)
+        start_time = attrs.get("start_time") or getattr(self.instance, "start_time", None)
+        duration = attrs.get("duration_hours") or getattr(self.instance, "duration_hours", None)
+        if requested_dj and event_date and start_time and duration:
+            event_start = datetime.combine(event_date, start_time)
+            event_end = event_start + timedelta(seconds=int(duration * 3600))
+            slots = DJAvailability.objects.filter(
+                dj=requested_dj,
+                available_date__lte=event_date,
+                status=DJAvailability.AVAILABLE,
+            )
+            covers_event = any(
+                datetime.combine(slot.available_date, slot.start_time) <= event_start
+                and datetime.combine(slot.end_date or slot.available_date, slot.end_time) >= event_end
+                for slot in slots
+            )
+            if not covers_event:
+                raise serializers.ValidationError({"requested_dj": "Le créneau de ce DJ ne couvre pas toute la prestation."})
         if "status" in self.initial_data:
             raise serializers.ValidationError({"status": "Le statut du devis est géré par l'administration."})
         return attrs
@@ -599,6 +668,10 @@ class QuoteAcceptanceSerializer(serializers.Serializer):
         queryset=DJProfile.objects.filter(is_available=True),
         label="DJ sélectionné",
     )
+
+
+class QuoteDJDecisionSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=[Quote.DJ_ACCEPTED, Quote.DJ_REFUSED])
 
 
 class BookingSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
@@ -616,6 +689,7 @@ class BookingSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             "venue",
             "equipment",
             "event_date",
+            "end_date",
             "start_time",
             "end_time",
             "status",
@@ -650,7 +724,7 @@ class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSe
 
     class Meta:
         model = PreparatoryAppointment
-        fields = ["id", "booking", "scheduled_at", "mode", "status", "notes", "liens"]
+        fields = ["id", "booking", "scheduled_at", "mode", "status", "notes", "response_message", "liens"]
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -665,18 +739,20 @@ class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSe
             if scheduled_at <= timezone.now():
                 raise serializers.ValidationError({"scheduled_at": "Le rendez-vous doit être planifié dans le futur."})
             event_start = timezone.make_aware(datetime.combine(booking.event_date, booking.start_time))
-            if scheduled_at >= event_start:
-                raise serializers.ValidationError({"scheduled_at": "Le rendez-vous doit avoir lieu avant l'événement."})
+            latest_appointment = event_start - timedelta(hours=24)
+            if scheduled_at > latest_appointment:
+                raise serializers.ValidationError({"scheduled_at": "Le rendez-vous doit avoir lieu au plus tard 24 heures avant le début de l'événement."})
         if not booking.event_type.requires_preparatory_meeting:
             raise serializers.ValidationError({"booking": "Ce type d'événement ne nécessite pas de rendez-vous préparatoire."})
         if not booking.deposit_paid or booking.status not in {Booking.CONFIRMED, Booking.PERFORMED, Booking.PAID}:
             raise serializers.ValidationError({"booking": "La réservation doit être confirmée par le paiement de l'acompte."})
 
-        target_status = attrs.get("status", getattr(self.instance, "status", PreparatoryAppointment.PLANNED))
+        target_status = attrs.get("status", getattr(self.instance, "status", PreparatoryAppointment.PROPOSED))
         if self.instance and target_status == PreparatoryAppointment.DONE and scheduled_at > timezone.now():
             raise serializers.ValidationError({"status": "Le rendez-vous ne peut pas être réalisé avant l'heure prévue."})
-        if target_status == PreparatoryAppointment.PLANNED:
-            duplicate = PreparatoryAppointment.objects.filter(booking=booking, status=PreparatoryAppointment.PLANNED)
+        active_statuses = [PreparatoryAppointment.PROPOSED, PreparatoryAppointment.COUNTER_PROPOSED, PreparatoryAppointment.ACCEPTED]
+        if target_status in active_statuses:
+            duplicate = PreparatoryAppointment.objects.filter(booking=booking, status__in=active_statuses)
             if self.instance:
                 duplicate = duplicate.exclude(pk=self.instance.pk)
             if duplicate.exists():
@@ -690,14 +766,35 @@ class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSe
             raise serializers.ValidationError({"booking": "Cette réservation ne vous appartient pas."})
         if self.instance and "booking" in attrs and attrs["booking"].pk != self.instance.booking_id:
             raise serializers.ValidationError({"booking": "La réservation du rendez-vous ne peut pas être modifiée."})
-        if client and "status" in self.initial_data:
-            raise serializers.ValidationError({"status": "Le statut du rendez-vous est géré par le DJ ou l'administration."})
+        response_message = attrs.get("response_message", getattr(self.instance, "response_message", "")).strip()
+        if client:
+            if self.instance is None and "status" in self.initial_data:
+                raise serializers.ValidationError({"status": "Une nouvelle demande est automatiquement transmise au DJ."})
+            if self.instance:
+                if self.instance.status != PreparatoryAppointment.COUNTER_PROPOSED or target_status not in {PreparatoryAppointment.ACCEPTED, PreparatoryAppointment.REFUSED}:
+                    raise serializers.ValidationError({"status": "Le client peut uniquement accepter ou refuser une contre-proposition du DJ."})
+                if any(field in attrs for field in ("booking", "scheduled_at", "mode", "notes")):
+                    raise serializers.ValidationError("La date et le mode d'une contre-proposition ne peuvent être modifiés que par le DJ.")
+        if dj and self.instance is None:
+            raise serializers.ValidationError({"booking": "La première proposition de rendez-vous doit être envoyée par le client."})
+        if dj and self.instance:
+            allowed = {PreparatoryAppointment.ACCEPTED, PreparatoryAppointment.REFUSED, PreparatoryAppointment.COUNTER_PROPOSED}
+            if self.instance.status == PreparatoryAppointment.ACCEPTED:
+                allowed = {PreparatoryAppointment.DONE, PreparatoryAppointment.CANCELLED}
+            if target_status not in allowed:
+                raise serializers.ValidationError({"status": "Cette décision n'est pas autorisée pour ce rendez-vous."})
+            if target_status == PreparatoryAppointment.COUNTER_PROPOSED and "scheduled_at" not in attrs:
+                raise serializers.ValidationError({"scheduled_at": "Indiquez une nouvelle date et heure pour la contre-proposition."})
+        response_required = target_status == PreparatoryAppointment.COUNTER_PROPOSED or (dj and target_status == PreparatoryAppointment.REFUSED)
+        if response_required and len(response_message) < 5:
+            raise serializers.ValidationError({"response_message": "Expliquez le refus ou la contre-proposition en au moins 5 caractères."})
         return attrs
 
     def create(self, validated_data):
         request = self.context.get("request")
         if request and getattr(request.user, "client_profile", None):
-            validated_data["status"] = PreparatoryAppointment.PLANNED
+            validated_data["status"] = PreparatoryAppointment.PROPOSED
+            validated_data["response_message"] = ""
         return super().create(validated_data)
 
 

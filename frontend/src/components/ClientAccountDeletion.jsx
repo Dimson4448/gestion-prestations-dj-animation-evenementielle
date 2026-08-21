@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export default function ClientAccountDeletion({
@@ -14,11 +14,13 @@ export default function ClientAccountDeletion({
   const hasPendingRequest = requests.some((request) => request.status === "pending");
 
   return (
-    <div className="account-deletion-panel">
-      <div className="playlist-heading">
+    <details className="account-deletion-panel">
+      <summary className="account-deletion-summary">
         <div><h3>{t("accountDeletion.title")}</h3><p>{t("accountDeletion.intro")}</p></div>
-        <X />
-      </div>
+        <span><X /><ChevronDown className="deletion-chevron" /></span>
+      </summary>
+
+      <div className="account-deletion-content">
 
       {requests.map((request) => (
         <article className="deletion-request-row" key={request.id}>
@@ -57,6 +59,7 @@ export default function ClientAccountDeletion({
           {statusMessage}
         </p>
       )}
-    </div>
+      </div>
+    </details>
   );
 }

@@ -6,6 +6,8 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
+from apps.availability.models import DJAvailability
+
 from .models import Invoice, Payment, Refund
 from .notifications import notify_payment_confirmed, notify_refund_processed
 
@@ -130,6 +132,11 @@ def confirm_checkout_payment(session) -> bool:
             booking.save(update_fields=["deposit_paid", "status"])
         else:
             booking.save(update_fields=["deposit_paid"])
+        DJAvailability.objects.select_for_update().filter(
+            dj=booking.dj,
+            status=DJAvailability.RESERVED,
+            reason=f"Réservation #{booking.pk}",
+        ).update(status=DJAvailability.OCCUPIED)
     elif invoice.invoice_type in {Invoice.BALANCE, Invoice.FULL}:
         booking.status = booking.PAID
         booking.save(update_fields=["status"])

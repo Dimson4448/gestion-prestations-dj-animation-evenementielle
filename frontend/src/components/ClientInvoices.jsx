@@ -23,7 +23,7 @@ export default function ClientInvoices({
   const { i18n, t } = useTranslation();
 
   return (
-    <div className="invoice-list">
+    <div className="invoice-list" id="client-invoices">
       <h3>{t("clientInvoices.title")}</h3>
       {invoiceStatus && <p className="invoice-empty" role="status">{invoiceStatus}</p>}
       {checkoutStatus && <p className="form-message" role="alert">{checkoutStatus}</p>}

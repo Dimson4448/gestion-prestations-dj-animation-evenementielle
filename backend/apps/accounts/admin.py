@@ -33,7 +33,7 @@ class DJApplicationAdmin(admin.ModelAdmin):
     list_display = ("stage_name", "user", "city", "years_experience", "status", "submitted_at")
     list_filter = ("status", "city", "submitted_at")
     search_fields = ("stage_name", "user__email", "user__first_name", "user__last_name", "city")
-    readonly_fields = ("submitted_at", "reviewed_at", "reviewed_by", "identity_download", "insurance_download")
+    readonly_fields = ("status", "submitted_at", "reviewed_at", "reviewed_by", "identity_download", "insurance_download")
     actions = ("approve_applications", "reject_applications")
 
     @admin.display(description="Pièce d'identité")
@@ -52,7 +52,7 @@ class DJApplicationAdmin(admin.ModelAdmin):
     def approve_applications(self, request, queryset):
         approved = 0
         for application in queryset.select_related("user"):
-            if application.status != DJApplication.PENDING or not application.user.is_active:
+            if application.status == DJApplication.REJECTED or not application.user.is_active:
                 continue
             try:
                 approve_dj_application(application, request.user)

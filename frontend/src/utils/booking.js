@@ -12,7 +12,7 @@ export const formatEuro = (value) =>
 export const hasBookingEnded = (booking, now = new Date()) => {
   if (!booking?.event_date) return false;
 
-  const end = new Date(`${booking.event_date}T${booking.end_time || "23:59:59"}`);
+  const end = new Date(`${booking.end_date || booking.event_date}T${booking.end_time || "23:59:59"}`);
   return !Number.isNaN(end.getTime()) && end <= now;
 };
 

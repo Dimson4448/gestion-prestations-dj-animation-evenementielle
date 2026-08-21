@@ -10,7 +10,7 @@ class EventType(models.Model):
     ALLOWED_NAMES = (CHILD_BIRTHDAY, ADULT_BIRTHDAY, WEDDING, PRIVATE_PARTY)
 
     name = models.CharField("nom", max_length=80, unique=True)
-    requires_preparatory_meeting = models.BooleanField("rendez-vous préparatoire requis", default=False)
+    requires_preparatory_meeting = models.BooleanField("rendez-vous préparatoire requis", default=True)
 
     class Meta:
         db_table = "event_types"

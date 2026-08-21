@@ -10,6 +10,7 @@ import {
 
 import { apiClient, authenticate, cancelAccountDeletionRequest, changePassword, clearAuthentication, confirmPasswordReset, createAccountDeletionRequest, getCurrentUser, getDJApplicationStatus, getStoredAccessToken, logout, registerClient, requestPasswordReset, resendVerificationEmail, reviewAccountDeletionRequest, sessionExpiredEvent, updateClientProfile, verifyEmail } from "./api";
 import { validateRefundAmount } from "./utils/refunds";
+import { validateAvailabilityTimes } from "./utils/availability";
 import SiteFooter from "./components/SiteFooter";
 import SiteHeader from "./components/SiteHeader";
 import LocalizedContent from "./components/LocalizedContent";
@@ -22,6 +23,7 @@ import ClientAppointments from "./components/ClientAppointments";
 import ClientReviews from "./components/ClientReviews";
 import ClientAccountDeletion from "./components/ClientAccountDeletion";
 import ClientQuotes from "./components/ClientQuotes";
+import ClientAccountOverview from "./components/ClientAccountOverview";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro } from "./utils/booking";
 import { filterPackagesForEventType } from "./utils/catalogue";
@@ -30,7 +32,7 @@ import useCatalogue from "./hooks/useCatalogue";
 import useClientAccount from "./hooks/useClientAccount";
 import useOperationalWorkspaces from "./hooks/useOperationalWorkspaces";
 import { getAdultBirthDateMax } from "./utils/registration";
-import { getLoginSuccessKey } from "./utils/authentication";
+import { getLoginSuccessKey, getPostLoginPage } from "./utils/authentication";
 import { getPageFromHash, getPageHash } from "./utils/navigation";
 
 const OffersPage = lazy(() => import("./pages/OffersPage"));
@@ -188,10 +190,12 @@ export default function App() {
   const [djSongPendingId, setDjSongPendingId] = useState(null);
   const [availabilityPendingId, setAvailabilityPendingId] = useState(null);
   const [availabilityDate, setAvailabilityDate] = useState(todayIso);
+  const [availabilityEndDate, setAvailabilityEndDate] = useState(todayIso);
   const [availabilityStart, setAvailabilityStart] = useState("18:00");
   const [availabilityEnd, setAvailabilityEnd] = useState("23:59");
   const [availabilityStatus, setAvailabilityStatus] = useState("available");
   const [availabilityReason, setAvailabilityReason] = useState("");
+  const [availabilityMessage, setAvailabilityMessage] = useState("");
   const [clientBookings, setClientBookings] = useState([]);
   const [cancellationRequests, setCancellationRequests] = useState([]);
   const [cancellationReasons, setCancellationReasons] = useState({});
@@ -350,7 +354,7 @@ export default function App() {
   const playlistBookingIds = new Set(playlists.map((item) => item.booking));
   const eligiblePlaylistBookings = clientBookings.filter((item) => canCreatePlaylist(item, playlistBookingIds));
   const plannedAppointmentBookingIds = new Set(
-    appointments.filter((item) => item.status === "planned").map((item) => item.booking),
+    appointments.filter((item) => ["proposed", "counter_proposed", "accepted"].includes(item.status)).map((item) => item.booking),
   );
   const eligibleAppointmentBookings = clientBookings.filter((item) => {
     const type = eventTypeRecords.find((record) => record.id === item.event_type);
@@ -491,6 +495,7 @@ export default function App() {
         distance_km: Number(distanceKm || 0).toFixed(2),
         parking_available: parking === "oui",
         music_preferences: musicPreferences.trim(),
+        requested_dj: selectedDj?.id || null,
       });
       setCreatedQuote(response.data);
       setClientQuotes((current) => [response.data, ...current.filter((item) => item.id !== response.data.id)]);
@@ -521,10 +526,14 @@ export default function App() {
       setCurrentUser(profile);
       setPassword("");
       setLoginStatus(t(getLoginSuccessKey(profile)));
+      navigate(getPostLoginPage(profile));
     } catch (error) {
+      const backendMessage = error.response?.data?.detail;
       setLoginStatus(
         error.response?.status === 429
           ? "Trop de tentatives. Patientez une minute avant de réessayer."
+          : error.response?.status === 401 && backendMessage?.includes("pas encore activé")
+          ? `${backendMessage} Utilisez « Renvoyer l’e-mail d’activation » ci-dessous.`
           : error.response?.status === 401
           ? "Identifiant ou mot de passe incorrect."
           : "Connexion impossible. Vérifiez que le backend Django est démarré.",
@@ -609,8 +618,15 @@ export default function App() {
       setLoginStatus(response.detail);
     } catch (error) {
       const details = error.response?.data;
-      const firstError = details && Object.values(details).flat()[0];
-      setRegistrationStatus(firstError || "L’inscription est impossible pour le moment.");
+      const fieldLabels = {
+        username: "Identifiant", email: "E-mail", password: "Mot de passe", first_name: "Prénom",
+        last_name: "Nom", date_of_birth: "Date de naissance", phone: "Téléphone",
+        billing_address: "Adresse de facturation", billing_city: "Ville",
+        billing_postal_code: "Code postal", preferred_language: "Langue",
+      };
+      const firstEntry = details && Object.entries(details)[0];
+      const firstError = firstEntry && [firstEntry[1]].flat(2)[0];
+      setRegistrationStatus(firstEntry ? `${fieldLabels[firstEntry[0]] || firstEntry[0]} : ${firstError}` : "L’inscription est impossible pour le moment.");
     } finally {
       setRegistrationPending(false);
     }
@@ -854,15 +870,20 @@ export default function App() {
     }
   };
 
-  const updateDjAppointment = async (appointmentId, status) => {
+  const updateDjAppointment = async (appointmentId, status, extra = {}) => {
     setDjAppointmentPendingId(appointmentId);
     setDjStatus("");
     try {
-      const response = await apiClient.patch(`/appointments/${appointmentId}/`, { status });
+      const response = await apiClient.patch(`/appointments/${appointmentId}/`, { status, ...extra });
       setDjAppointments((current) => current.map((item) => item.id === appointmentId ? response.data : item));
-      setDjStatus(`Rendez-vous n°${appointmentId} ${status === "done" ? "marqué comme réalisé" : "annulé"}.`);
+      const labels = { accepted: "accepté", refused: "refusé", counter_proposed: "renvoyé en contre-proposition", done: "marqué comme réalisé", cancelled: "annulé" };
+      setDjStatus(`Rendez-vous n°${appointmentId} ${labels[status] || "mis à jour"}.`);
+      return true;
     } catch (error) {
-      setDjStatus(error.response?.data?.detail || "Le rendez-vous n’a pas pu être mis à jour.");
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setDjStatus(firstError || "Le rendez-vous n’a pas pu être mis à jour.");
+      return false;
     } finally {
       setDjAppointmentPendingId(null);
     }
@@ -884,11 +905,18 @@ export default function App() {
 
   const createDjAvailability = async (event) => {
     event.preventDefault();
+    const validation = validateAvailabilityTimes(availabilityDate, availabilityStart, availabilityEndDate, availabilityEnd);
+    if (!validation.valid) {
+      setAvailabilityMessage(validation.error);
+      return;
+    }
     setAvailabilityPendingId("create");
     setDjStatus("");
+    setAvailabilityMessage("");
     try {
       const response = await apiClient.post("/availability/", {
         available_date: availabilityDate,
+        end_date: availabilityEndDate,
         start_time: availabilityStart,
         end_time: availabilityEnd,
         status: availabilityStatus,
@@ -897,10 +925,12 @@ export default function App() {
       setDjAvailabilities((current) => [...current, response.data].sort((a, b) => `${a.available_date}${a.start_time}`.localeCompare(`${b.available_date}${b.start_time}`)));
       setAvailabilityReason("");
       setDjStatus("Le nouveau créneau a été enregistré.");
+      setAvailabilityMessage("Le nouveau créneau a été enregistré et il est maintenant visible dans la liste.");
     } catch (error) {
       const details = error.response?.data;
       const firstError = details && Object.values(details).flat()[0];
       setDjStatus(firstError || "Le créneau n’a pas pu être enregistré.");
+      setAvailabilityMessage(firstError || "Le créneau n’a pas pu être enregistré.");
     } finally {
       setAvailabilityPendingId(null);
     }
@@ -1044,11 +1074,27 @@ export default function App() {
       setAppointmentBookingId("");
       setAppointmentDateTime("");
       setAppointmentNotes("");
-      setAppointmentStatus("Rendez-vous préparatoire planifié et transmis au DJ.");
+      setAppointmentStatus("Votre proposition de rendez-vous a été transmise au DJ pour accord.");
     } catch (error) {
       const details = error.response?.data;
       const firstError = details && Object.values(details).flat()[0];
       setAppointmentStatus(firstError || "Le rendez-vous n’a pas pu être planifié.");
+    } finally {
+      setAppointmentPending(false);
+    }
+  };
+
+  const respondToAppointmentCounterProposal = async (appointmentId, status) => {
+    setAppointmentPending(true);
+    setAppointmentStatus("");
+    try {
+      const response = await apiClient.patch(`/appointments/${appointmentId}/`, { status });
+      setAppointments((current) => current.map((item) => item.id === appointmentId ? response.data : item));
+      setAppointmentStatus(status === "accepted" ? "La contre-proposition est acceptée. Le rendez-vous est confirmé." : "La contre-proposition a été refusée.");
+    } catch (error) {
+      const details = error.response?.data;
+      const firstError = details && Object.values(details).flat()[0];
+      setAppointmentStatus(firstError || "Votre réponse n’a pas pu être enregistrée.");
     } finally {
       setAppointmentPending(false);
     }
@@ -1176,17 +1222,21 @@ export default function App() {
           setAdminDeletionMessages, setAdminDjSelection, setRefundAmounts,
         }} />}
         {page === "dj" && currentUser?.role === "dj" && <DJWorkspacePage workspace={{
-          availabilityDate, availabilityEnd, availabilityPendingId, availabilityReason, availabilityStart,
+          availabilityDate, availabilityEnd, availabilityEndDate, availabilityMessage, availabilityPendingId, availabilityReason, availabilityStart,
           availabilityStatus, completeDjBooking, createDjAvailability, deleteDjAvailability, djAppointments,
           djAppointmentPendingId, djAvailabilities, djBookings, djPendingId, djSongPendingId, djSongs, djStatus,
-          i18n, setAvailabilityDate, setAvailabilityEnd, setAvailabilityReason, setAvailabilityStart,
+          i18n, setAvailabilityDate, setAvailabilityEnd, setAvailabilityEndDate, setAvailabilityReason, setAvailabilityStart, setDjBookings,
           setAvailabilityStatus, updateDjAppointment, updateDjAvailability, updateDjSong,
         }} />}
         {page === "compte" && (
           <section className="section-wrap account-page">
-            <div className="page-heading"><p className="eyebrow dark">Espace client</p><h1>Retrouvez votre événement au même endroit</h1><p>Connectez-vous pour suivre vos devis, contrats, paiements et playlists.</p></div>
+            <div className="page-heading">
+              <p className="eyebrow dark">{currentUser?.role === "dj" ? "Espace DJ" : currentUser?.is_staff ? "Espace administrateur" : "Espace client"}</p>
+              <h1>{currentUser?.role === "dj" ? "Pilotez vos prestations au même endroit" : currentUser?.is_staff ? "Gérez l’activité d’Ultimate DJ" : "Retrouvez votre événement au même endroit"}</h1>
+              <p>{currentUser?.role === "dj" ? "Consultez vos réservations, disponibilités, rendez-vous et playlists." : currentUser?.is_staff ? "Accédez à votre compte, au tableau de bord et à l’administration." : "Connectez-vous pour suivre vos devis, contrats, paiements et playlists."}</p>
+            </div>
             {paymentReturnStatus && <p className="payment-return-message" role="status"><ShieldCheck /> {paymentReturnStatus}</p>}
-            <div className="account-grid">
+            <div className={`account-grid ${isAuthenticated ? "authenticated" : ""}`}>
               {!isAuthenticated ? (
                 <>
                   <form className="account-card" onSubmit={handleLogin}>
@@ -1211,7 +1261,7 @@ export default function App() {
                       <label>Date de naissance<input type="date" max={adultBirthDateMax} value={registration.date_of_birth} onChange={(event) => updateRegistration("date_of_birth", event.target.value)} required /></label>
                       <label>Téléphone<input type="tel" value={registration.phone} onChange={(event) => updateRegistration("phone", event.target.value)} autoComplete="tel" required /></label>
                       <label className="full-field">Adresse de facturation<input value={registration.billing_address} onChange={(event) => updateRegistration("billing_address", event.target.value)} autoComplete="street-address" required /></label>
-                      <label>Code postal<input value={registration.billing_postal_code} onChange={(event) => updateRegistration("billing_postal_code", event.target.value)} autoComplete="postal-code" required /></label>
+                      <label>Code postal<input value={registration.billing_postal_code} maxLength="20" placeholder="Ex. 9450" inputMode="numeric" onChange={(event) => updateRegistration("billing_postal_code", event.target.value)} autoComplete="postal-code" required /></label>
                       <label>Ville<input value={registration.billing_city} onChange={(event) => updateRegistration("billing_city", event.target.value)} autoComplete="address-level2" required /></label>
                       <label>Langue<select value={registration.preferred_language} onChange={(event) => updateRegistration("preferred_language", event.target.value)}><option value="fr">Français</option><option value="en">Anglais</option><option value="nl">Néerlandais</option></select></label>
                     </div>
@@ -1245,7 +1295,14 @@ export default function App() {
                   onNavigate={navigate}
                 >
                   {currentUser?.role === "client" && <>
-                  <div className="profile-panel">
+                  <ClientAccountOverview
+                    appointments={appointments}
+                    contracts={contracts}
+                    invoices={invoices}
+                    profile={clientProfile}
+                    quotes={clientQuotes}
+                  />
+                  <div className="profile-panel" id="client-profile">
                     <div className="playlist-heading"><div><h3>Mes coordonnées</h3><p>{clientProfile ? `${clientProfile.first_name} ${clientProfile.last_name} · ${clientProfile.email} · ${clientProfile.billing_city}` : "Chargement de vos coordonnées…"}</p></div><CircleUserRound /></div>
                     <button className="document-button" type="button" onClick={() => setClientProfileOpen((open) => !open)} disabled={!clientProfile}>{clientProfileOpen ? "Fermer" : "Modifier mes coordonnées"}</button>
                     <button className="document-button" type="button" onClick={() => setPasswordChangeOpen((open) => !open)}>{passwordChangeOpen ? "Fermer le mot de passe" : "Changer mon mot de passe"}</button>
@@ -1269,15 +1326,6 @@ export default function App() {
                       <button className="primary-button" type="submit" disabled={passwordChangePending}>{passwordChangePending ? "Modification…" : "Modifier et me déconnecter"}</button>
                     </form>}
                   </div>
-                  <ClientAccountDeletion
-                    cancelRequest={cancelAccountDeletion}
-                    onReasonChange={setAccountDeletionReason}
-                    onSubmit={handleAccountDeletionRequest}
-                    pending={accountDeletionPending}
-                    reason={accountDeletionReason}
-                    requests={accountDeletionRequests}
-                    statusMessage={accountDeletionStatus}
-                  />
                   <ClientQuotes
                     eventTypes={eventTypeRecords}
                     packages={packages}
@@ -1334,9 +1382,10 @@ export default function App() {
                     onDateTimeChange={setAppointmentDateTime}
                     onModeChange={setAppointmentMode}
                     onNotesChange={setAppointmentNotes}
+                    onRespond={respondToAppointmentCounterProposal}
                     onSubmit={createPreparatoryAppointment}
                   />
-                  <div className="playlist-panel">
+                  <div className="playlist-panel" id="client-playlist">
                     <div className="playlist-heading"><div><h3>Ma playlist</h3><p>Proposez vos morceaux au DJ et indiquez vos priorités.</p></div><Music2 /></div>
                     {playlistStatus && <p className={playlistStatus.includes("créée") || playlistStatus.includes("ajoutée") ? "form-message success" : "invoice-empty"} role="status">{playlistStatus}</p>}
                     {eligiblePlaylistBookings.length > 0 && (
@@ -1375,10 +1424,19 @@ export default function App() {
                     reviews={reviews}
                     statusMessage={reviewStatus}
                   />
+                  <ClientAccountDeletion
+                    cancelRequest={cancelAccountDeletion}
+                    onReasonChange={setAccountDeletionReason}
+                    onSubmit={handleAccountDeletionRequest}
+                    pending={accountDeletionPending}
+                    reason={accountDeletionReason}
+                    requests={accountDeletionRequests}
+                    statusMessage={accountDeletionStatus}
+                  />
                   </>}
                 </ConnectedAccountSession>
               )}
-              <AccountBenefits />
+              {!isAuthenticated && <AccountBenefits />}
             </div>
           </section>
         )}

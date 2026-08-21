@@ -13,13 +13,13 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
-from rest_framework.exceptions import ValidationError
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
@@ -80,6 +80,7 @@ from .serializers import (
     QuoteCalculationRequestSerializer,
     QuoteCalculationResponseSerializer,
     QuoteAcceptanceSerializer,
+    QuoteDJDecisionSerializer,
     QuoteSerializer,
     ReviewSerializer,
     ServiceOptionSerializer,
@@ -92,7 +93,20 @@ class PublicReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.AllowAny]
 
 
+class AccountTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        username = attrs.get(self.username_field)
+        password = attrs.get("password")
+        user = get_user_model().objects.filter(**{f"{self.username_field}__iexact": username}).first()
+        if user and not user.is_active and user.check_password(password):
+            raise AuthenticationFailed(
+                "Ce compte n’est pas encore activé. Ouvrez le lien d’activation ou demandez un nouveau lien."
+            )
+        return super().validate(attrs)
+
+
 class ThrottledTokenObtainPairView(TokenObtainPairView):
+    serializer_class = AccountTokenObtainPairSerializer
     throttle_classes = [LoginRateThrottle]
 
 
@@ -281,6 +295,15 @@ def send_verification_email(user):
     )
 
 
+def verification_delivery_message(subject="Votre compte a été créé"):
+    if settings.EMAIL_BACKEND == "django.core.mail.backends.console.EmailBackend":
+        return (
+            f"{subject}. En mode local, le lien d’activation est affiché dans "
+            "le terminal où le serveur Django est démarré."
+        )
+    return f"{subject}. Consultez votre e-mail pour l’activer avant de vous connecter."
+
+
 @extend_schema(request=ClientRegistrationSerializer, responses={201: OpenApiResponse(description="Compte créé, vérification requise")}, summary="Créer un compte client")
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
@@ -291,7 +314,7 @@ def register_client(request):
     user = serializer.save()
     send_verification_email(user)
     return Response(
-        {"detail": "Votre compte a été créé. Consultez votre e-mail pour l'activer avant de vous connecter."},
+        {"detail": verification_delivery_message()},
         status=status.HTTP_201_CREATED,
     )
 
@@ -308,7 +331,8 @@ def register_dj_application(request):
     return Response(
         {
             **DJApplicationStatusSerializer(application).data,
-            "detail": "Votre candidature est enregistrée. Confirmez votre e-mail, puis l’administrateur examinera vos justificatifs.",
+            "detail": verification_delivery_message("Votre candidature est enregistrée")
+            + " Après confirmation, l’administrateur examinera vos justificatifs.",
         },
         status=status.HTTP_201_CREATED,
     )
@@ -346,7 +370,14 @@ def resend_verification_email(request):
     ).first()
     if user:
         send_verification_email(user)
-    return Response({"detail": "Si cette adresse correspond à un compte en attente, un nouveau lien vient d'être envoyé."})
+    if settings.EMAIL_BACKEND == "django.core.mail.backends.console.EmailBackend":
+        detail = (
+            "Si cette adresse correspond à un compte en attente, un nouveau lien "
+            "est affiché dans le terminal Django."
+        )
+    else:
+        detail = "Si cette adresse correspond à un compte en attente, un nouveau lien vient d’être envoyé."
+    return Response({"detail": detail})
 
 
 @extend_schema(request=PasswordResetRequestSerializer, responses={200: OpenApiResponse(description="Demande traitée")}, summary="Demander un nouveau mot de passe")
@@ -489,8 +520,8 @@ class AvailabilityViewSet(viewsets.ModelViewSet):
             serializer.save(dj=dj_connecte(self.request.user))
 
     def perform_destroy(self, instance):
-        if not self.request.user.is_staff and instance.status == DJAvailability.RESERVED:
-            raise ValidationError({"status": "Un créneau réservé ne peut être supprimé par le DJ."})
+        if not self.request.user.is_staff and instance.status in {DJAvailability.RESERVED, DJAvailability.OCCUPIED}:
+            raise ValidationError({"status": "Un créneau réservé ou occupé ne peut être supprimé par le DJ."})
         instance.delete()
 
 
@@ -524,12 +555,17 @@ class QuoteViewSet(ProtectedModelViewSet):
     def get_permissions(self):
         if self.action in {"update", "partial_update", "destroy", "accept"}:
             return [permissions.IsAdminUser()]
+        if self.action == "dj_decision":
+            return [DJOuAdministration()]
         return super().get_permissions()
 
     def get_queryset(self):
-        queryset = Quote.objects.select_related("client", "event_type", "package", "venue").order_by("-created_at")
+        queryset = Quote.objects.select_related("client__user", "requested_dj", "event_type", "package", "venue").order_by("-created_at")
         if self.request.user.is_staff:
             return queryset
+        dj = getattr(self.request.user, "dj_profile", None)
+        if dj:
+            return queryset.filter(requested_dj=dj)
         client = client_connecte(self.request.user)
         if client:
             return queryset.filter(client=client)
@@ -543,7 +579,40 @@ class QuoteViewSet(ProtectedModelViewSet):
         client = serializer.validated_data.get("client")
         if not self.request.user.is_staff:
             client = client_connecte(self.request.user)
-        serializer.save(client=client, status=Quote.DRAFT, **amounts)
+        requested_dj = serializer.validated_data.get("requested_dj")
+        serializer.save(client=client, status=Quote.SENT if requested_dj else Quote.DRAFT, **amounts)
+
+    @extend_schema(request=QuoteDJDecisionSerializer, responses={200: OpenApiTypes.OBJECT}, summary="Accepter ou refuser une demande en tant que DJ")
+    @action(detail=True, methods=["post"], url_path="dj-decision")
+    def dj_decision(self, request, pk=None):
+        quote = self.get_object()
+        dj = getattr(request.user, "dj_profile", None)
+        if dj is None or quote.requested_dj_id != dj.id:
+            raise PermissionDenied("Cette demande n'est pas destinée à ce DJ.")
+        if quote.dj_decision != Quote.DJ_PENDING or quote.status not in {Quote.DRAFT, Quote.SENT}:
+            return Response({"detail": "Cette demande a déjà été traitée."}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = QuoteDJDecisionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        decision = serializer.validated_data["decision"]
+        if decision == Quote.DJ_REFUSED:
+            quote.dj_decision = Quote.DJ_REFUSED
+            quote.dj_decided_at = timezone.now()
+            quote.status = Quote.DRAFT
+            quote.save(update_fields=["dj_decision", "dj_decided_at", "status"])
+            return Response(QuoteSerializer(quote, context={"request": request}).data)
+
+        try:
+            booking, contract, invoice = accept_quote(quote.pk, dj.pk)
+        except QuoteAcceptanceError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        quote.refresh_from_db()
+        return Response({
+            "quote": QuoteSerializer(quote, context={"request": request}).data,
+            "booking": BookingSerializer(booking, context={"request": request}).data,
+            "contract": ContractSerializer(contract, context={"request": request}).data,
+            "deposit_invoice": InvoiceSerializer(invoice, context={"request": request}).data,
+        })
 
     @extend_schema(
         request=QuoteAcceptanceSerializer,

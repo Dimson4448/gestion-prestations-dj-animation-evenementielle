@@ -44,8 +44,26 @@ class Quote(models.Model):
         (REFUSED, "Refusé"),
         (EXPIRED, "Expiré"),
     ]
+    DJ_PENDING = "pending"
+    DJ_ACCEPTED = "accepted"
+    DJ_REFUSED = "refused"
+    DJ_DECISION_CHOICES = [
+        (DJ_PENDING, "En attente"),
+        (DJ_ACCEPTED, "Acceptée"),
+        (DJ_REFUSED, "Refusée"),
+    ]
 
     client = models.ForeignKey(ClientProfile, on_delete=models.PROTECT, related_name="quotes", verbose_name="client")
+    requested_dj = models.ForeignKey(
+        DJProfile,
+        on_delete=models.PROTECT,
+        related_name="quote_requests",
+        verbose_name="DJ demandé",
+        blank=True,
+        null=True,
+    )
+    dj_decision = models.CharField("décision du DJ", max_length=20, choices=DJ_DECISION_CHOICES, default=DJ_PENDING)
+    dj_decided_at = models.DateTimeField("décision du DJ le", blank=True, null=True)
     event_type = models.ForeignKey(EventType, on_delete=models.PROTECT, verbose_name="type d'événement")
     package = models.ForeignKey(Package, on_delete=models.PROTECT, verbose_name="package")
     venue = models.ForeignKey(Venue, on_delete=models.PROTECT, verbose_name="lieu")
@@ -122,6 +140,7 @@ class Booking(models.Model):
     venue = models.ForeignKey(Venue, on_delete=models.PROTECT, verbose_name="lieu")
     equipment = models.ManyToManyField(Equipment, through="BookingEquipment", blank=True, related_name="bookings", verbose_name="matériel")
     event_date = models.DateField("date de l'événement")
+    end_date = models.DateField("date de fin", blank=True, null=True)
     start_time = models.TimeField("heure de début")
     end_time = models.TimeField("heure de fin")
     status = models.CharField("statut", max_length=30, choices=STATUS_CHOICES, default=PREPARATORY_MEETING)
@@ -137,7 +156,14 @@ class Booking(models.Model):
         verbose_name_plural = "réservations"
         constraints = [
             models.UniqueConstraint(fields=["dj", "event_date", "start_time"], name="unique_confirmed_dj_slot"),
-            models.CheckConstraint(check=models.Q(end_time__gt=models.F("start_time")), name="booking_end_after_start"),
+            models.CheckConstraint(
+                check=(
+                    models.Q(end_date__gt=models.F("event_date"))
+                    | models.Q(end_date=models.F("event_date"), end_time__gt=models.F("start_time"))
+                    | models.Q(end_date__isnull=True, end_time__gt=models.F("start_time"))
+                ),
+                name="booking_end_after_start",
+            ),
             models.CheckConstraint(check=models.Q(total_amount__gte=0), name="booking_total_positive"),
             models.CheckConstraint(check=models.Q(deposit_required__gte=0), name="booking_deposit_positive"),
         ]
@@ -200,11 +226,18 @@ class PreparatoryAppointment(models.Model):
         (ONLINE, "En ligne"),
         (IN_PERSON, "En présentiel"),
     ]
-    PLANNED = "planned"
+    PROPOSED = "proposed"
+    COUNTER_PROPOSED = "counter_proposed"
+    ACCEPTED = "accepted"
+    REFUSED = "refused"
+    PLANNED = ACCEPTED
     DONE = "done"
     CANCELLED = "cancelled"
     STATUS_CHOICES = [
-        (PLANNED, "Planifié"),
+        (PROPOSED, "Proposé au DJ"),
+        (COUNTER_PROPOSED, "Contre-proposition du DJ"),
+        (ACCEPTED, "Accepté par les deux parties"),
+        (REFUSED, "Refusé"),
         (DONE, "Réalisé"),
         (CANCELLED, "Annulé"),
     ]
@@ -212,8 +245,9 @@ class PreparatoryAppointment(models.Model):
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name="appointments", verbose_name="réservation")
     scheduled_at = models.DateTimeField("date et heure du rendez-vous")
     mode = models.CharField("mode", max_length=20, choices=MODE_CHOICES, default=ONLINE)
-    status = models.CharField("statut", max_length=20, choices=STATUS_CHOICES, default=PLANNED)
+    status = models.CharField("statut", max_length=20, choices=STATUS_CHOICES, default=PROPOSED)
     notes = models.TextField("notes", blank=True)
+    response_message = models.TextField("motif ou message de réponse", blank=True)
 
     class Meta:
         db_table = "preparatory_appointments"

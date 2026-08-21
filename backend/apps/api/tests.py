@@ -1,6 +1,6 @@
 import json
 import tempfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from io import BytesIO
 from urllib.error import URLError
 from urllib.parse import parse_qs, urlparse
@@ -83,6 +83,97 @@ class ApiUltimateDJTests(APITestCase):
         }
         payload.update(overrides)
         return payload
+
+    def test_un_dj_consulte_et_accepte_une_demande_placee_sur_son_creneau(self):
+        dj_user = get_user_model().objects.create_user(
+            username="dj_demande_test",
+            email="dj-demande@example.com",
+            password="MotDePasseDJ2026!",
+        )
+        dj = DJProfile.objects.create(
+            user=dj_user,
+            stage_name="DJ Demande",
+            bio="DJ de test",
+            base_hourly_rate="80.00",
+            is_available=True,
+        )
+        event_date = date.today() + timedelta(days=30)
+        DJAvailability.objects.create(
+            dj=dj,
+            available_date=event_date,
+            end_date=event_date,
+            start_time="17:00:00",
+            end_time="23:59:00",
+            status=DJAvailability.AVAILABLE,
+        )
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post(
+            "/api/v1/quotes/",
+            self.quote_payload(requested_dj=dj.pk),
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["status"], Quote.SENT)
+        self.assertIsNone(created.data["client_details"])
+
+        self.client.force_authenticate(user=dj_user)
+        listed = self.client.get("/api/v1/quotes/")
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        request_data = listed.data["results"][0]
+        self.assertEqual(request_data["client_details"]["phone"], self.client_profile.phone)
+        self.assertEqual(request_data["venue_details"]["city"], self.venue.city)
+
+        accepted = self.client.post(
+            f"/api/v1/quotes/{created.data['id']}/dj-decision/",
+            {"decision": Quote.DJ_ACCEPTED},
+            format="json",
+        )
+        self.assertEqual(accepted.status_code, status.HTTP_200_OK)
+        self.assertEqual(accepted.data["quote"]["dj_decision"], Quote.DJ_ACCEPTED)
+        self.assertEqual(accepted.data["booking"]["dj"], dj.pk)
+        self.assertTrue(Contract.objects.filter(booking_id=accepted.data["booking"]["id"]).exists())
+        self.assertTrue(Invoice.objects.filter(booking_id=accepted.data["booking"]["id"]).exists())
+
+    def test_un_dj_peut_refuser_une_demande_sans_creer_de_reservation(self):
+        dj_user = get_user_model().objects.create_user(
+            username="dj_refus_test",
+            email="dj-refus@example.com",
+            password="MotDePasseDJ2026!",
+        )
+        dj = DJProfile.objects.create(
+            user=dj_user,
+            stage_name="DJ Refus",
+            bio="DJ de test",
+            base_hourly_rate="80.00",
+            is_available=True,
+        )
+        event_date = date.today() + timedelta(days=30)
+        DJAvailability.objects.create(
+            dj=dj,
+            available_date=event_date,
+            end_date=event_date,
+            start_time="17:00:00",
+            end_time="23:59:00",
+            status=DJAvailability.AVAILABLE,
+        )
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post(
+            "/api/v1/quotes/",
+            self.quote_payload(requested_dj=dj.pk),
+            format="json",
+        )
+
+        self.client.force_authenticate(user=dj_user)
+        refused = self.client.post(
+            f"/api/v1/quotes/{created.data['id']}/dj-decision/",
+            {"decision": Quote.DJ_REFUSED},
+            format="json",
+        )
+
+        self.assertEqual(refused.status_code, status.HTTP_200_OK)
+        self.assertEqual(refused.data["dj_decision"], Quote.DJ_REFUSED)
+        self.assertEqual(refused.data["status"], Quote.DRAFT)
+        self.assertFalse(Booking.objects.filter(quote_id=created.data["id"]).exists())
 
     @patch("apps.api.views.search_cities")
     def test_recherche_des_villes_priorise_les_resultats_du_service(self, mocked_search):
@@ -196,6 +287,19 @@ class ApiUltimateDJTests(APITestCase):
             format="json",
         )
         self.assertEqual(blocked.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_connexion_indique_qu_un_compte_doit_encore_etre_active(self):
+        self.client_user.is_active = False
+        self.client_user.save(update_fields=["is_active"])
+
+        response = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": self.client_user.username, "password": "MotDePasseTest2026!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn("pas encore activé", response.data["detail"])
 
     def test_demandes_sensibles_sont_limitees_par_adresse_ip(self):
         for index in range(5):
@@ -559,6 +663,12 @@ class ApiUltimateDJTests(APITestCase):
             current = self.client.get("/api/v1/auth/me/")
             self.assertEqual(current.data["role"], "dj")
 
+            profile.delete()
+            repaired_profile = approve_dj_application(application, reviewer)
+            self.assertEqual(repaired_profile.user, application.user)
+            current = self.client.get("/api/v1/auth/me/")
+            self.assertEqual(current.data["role"], "dj")
+
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_URL="http://localhost:5173")
     def test_renvoi_verification_reste_discret_et_limite_aux_comptes_inactifs(self):
         self.client_user.is_active = False
@@ -746,6 +856,45 @@ class ApiUltimateDJTests(APITestCase):
         self.assertIn(public_slot.pk, public_ids)
         self.assertNotIn(created.data["id"], public_ids)
         self.assertNotIn(reserved_slot.pk, public_ids)
+
+    def test_un_creneau_et_une_reservation_peuvent_traverser_minuit(self):
+        dj, _ = self.create_available_dj()
+        event_date = date.today() + timedelta(days=40)
+        self.client.force_authenticate(user=dj.user)
+        created = self.client.post(
+            "/api/v1/availability/",
+            {
+                "available_date": str(event_date),
+                "end_date": str(event_date + timedelta(days=1)),
+                "start_time": "17:00:00",
+                "end_time": "05:00:00",
+                "status": DJAvailability.AVAILABLE,
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["end_date"], str(event_date + timedelta(days=1)))
+
+        quote = Quote.objects.create(
+            client=self.client_profile,
+            event_type=self.event_type,
+            package=self.package,
+            venue=self.venue,
+            event_date=event_date,
+            start_time="21:00:00",
+            duration_hours="6.0",
+            guest_count=80,
+            distance_km="20.00",
+            parking_available=True,
+            status=Quote.SENT,
+            subtotal="545.00",
+            travel_fee="13.00",
+            total_amount="558.00",
+            deposit_amount="167.40",
+        )
+        booking, _, _ = accept_quote(quote.pk, dj.pk)
+        self.assertEqual(booking.end_date, event_date + timedelta(days=1))
+        self.assertEqual(booking.end_time.strftime("%H:%M:%S"), "03:00:00")
 
     def test_liste_des_packages_publique_avec_liens(self):
         response = self.client.get("/api/v1/packages/")
@@ -1235,7 +1384,9 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(invoice_response["Content-Type"], "application/pdf")
         self.assertTrue(contract_response.content.startswith(b"%PDF-"))
         self.assertTrue(invoice_response.content.startswith(b"%PDF-"))
+        self.assertIn(b"/Subtype /Image", contract_response.content)
         self.assertIn(b"/Subtype /Image", invoice_response.content)
+        self.assertNotEqual(contract_response.content, invoice_response.content)
         self.assertGreater(len(contract_response.content), 2000)
         self.assertGreater(len(invoice_response.content), 2000)
         self.assertIn(contract.contract_number, contract_response["Content-Disposition"])
@@ -1423,7 +1574,7 @@ class ApiUltimateDJTests(APITestCase):
             format="json",
         )
         self.assertEqual(created.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(created.data["status"], PreparatoryAppointment.PLANNED)
+        self.assertEqual(created.data["status"], PreparatoryAppointment.PROPOSED)
         deletion = self.client.delete(f"/api/v1/appointments/{created.data['id']}/")
         self.assertEqual(deletion.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -1449,6 +1600,21 @@ class ApiUltimateDJTests(APITestCase):
         )
         self.assertEqual(completed_too_early.status_code, status.HTTP_400_BAD_REQUEST)
 
+        refusal_without_reason = self.client.patch(
+            f"/api/v1/appointments/{created.data['id']}/",
+            {"status": PreparatoryAppointment.REFUSED},
+            format="json",
+        )
+        self.assertEqual(refusal_without_reason.status_code, status.HTTP_400_BAD_REQUEST)
+
+        accepted = self.client.patch(
+            f"/api/v1/appointments/{created.data['id']}/",
+            {"status": PreparatoryAppointment.ACCEPTED},
+            format="json",
+        )
+        self.assertEqual(accepted.status_code, status.HTTP_200_OK)
+        self.assertEqual(accepted.data["status"], PreparatoryAppointment.ACCEPTED)
+
         appointment = PreparatoryAppointment.objects.get(pk=created.data["id"])
         appointment.scheduled_at = timezone.now() - timedelta(hours=1)
         appointment.save(update_fields=["scheduled_at"])
@@ -1460,6 +1626,54 @@ class ApiUltimateDJTests(APITestCase):
         )
         self.assertEqual(completed.status_code, status.HTTP_200_OK)
         self.assertEqual(completed.data["status"], PreparatoryAppointment.DONE)
+
+    def test_rendez_vous_preparatoire_contre_proposition_et_limite_de_24_heures(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        self.event_type.requires_preparatory_meeting = True
+        self.event_type.save(update_fields=["requires_preparatory_meeting"])
+        booking.deposit_paid = True
+        booking.status = Booking.CONFIRMED
+        booking.save(update_fields=["deposit_paid", "status"])
+        event_start = timezone.make_aware(datetime.combine(booking.event_date, booking.start_time))
+
+        self.client.force_authenticate(user=self.client_user)
+        too_late = self.client.post(
+            "/api/v1/appointments/",
+            {"booking": booking.pk, "scheduled_at": (event_start - timedelta(hours=23)).isoformat(), "mode": PreparatoryAppointment.ONLINE},
+            format="json",
+        )
+        self.assertEqual(too_late.status_code, status.HTTP_400_BAD_REQUEST)
+
+        proposed = self.client.post(
+            "/api/v1/appointments/",
+            {"booking": booking.pk, "scheduled_at": (event_start - timedelta(days=3)).isoformat(), "mode": PreparatoryAppointment.ONLINE},
+            format="json",
+        )
+        self.assertEqual(proposed.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(user=booking.dj.user)
+        counter = self.client.patch(
+            f"/api/v1/appointments/{proposed.data['id']}/",
+            {
+                "status": PreparatoryAppointment.COUNTER_PROPOSED,
+                "scheduled_at": (event_start - timedelta(days=2)).isoformat(),
+                "mode": PreparatoryAppointment.IN_PERSON,
+                "response_message": "Je propose un rendez-vous en présentiel à cette heure.",
+            },
+            format="json",
+        )
+        self.assertEqual(counter.status_code, status.HTTP_200_OK)
+        self.assertEqual(counter.data["status"], PreparatoryAppointment.COUNTER_PROPOSED)
+
+        self.client.force_authenticate(user=self.client_user)
+        agreement = self.client.patch(
+            f"/api/v1/appointments/{proposed.data['id']}/",
+            {"status": PreparatoryAppointment.ACCEPTED},
+            format="json",
+        )
+        self.assertEqual(agreement.status_code, status.HTTP_200_OK)
+        self.assertEqual(agreement.data["status"], PreparatoryAppointment.ACCEPTED)
 
     def test_avis_client_est_depose_apres_prestation_et_modere_par_admin(self):
         contract = self.create_contract_for_client()
@@ -1549,9 +1763,10 @@ class ApiUltimateDJTests(APITestCase):
         booking = contract.booking
         deposit_invoice = booking.invoices.get(invoice_type=Invoice.DEPOSIT)
         booking.event_date = date.today() - timedelta(days=1)
+        booking.end_date = booking.event_date
         booking.deposit_paid = True
         booking.status = Booking.CONFIRMED
-        booking.save(update_fields=["event_date", "deposit_paid", "status"])
+        booking.save(update_fields=["event_date", "end_date", "deposit_paid", "status"])
         deposit_invoice.status = Invoice.PAID
         deposit_invoice.save(update_fields=["status"])
 

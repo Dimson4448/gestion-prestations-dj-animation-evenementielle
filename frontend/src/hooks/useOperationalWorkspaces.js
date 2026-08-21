@@ -1,7 +1,6 @@
 import { useCallback, useEffect } from "react";
 
 import { apiClient, getAccountDeletionRequests } from "../api";
-import { hasBookingEnded } from "../utils/booking";
 import { unwrapApiList } from "../utils/apiCollections";
 
 export default function useOperationalWorkspaces(workspaces) {
@@ -32,7 +31,7 @@ export default function useOperationalWorkspaces(workspaces) {
       setAdminDjs(djs);
       setAdminPayments(payments);
       setAdminDeletionRequests((Array.isArray(deletionResponse) ? deletionResponse : []).filter((item) => item.status === "pending"));
-      setAdminBookings(bookingRecords.filter((item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item)));
+      setAdminBookings(bookingRecords);
       setAdminCancellationRequests(requestResponses.flatMap((response) => response.data).filter((item) => item.status === "pending"));
       setAdminStatus("");
     } catch (error) {

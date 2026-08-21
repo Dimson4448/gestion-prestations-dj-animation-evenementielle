@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from apps.accounts.models import DJProfile
@@ -31,14 +31,9 @@ class CancellationRequestError(Exception):
     """Erreur fonctionnelle empêchant une demande d'annulation client."""
 
 
-def _event_end_time(quote):
+def _event_end(quote):
     start = datetime.combine(quote.event_date, quote.start_time)
-    end = start + timedelta(seconds=int(quote.duration_hours * 3600))
-    if end.date() != quote.event_date:
-        raise QuoteAcceptanceError(
-            "La prestation dépasse minuit. Les créneaux sur plusieurs jours ne sont pas encore pris en charge."
-        )
-    return end.time()
+    return start + timedelta(seconds=int(quote.duration_hours * 3600))
 
 
 @transaction.atomic
@@ -60,29 +55,29 @@ def accept_quote(quote_id, dj_id):
     except DJProfile.DoesNotExist as exc:
         raise QuoteAcceptanceError("Le DJ sélectionné est introuvable ou indisponible.") from exc
 
-    end_time = _event_end_time(quote)
-    availability = (
+    event_start = datetime.combine(quote.event_date, quote.start_time)
+    event_end = _event_end(quote)
+    availability_candidates = (
         DJAvailability.objects.select_for_update()
         .filter(
             dj=dj,
-            available_date=quote.event_date,
+            available_date__lte=quote.event_date,
             status=DJAvailability.AVAILABLE,
-            start_time__lte=quote.start_time,
-            end_time__gte=end_time,
         )
-        .order_by("start_time")
-        .first()
+        .filter(models.Q(end_date__gte=event_end.date()) | models.Q(end_date__isnull=True))
+        .order_by("available_date", "start_time")
     )
+    availability = next((slot for slot in availability_candidates if datetime.combine(slot.available_date, slot.start_time) <= event_start and datetime.combine(slot.end_date or slot.available_date, slot.end_time) >= event_end), None)
     if availability is None:
         raise QuoteAcceptanceError("Le DJ ne possède pas de créneau disponible couvrant toute la prestation.")
 
-    conflict = Booking.objects.select_for_update().filter(
-        dj=dj,
-        event_date=quote.event_date,
-        start_time__lt=end_time,
-        end_time__gt=quote.start_time,
-    ).exclude(status=Booking.CANCELLED)
-    if conflict.exists():
+    possible_conflicts = Booking.objects.select_for_update().filter(dj=dj, event_date__lte=event_end.date()).exclude(status=Booking.CANCELLED)
+    has_conflict = any(
+        datetime.combine(item.event_date, item.start_time) < event_end
+        and datetime.combine(item.end_date or item.event_date, item.end_time) > event_start
+        for item in possible_conflicts
+    )
+    if has_conflict:
         raise QuoteAcceptanceError("Le DJ possède déjà une réservation sur ce créneau.")
 
     booking = Booking.objects.create(
@@ -93,8 +88,9 @@ def accept_quote(quote_id, dj_id):
         package=quote.package,
         venue=quote.venue,
         event_date=quote.event_date,
+        end_date=event_end.date(),
         start_time=quote.start_time,
-        end_time=end_time,
+        end_time=event_end.time(),
         status=Booking.PREPARATORY_MEETING,
         total_amount=quote.total_amount,
         deposit_required=quote.deposit_amount,
@@ -117,8 +113,11 @@ def accept_quote(quote_id, dj_id):
     availability.status = DJAvailability.RESERVED
     availability.reason = f"Réservation #{booking.pk}"
     availability.save(update_fields=["status", "reason"])
+    quote.requested_dj = dj
+    quote.dj_decision = Quote.DJ_ACCEPTED
+    quote.dj_decided_at = timezone.now()
     quote.status = Quote.ACCEPTED
-    quote.save(update_fields=["status"])
+    quote.save(update_fields=["requested_dj", "dj_decision", "dj_decided_at", "status"])
 
     return booking, contract, invoice
 
@@ -152,7 +151,7 @@ def complete_booking(booking_id, actor):
     if booking.status != Booking.CONFIRMED or not booking.deposit_paid:
         raise BookingCompletionError("La réservation doit être confirmée et son acompte payé.")
 
-    event_end = timezone.make_aware(datetime.combine(booking.event_date, booking.end_time))
+    event_end = timezone.make_aware(datetime.combine(booking.end_date or booking.event_date, booking.end_time))
     if event_end > timezone.now():
         raise BookingCompletionError("La prestation ne peut pas être clôturée avant sa date de fin.")
     if Invoice.objects.select_for_update().filter(booking=booking, invoice_type=Invoice.BALANCE).exists():
@@ -218,7 +217,11 @@ def cancel_booking(booking_id, actor, reason):
         booking.contract.save(update_fields=["status"])
     PreparatoryAppointment.objects.select_for_update().filter(
         booking=booking,
-        status=PreparatoryAppointment.PLANNED,
+        status__in=[
+            PreparatoryAppointment.PROPOSED,
+            PreparatoryAppointment.COUNTER_PROPOSED,
+            PreparatoryAppointment.ACCEPTED,
+        ],
     ).update(status=PreparatoryAppointment.CANCELLED)
     Invoice.objects.select_for_update().filter(
         booking=booking,
@@ -227,7 +230,7 @@ def cancel_booking(booking_id, actor, reason):
     DJAvailability.objects.select_for_update().filter(
         dj=booking.dj,
         available_date=booking.event_date,
-        status=DJAvailability.RESERVED,
+        status__in=[DJAvailability.RESERVED, DJAvailability.OCCUPIED],
         reason=f"Réservation #{booking.pk}",
     ).update(status=DJAvailability.AVAILABLE, reason="")
     pending_requests = list(CancellationRequest.objects.select_for_update().filter(

@@ -16,10 +16,14 @@ export default function ConnectedAccountSession({
   const { t } = useTranslation();
 
   return (
-    <div className="account-card connected-card">
-      <div className="confirmation-icon"><Check /></div>
-      <h2>{t("authentication.session.title")}</h2>
-      <p>{t(getAccountSummaryKey(currentUser))}</p>
+    <div className={`account-card connected-card connected-card-${currentUser?.role || "account"}`}>
+      <header className="connected-session-heading">
+        <div className="confirmation-icon"><Check /></div>
+        <div>
+          <h2>{t("authentication.session.title")}</h2>
+          <p>{t(getAccountSummaryKey(currentUser))}</p>
+        </div>
+      </header>
 
       {loginStatus && <p className="form-message success" role="status">{loginStatus}</p>}
 

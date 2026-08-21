@@ -34,9 +34,13 @@ class VenueAdmin(admin.ModelAdmin):
 
 @admin.register(Quote)
 class QuoteAdmin(admin.ModelAdmin):
-    list_display = ("id", "client", "event_type", "package", "event_date", "status", "total_amount", "deposit_amount")
-    list_filter = ("status", "event_type", "package")
-    search_fields = ("client__user__email", "venue__name")
+    list_display = (
+        "id", "client", "requested_dj", "event_type", "package", "event_date",
+        "dj_decision", "status", "total_amount", "deposit_amount",
+    )
+    list_filter = ("dj_decision", "status", "event_type", "package", "requested_dj")
+    search_fields = ("client__user__email", "client__phone", "requested_dj__stage_name", "venue__name")
+    list_select_related = ("client__user", "requested_dj", "event_type", "package")
     inlines = [QuoteOptionInline]
 
 
@@ -50,7 +54,7 @@ class BookingAdmin(admin.ModelAdmin):
 
 @admin.register(PreparatoryAppointment)
 class PreparatoryAppointmentAdmin(admin.ModelAdmin):
-    list_display = ("booking", "scheduled_at", "mode", "status")
+    list_display = ("booking", "scheduled_at", "mode", "status", "response_message")
     list_filter = ("mode", "status")
 
 

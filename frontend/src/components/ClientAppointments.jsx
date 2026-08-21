@@ -14,12 +14,20 @@ export default function ClientAppointments({
   onDateTimeChange,
   onModeChange,
   onNotesChange,
+  onRespond,
   onSubmit,
 }) {
   const { i18n, t } = useTranslation();
+  const selectedBooking = eligibleBookings.find((booking) => String(booking.id) === String(appointmentBookingId));
+  const latestDate = selectedBooking
+    ? new Date(new Date(`${selectedBooking.event_date}T${selectedBooking.start_time}`).getTime() - 24 * 60 * 60 * 1000)
+    : null;
+  const latestDateTime = latestDate && !Number.isNaN(latestDate.getTime())
+    ? `${latestDate.getFullYear()}-${String(latestDate.getMonth() + 1).padStart(2, "0")}-${String(latestDate.getDate()).padStart(2, "0")}T${String(latestDate.getHours()).padStart(2, "0")}:${String(latestDate.getMinutes()).padStart(2, "0")}`
+    : undefined;
 
   return (
-    <div className="appointment-panel">
+    <div className="appointment-panel" id="client-appointments">
       <div className="playlist-heading">
         <div>
           <h3>{t("clientAppointments.title")}</h3>
@@ -27,6 +35,8 @@ export default function ClientAppointments({
         </div>
         <CalendarDays />
       </div>
+
+      <div className="appointment-rule"><CalendarDays /><p><strong>{t("clientAppointments.ruleTitle")}</strong><span>{t("clientAppointments.ruleText")}</span></p></div>
 
       {appointmentStatus && (
         <p className={appointmentStatus.includes("planifié") ? "form-message success" : "invoice-empty"} role="status">
@@ -52,7 +62,8 @@ export default function ClientAppointments({
           </label>
           <label>
             {t("clientAppointments.dateTime")}
-            <input type="datetime-local" value={appointmentDateTime} onChange={(event) => onDateTimeChange(event.target.value)} required />
+            <input type="datetime-local" max={latestDateTime} value={appointmentDateTime} onChange={(event) => onDateTimeChange(event.target.value)} required />
+            {latestDate && <small>{t("clientAppointments.latest", { date: latestDate.toLocaleString(i18n.language) })}</small>}
           </label>
           <label>
             {t("clientAppointments.mode")}
@@ -71,6 +82,10 @@ export default function ClientAppointments({
         </form>
       )}
 
+      {eligibleBookings.length === 0 && appointments.length === 0 && (
+        <p className="invoice-empty">{t("clientAppointments.unavailable")}</p>
+      )}
+
       <div className="appointment-list">
         {appointments.map((appointment) => (
           <article key={appointment.id}>
@@ -81,10 +96,12 @@ export default function ClientAppointments({
                 mode: t(appointment.mode === "online" ? "clientAppointments.online" : "clientAppointments.inPerson"),
               })}</span>
               {appointment.notes && <small>{appointment.notes}</small>}
+              {appointment.response_message && <small className="appointment-response">{t("clientAppointments.djResponse")}: {appointment.response_message}</small>}
             </div>
-            <span className={`appointment-status ${appointment.status}`}>
-              {t(`clientAppointments.status.${appointment.status}`, { defaultValue: t("clientAppointments.status.planned") })}
-            </span>
+            <div className="appointment-client-actions">
+              <span className={`appointment-status ${appointment.status}`}>{t(`clientAppointments.status.${appointment.status}`, { defaultValue: appointment.status })}</span>
+              {appointment.status === "counter_proposed" && <div><button className="document-button" type="button" onClick={() => onRespond(appointment.id, "accepted")} disabled={appointmentPending}>{t("clientAppointments.acceptCounter")}</button><button className="document-button danger-button" type="button" onClick={() => onRespond(appointment.id, "refused")} disabled={appointmentPending}>{t("clientAppointments.refuseCounter")}</button></div>}
+            </div>
           </article>
         ))}
       </div>

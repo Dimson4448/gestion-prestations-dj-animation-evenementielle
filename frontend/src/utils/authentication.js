@@ -8,3 +8,10 @@ export const getInterfaceRole = (user) => {
 export const getLoginSuccessKey = (user) => `authentication.loginSuccess.${getInterfaceRole(user)}`;
 
 export const getAccountSummaryKey = (user) => `authentication.accountSummary.${getInterfaceRole(user)}`;
+
+export const getPostLoginPage = (user) => {
+  const role = getInterfaceRole(user);
+  if (role === "admin") return "administration";
+  if (role === "dj") return "dj";
+  return "compte";
+};

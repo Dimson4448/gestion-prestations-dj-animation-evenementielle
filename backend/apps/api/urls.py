@@ -77,6 +77,7 @@ urlpatterns = [
     path("locations/search/", location_search, name="location-search"),
     path("quotes/calculate/", calculate_quote, name="quote-calculate"),
     path("payments/webhook/", stripe_webhook, name="stripe-webhook"),
+    path("stripe/webhook/", stripe_webhook, name="stripe-webhook-compatibility"),
 ]
 
 urlpatterns += router.urls

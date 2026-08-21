@@ -39,6 +39,9 @@ stripe login
 stripe listen --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired,refund.created,refund.updated,refund.failed --forward-to http://127.0.0.1:8000/api/v1/payments/webhook/
 ```
 
+L’adresse historique `/api/v1/stripe/webhook/` reste également acceptée pour
+les postes déjà configurés avec cette commande.
+
 La commande affiche un secret commençant par `whsec_`. Le recopier dans
 `backend/.env` :
 

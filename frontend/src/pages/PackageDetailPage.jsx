@@ -1,4 +1,4 @@
-import { Check, Clock3, Headphones, ShieldCheck, Star } from "lucide-react";
+import { Check, ChevronRight, Clock3, Headphones, ShieldCheck, Star } from "lucide-react";
 
 import { formatEuro } from "../utils/booking";
 import LocalizedContent from "../components/LocalizedContent";

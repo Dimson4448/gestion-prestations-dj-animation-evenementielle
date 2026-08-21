@@ -1,9 +1,13 @@
 import { CalendarDays, Check, CircleUserRound, Clock3, FileText } from "lucide-react";
+import { useCallback, useState } from "react";
 
-import { formatEuro } from "../utils/booking";
+import { formatEuro, hasBookingEnded } from "../utils/booking";
 import LocalizedContent from "../components/LocalizedContent";
+import AdminDashboardOverview from "../components/AdminDashboardOverview";
 
 export default function AdminWorkspacePage({ workspace }) {
+  const [selectedSection, setSelectedSection] = useState("overview");
+  const selectSection = useCallback((section) => setSelectedSection(section), []);
   const {
     acceptAdminQuote, adminBookings, adminCancellationMessages, adminCancellationPendingId,
     adminCancellationRequests, adminDeletionMessages, adminDeletionPendingId, adminDeletionRequests,
@@ -13,9 +17,11 @@ export default function AdminWorkspacePage({ workspace }) {
     refundPendingId, rejectCancellation, reviewAccountDeletion, sendQuote, setAdminCancellationMessages,
     setAdminDeletionMessages, setAdminDjSelection, setRefundAmounts,
   } = workspace;
+  const bookingsToComplete = adminBookings.filter((item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item));
   return <LocalizedContent>
-          <section className="section-wrap admin-page">
-            <div className="page-heading"><p className="eyebrow dark">Espace administrateur</p><h1>Traiter les demandes de devis</h1><p>Envoyez le devis au client, choisissez un DJ réellement disponible, puis créez automatiquement la réservation, le contrat et la facture d’acompte.</p></div>
+          <section className={`section-wrap admin-page admin-view-${selectedSection}`}>
+            <AdminDashboardOverview bookings={adminBookings} cancellationRequests={adminCancellationRequests} deletionRequests={adminDeletionRequests} djs={adminDjs} i18n={i18n} onRefresh={loadAdminDashboard} onSectionChange={selectSection} payments={adminPayments} quotes={adminQuotes} />
+            <div className="page-heading" id="admin-quotes"><p className="eyebrow dark">Espace administrateur</p><h1>Traiter les demandes de devis</h1><p>Envoyez le devis au client, choisissez un DJ réellement disponible, puis créez automatiquement la réservation, le contrat et la facture d’acompte.</p></div>
             <div className="admin-toolbar"><div><strong>{adminQuotes.length}</strong><span> devis à traiter</span></div><button className="secondary-button" type="button" onClick={loadAdminDashboard}>Actualiser</button></div>
             {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") || adminStatus.includes("clôturée") || adminStatus.includes("refusée") || adminStatus.includes("remboursé") || adminStatus.includes("annulée") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
             <div className="admin-quote-grid">
@@ -76,7 +82,7 @@ export default function AdminWorkspacePage({ workspace }) {
             <div className="admin-booking-panel">
               <div className="playlist-heading"><div><h2>Clôturer les prestations</h2><p>Une clôture confirme la prestation réalisée et émet automatiquement la facture de solde.</p></div><Check /></div>
               <div className="admin-quote-grid">
-                {adminBookings.map((booking) => (
+                {bookingsToComplete.map((booking) => (
                   <article className="admin-quote-card" key={booking.id}>
                     <div className="quote-row-heading"><h2>Réservation n°{booking.id}</h2><span className="quote-status accepted">Confirmée</span></div>
                     <p><CalendarDays /> {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)} · {String(booking.start_time).slice(0, 5)}</p>
@@ -84,7 +90,7 @@ export default function AdminWorkspacePage({ workspace }) {
                     <button className="primary-button" type="button" onClick={() => completeAdminBooking(booking.id)} disabled={completionPendingId === booking.id}>{completionPendingId === booking.id ? "Clôture…" : "Marquer comme réalisée"}</button>
                   </article>
                 ))}
-                {!adminBookings.length && <p className="invoice-empty">Aucune prestation confirmée à clôturer.</p>}
+                {!bookingsToComplete.length && <p className="invoice-empty">Aucune prestation confirmée à clôturer.</p>}
               </div>
             </div>
           </section>

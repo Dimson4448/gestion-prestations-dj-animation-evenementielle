@@ -10,6 +10,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import ClientProfile, DJProfile
+from apps.availability.models import DJAvailability
 from apps.bookings.models import Booking, Quote, Venue
 from apps.catalog.models import EventType, Package
 
@@ -371,6 +372,15 @@ class DepositCheckoutTests(APITestCase):
 
     @patch("apps.payments.views.stripe.Webhook.construct_event")
     def test_webhook_confirme_acompte_facture_et_reservation(self, construct_event):
+        availability = DJAvailability.objects.create(
+            dj=self.dj,
+            available_date=self.booking.event_date,
+            end_date=self.booking.event_date,
+            start_time=self.booking.start_time,
+            end_time=self.booking.end_time,
+            status=DJAvailability.RESERVED,
+            reason=f"Réservation #{self.booking.pk}",
+        )
         payment = self.create_pending_payment()
         construct_event.return_value = {
             "type": "checkout.session.completed",
@@ -411,6 +421,8 @@ class DepositCheckoutTests(APITestCase):
         self.assertEqual(self.invoice.status, Invoice.PAID)
         self.assertTrue(self.booking.deposit_paid)
         self.assertEqual(self.booking.status, Booking.CONFIRMED)
+        availability.refresh_from_db()
+        self.assertEqual(availability.status, DJAvailability.OCCUPIED)
 
     @patch("apps.payments.views.stripe.Webhook.construct_event")
     @patch("apps.payments.notifications.send_mail")
@@ -714,6 +726,19 @@ class DepositCheckoutTests(APITestCase):
 
         response = self.client.post(
             "/api/v1/payments/webhook/",
+            data=b"payload",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="signature_test",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    @override_settings(STRIPE_WEBHOOK_SECRET="")
+    def test_ancienne_adresse_du_webhook_reste_compatible(self):
+        self.client.force_authenticate(user=None)
+
+        response = self.client.post(
+            "/api/v1/stripe/webhook/",
             data=b"payload",
             content_type="application/json",
             HTTP_STRIPE_SIGNATURE="signature_test",

@@ -12,7 +12,7 @@ export default function ClientContracts({
   const { i18n, t } = useTranslation();
 
   return (
-    <div className="contract-list">
+    <div className="contract-list" id="client-contracts">
       <h3>{t("clientContracts.title")}</h3>
       {contractStatus && (
         <p className={contractStatus.includes("signé") ? "form-message success" : "invoice-empty"} role="status">

@@ -7,15 +7,18 @@ from apps.accounts.models import DJProfile
 class DJAvailability(models.Model):
     AVAILABLE = "available"
     RESERVED = "reserved"
+    OCCUPIED = "occupied"
     BLOCKED = "blocked"
     STATUS_CHOICES = [
         (AVAILABLE, "Disponible"),
         (RESERVED, "Réservé"),
+        (OCCUPIED, "Occupé"),
         (BLOCKED, "Bloqué"),
     ]
 
     dj = models.ForeignKey(DJProfile, on_delete=models.CASCADE, related_name="availabilities", verbose_name="DJ")
     available_date = models.DateField("date disponible")
+    end_date = models.DateField("date de fin", blank=True, null=True)
     start_time = models.TimeField("heure de début")
     end_time = models.TimeField("heure de fin")
     status = models.CharField("statut", max_length=20, choices=STATUS_CHOICES, default=AVAILABLE)
@@ -28,7 +31,14 @@ class DJAvailability(models.Model):
         verbose_name_plural = "créneaux DJ"
         constraints = [
             models.UniqueConstraint(fields=["dj", "available_date", "start_time"], name="unique_dj_availability_slot"),
-            models.CheckConstraint(check=models.Q(end_time__gt=models.F("start_time")), name="availability_end_after_start"),
+            models.CheckConstraint(
+                check=(
+                    models.Q(end_date__gt=models.F("available_date"))
+                    | models.Q(end_date=models.F("available_date"), end_time__gt=models.F("start_time"))
+                    | models.Q(end_date__isnull=True, end_time__gt=models.F("start_time"))
+                ),
+                name="availability_end_after_start",
+            ),
         ]
         indexes = [
             models.Index(fields=["available_date", "status"], name="idx_availability_search"),
