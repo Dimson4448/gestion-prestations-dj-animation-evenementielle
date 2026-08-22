@@ -1,10 +1,27 @@
-const navigablePages = new Set(["accueil", "offres", "detail", "devis", "compte", "administration", "dj"]);
+const pagePaths = {
+  accueil: "/",
+  offres: "/offres",
+  detail: "/detail",
+  devis: "/devis",
+  compte: "/compte",
+  administration: "/administration",
+  dj: "/dj",
+};
 
-export function getPageFromHash(hash = "") {
-  const target = hash.replace(/^#\/?/, "");
-  return navigablePages.has(target) ? target : "accueil";
+const pagesByPath = new Map(Object.entries(pagePaths).map(([page, path]) => [path, page]));
+
+export function getPageFromPath(pathname = "/") {
+  const normalizedPath = `/${pathname}`.replace(/\/{2,}/g, "/").replace(/\/$/, "") || "/";
+  return pagesByPath.get(normalizedPath) || "accueil";
 }
 
-export function getPageHash(page) {
-  return `#/${navigablePages.has(page) ? page : "accueil"}`;
+export function getPageFromLocation(pathname = "/", hash = "") {
+  if (hash.startsWith("#/")) {
+    return getPageFromPath(hash.slice(1));
+  }
+  return getPageFromPath(pathname);
+}
+
+export function getPagePath(page) {
+  return pagePaths[page] || pagePaths.accueil;
 }

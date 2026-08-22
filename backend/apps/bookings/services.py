@@ -8,7 +8,7 @@ from apps.availability.models import DJAvailability
 from apps.payments.models import Invoice, Payment
 
 from .models import Booking, CancellationRequest, Contract, PreparatoryAppointment, Quote
-from .notifications import notify_cancellation_requested, notify_cancellation_reviewed
+from .notifications import notify_balance_invoice_created, notify_booking_cancelled, notify_cancellation_requested, notify_cancellation_reviewed, notify_quote_accepted, notify_contract_signed
 
 
 class QuoteAcceptanceError(Exception):
@@ -119,6 +119,8 @@ def accept_quote(quote_id, dj_id):
     quote.status = Quote.ACCEPTED
     quote.save(update_fields=["requested_dj", "dj_decision", "dj_decided_at", "status"])
 
+    notify_quote_accepted(booking, contract, invoice)
+
     return booking, contract, invoice
 
 
@@ -134,6 +136,7 @@ def sign_contract(contract_id, client):
     contract.status = Contract.SIGNED
     contract.signed_by_client_at = timezone.now()
     contract.save(update_fields=["status", "signed_by_client_at"])
+    notify_contract_signed(contract)
     return contract
 
 
@@ -175,6 +178,7 @@ def complete_booking(booking_id, actor):
     )
     booking.status = Booking.PERFORMED
     booking.save(update_fields=["status"])
+    notify_balance_invoice_created(booking, invoice)
     return booking, invoice
 
 
@@ -246,6 +250,8 @@ def cancel_booking(booking_id, actor, reason):
         cancellation_request.reviewed_by = actor
         cancellation_request.booking = booking
         notify_cancellation_reviewed(cancellation_request)
+    if not pending_requests:
+        notify_booking_cancelled(booking, reason)
     return booking
 
 

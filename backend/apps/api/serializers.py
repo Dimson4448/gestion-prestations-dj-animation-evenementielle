@@ -4,6 +4,7 @@ from decimal import Decimal
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -908,9 +909,11 @@ class RefundSerializer(serializers.ModelSerializer):
 class PlaylistSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "playlist"
 
+    styles = serializers.PrimaryKeyRelatedField(many=True, queryset=MusicStyle.objects.all(), required=False)
+
     class Meta:
         model = Playlist
-        fields = ["id", "booking", "main_style", "notes", "created_at", "liens"]
+        fields = ["id", "booking", "main_style", "styles", "notes", "is_public", "created_at", "liens"]
         read_only_fields = ["created_at"]
 
     def validate(self, attrs):
@@ -928,7 +931,34 @@ class PlaylistSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             raise serializers.ValidationError({"booking": "La réservation doit être confirmée par le paiement de l'acompte."})
         if self.instance and "booking" in attrs and attrs["booking"].pk != self.instance.booking_id:
             raise serializers.ValidationError({"booking": "La réservation d'une playlist ne peut pas être modifiée."})
+        styles_are_being_changed = self.instance is None or "styles" in attrs or "main_style" in attrs
+        if styles_are_being_changed:
+            main_style = attrs.get("main_style") or getattr(self.instance, "main_style", None)
+            selected_styles = list(
+                attrs.get("styles", self.instance.styles.all() if self.instance else []),
+            )
+            if main_style and all(style.pk != main_style.pk for style in selected_styles):
+                selected_styles.insert(0, main_style)
+            attrs["styles"] = selected_styles
         return attrs
+
+
+class PublicPlaylistSerializer(serializers.ModelSerializer):
+    dj_stage_name = serializers.CharField(source="booking.dj.stage_name", read_only=True)
+    styles = MusicStyleSerializer(many=True, read_only=True)
+    songs = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Playlist
+        fields = ["id", "dj_stage_name", "styles", "songs", "created_at"]
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_songs(self, playlist):
+        return [
+            {"title": song.title, "artist": song.artist}
+            for song in playlist.songs.all()
+            if song.status == PlaylistSong.APPROVED
+        ]
 
 
 class PlaylistSongSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
@@ -984,8 +1014,11 @@ class ReviewSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             return attrs
         if self.instance and "booking" in attrs and attrs["booking"].pk != self.instance.booking_id:
             raise serializers.ValidationError({"booking": "La réservation d'un avis ne peut pas être modifiée."})
-        if booking.status not in {Booking.PERFORMED, Booking.PAID}:
+        early_review_allowed = settings.DEBUG and booking.deposit_paid and booking.status == Booking.CONFIRMED
+        if booking.status not in {Booking.PERFORMED, Booking.PAID} and not early_review_allowed:
             raise serializers.ValidationError({"booking": "Un avis peut être déposé uniquement après la prestation."})
+        if not booking.has_ended() and not early_review_allowed:
+            raise serializers.ValidationError({"booking": "Un avis ne peut pas être déposé avant la fin réelle de la prestation."})
         if not request or request.user.is_staff:
             return attrs
 
@@ -997,6 +1030,19 @@ class ReviewSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         if self.instance and self.instance.status != Review.PENDING:
             raise serializers.ValidationError("Un avis déjà modéré ne peut plus être modifié par le client.")
         return attrs
+
+
+class PublicReviewSerializer(serializers.ModelSerializer):
+    dj_stage_name = serializers.CharField(source="dj.stage_name", read_only=True)
+    client_first_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = ["id", "dj_stage_name", "client_first_name", "rating", "comment", "created_at"]
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_client_first_name(self, review):
+        return review.client.user.first_name or "Client Ultimate DJ"
 
 
 class QuoteCalculationRequestSerializer(serializers.Serializer):

@@ -1467,7 +1467,7 @@ class ApiUltimateDJTests(APITestCase):
 
     def test_playlist_exige_une_reservation_confirmee(self):
         contract = self.create_contract_for_client()
-        style = MusicStyle.objects.create(name="Disco")
+        style, _ = MusicStyle.objects.get_or_create(name="Disco")
         self.client.force_authenticate(user=self.client_user)
 
         response = self.client.post(
@@ -1486,15 +1486,21 @@ class ApiUltimateDJTests(APITestCase):
         booking.deposit_paid = True
         booking.status = Booking.CONFIRMED
         booking.save(update_fields=["deposit_paid", "status"])
-        style = MusicStyle.objects.create(name="Soul")
+        style, _ = MusicStyle.objects.get_or_create(name="Soul")
+        second_style, _ = MusicStyle.objects.get_or_create(name="Afrobeats")
         self.client.force_authenticate(user=self.client_user)
         playlist_response = self.client.post(
             "/api/v1/playlists/",
-            {"booking": booking.pk, "main_style": style.pk, "notes": "Entrée douce puis danse"},
+            {"booking": booking.pk, "main_style": style.pk, "styles": [style.pk, second_style.pk], "notes": "Entrée douce puis danse"},
             format="json",
         )
 
         self.assertEqual(playlist_response.status_code, status.HTTP_201_CREATED)
+        self.assertCountEqual(playlist_response.data["styles"], [style.pk, second_style.pk])
+        self.assertCountEqual(
+            Playlist.objects.get(pk=playlist_response.data["id"]).styles.values_list("pk", flat=True),
+            [style.pk, second_style.pk],
+        )
         playlist_id = playlist_response.data["id"]
         forbidden_status = self.client.post(
             "/api/v1/playlist-songs/",
@@ -1536,6 +1542,15 @@ class ApiUltimateDJTests(APITestCase):
         )
         self.assertEqual(approval.status_code, status.HTTP_200_OK)
         self.assertEqual(approval.data["status"], PlaylistSong.APPROVED)
+
+        self.client.force_authenticate(user=None)
+        public_catalogue = self.client.get("/api/v1/playlists/public/")
+        self.assertEqual(public_catalogue.status_code, status.HTTP_200_OK)
+        public_playlist = next(item for item in public_catalogue.data["results"] if item["id"] == playlist_id)
+        self.assertNotIn("booking", public_playlist)
+        self.assertNotIn("notes", public_playlist)
+        self.assertEqual(public_playlist["dj_stage_name"], booking.dj.stage_name)
+        self.assertEqual(public_playlist["songs"][0]["title"], "September")
 
     def test_rendez_vous_preparatoire_suit_la_reservation_confirmee(self):
         contract = self.create_contract_for_client()
@@ -1675,7 +1690,7 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(agreement.status_code, status.HTTP_200_OK)
         self.assertEqual(agreement.data["status"], PreparatoryAppointment.ACCEPTED)
 
-    def test_avis_client_est_depose_apres_prestation_et_modere_par_admin(self):
+    def test_avis_client_est_publie_apres_prestation_et_visible_publiquement(self):
         contract = self.create_contract_for_client()
         booking = contract.booking
         self.client.force_authenticate(user=self.client_user)
@@ -1689,6 +1704,16 @@ class ApiUltimateDJTests(APITestCase):
 
         booking.status = Booking.PERFORMED
         booking.save(update_fields=["status"])
+        future_performed = self.client.post(
+            "/api/v1/reviews/",
+            {"booking": booking.pk, "rating": 5, "comment": "Statut clôturé trop tôt"},
+            format="json",
+        )
+        self.assertEqual(future_performed.status_code, status.HTTP_400_BAD_REQUEST)
+
+        booking.event_date = date.today() - timedelta(days=1)
+        booking.end_date = booking.event_date
+        booking.save(update_fields=["event_date", "end_date"])
         self.client.force_authenticate(user=booking.dj.user)
         dj_attempt = self.client.post(
             "/api/v1/reviews/",
@@ -1717,7 +1742,7 @@ class ApiUltimateDJTests(APITestCase):
             format="json",
         )
         self.assertEqual(created.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(created.data["status"], Review.PENDING)
+        self.assertEqual(created.data["status"], Review.PUBLISHED)
         self.assertEqual(created.data["client"], self.client_profile.pk)
         self.assertEqual(created.data["dj"], booking.dj_id)
         duplicate = self.client.post(
@@ -1734,7 +1759,16 @@ class ApiUltimateDJTests(APITestCase):
             {"comment": "Excellente soirée, DJ ponctuel et très professionnel"},
             format="json",
         )
-        self.assertEqual(edited.status_code, status.HTTP_200_OK)
+        self.assertEqual(edited.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=None)
+        public_reviews = self.client.get("/api/v1/reviews/public/")
+        self.assertEqual(public_reviews.status_code, status.HTTP_200_OK)
+        public_review = next(item for item in public_reviews.data["results"] if item["id"] == created.data["id"])
+        self.assertEqual(public_review["comment"], "Excellente soirée et DJ très professionnel")
+        self.assertEqual(public_review["client_first_name"], self.client_user.first_name)
+        self.assertNotIn("client", public_review)
+        self.assertNotIn("booking", public_review)
 
         admin = get_user_model().objects.create_superuser(
             username="admin_avis",

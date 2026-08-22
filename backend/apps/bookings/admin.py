@@ -75,8 +75,10 @@ class ContractAdmin(admin.ModelAdmin):
 
 @admin.register(Playlist)
 class PlaylistAdmin(admin.ModelAdmin):
-    list_display = ("booking", "main_style", "created_at")
+    list_display = ("booking", "main_style", "is_public", "created_at")
+    list_filter = ("is_public", "main_style")
     search_fields = ("booking__client__user__email",)
+    filter_horizontal = ("styles",)
 
 
 @admin.register(PlaylistSong)

@@ -9,7 +9,7 @@ export default function useClientAccount(account) {
     setAppointments, setCancellationRequests, setClientBookings, setClientPayments, setClientProfile,
     setClientProfileStatus, setClientQuotes, setContractStatus, setContracts, setInvoiceStatus, setInvoices,
     setIsAuthenticated, setLoginStatus, setMusicStyles, setPlaylistBookingId, setPlaylistSongs,
-    setPlaylistStatus, setPlaylistStyleId, setPlaylists, setQuoteListStatus, setReviews, setReviewStatus,
+    setPlaylistStatus, setPlaylistStyleIds, setPlaylists, setQuoteListStatus, setReviews, setReviewStatus,
     setSelectedVenueId, setSongPlaylistId, setVenues, setVenueStatus,
   } = account;
 
@@ -146,7 +146,11 @@ useEffect(() => {
       setMusicStyles(styleRecords);
       const eligible = bookingRecords.filter((item) => item.deposit_paid && ["confirmed", "performed", "paid"].includes(item.status) && !playlistRecords.some((playlist) => playlist.booking === item.id));
       setPlaylistBookingId((current) => current || String(eligible[0]?.id || ""));
-      setPlaylistStyleId((current) => current || String(styleRecords[0]?.id || ""));
+      setPlaylistStyleIds((current) => (
+        current.length > 0 || !styleRecords[0]?.id
+          ? current
+          : [String(styleRecords[0].id)]
+      ));
       setSongPlaylistId((current) => current || String(playlistRecords[0]?.id || ""));
       setPlaylistStatus(playlistRecords.length || eligible.length ? "" : "La playlist sera disponible après confirmation de l’acompte.");
     })

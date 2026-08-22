@@ -11,15 +11,26 @@ export default function useCatalogue(eventDate) {
   const [catalogueStatus, setCatalogueStatus] = useState("Chargement du catalogue Django…");
   const [catalogueReady, setCatalogueReady] = useState(false);
   const [availableDjs, setAvailableDjs] = useState([]);
+  const [catalogueDjs, setCatalogueDjs] = useState([]);
+  const [publicPlaylists, setPublicPlaylists] = useState([]);
+  const [publicReviews, setPublicReviews] = useState([]);
   const [publicAvailabilityStatus, setPublicAvailabilityStatus] = useState("Recherche des créneaux Django…");
   const [eventTypeRecords, setEventTypeRecords] = useState([]);
 
   useEffect(() => {
     let active = true;
-    apiClient.get("/packages/").then((response) => {
+    Promise.all([
+      apiClient.get("/packages/"),
+      apiClient.get("/djs/", { params: { ordering: "stage_name" } }),
+      apiClient.get("/playlists/public/"),
+      apiClient.get("/reviews/public/", { params: { ordering: "-created_at" } }),
+    ]).then(([packagesResponse, djsResponse, playlistsResponse, reviewsResponse]) => {
       if (!active) return;
-      const nextPackages = decoratePackages(unwrapApiList(response.data));
+      const nextPackages = decoratePackages(unwrapApiList(packagesResponse.data));
       setPackages(nextPackages);
+      setCatalogueDjs(unwrapApiList(djsResponse.data));
+      setPublicPlaylists(unwrapApiList(playlistsResponse.data));
+      setPublicReviews(unwrapApiList(reviewsResponse.data));
       setCatalogueReady(nextPackages.length > 0);
       setCatalogueStatus(nextPackages.length
         ? "Catalogue synchronisé avec l’API locale"
@@ -27,6 +38,9 @@ export default function useCatalogue(eventDate) {
     }).catch(() => {
       if (!active) return;
       setPackages([]);
+      setCatalogueDjs([]);
+      setPublicPlaylists([]);
+      setPublicReviews([]);
       setCatalogueReady(false);
       setCatalogueStatus("Catalogue indisponible · vérifiez la connexion au backend Django");
     });
@@ -63,10 +77,13 @@ export default function useCatalogue(eventDate) {
 
   return {
     availableDjs,
+    catalogueDjs,
     catalogueReady,
     catalogueStatus,
     eventTypeRecords,
     packages,
+    publicPlaylists,
+    publicReviews,
     publicAvailabilityStatus,
   };
 }

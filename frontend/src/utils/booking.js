@@ -52,9 +52,10 @@ export const canPlanAppointment = (booking, eventType, plannedBookingIds = new S
       && !plannedBookingIds.has(booking.id),
   );
 
-export const canSubmitReview = (booking, reviewedBookingIds = new Set()) =>
+export const canSubmitReview = (booking, reviewedBookingIds = new Set(), allowEarlyReview = false) =>
   Boolean(
-    completedBookingStatuses.has(booking?.status)
+    ((completedBookingStatuses.has(booking?.status) && hasBookingEnded(booking))
+      || (allowEarlyReview && booking?.status === "confirmed" && booking?.deposit_paid))
       && !reviewedBookingIds.has(booking.id),
   );
 

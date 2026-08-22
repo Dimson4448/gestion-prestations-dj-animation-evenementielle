@@ -1,10 +1,11 @@
-import { ChevronRight, Clock3, Headphones, Star } from "lucide-react";
+import { ChevronRight, Clock3, Headphones, ListMusic, MessageSquareQuote, Star } from "lucide-react";
 
 import { formatEuro } from "../utils/booking";
 import LocalizedContent from "../components/LocalizedContent";
 
 export default function OffersPage({
   availableDjs,
+  catalogueDjs,
   availableEventTypes,
   compatiblePackages,
   eventDate,
@@ -16,7 +17,11 @@ export default function OffersPage({
   onOpenDetail,
   onReset,
   publicAvailabilityStatus,
+  publicPlaylists,
+  publicReviews,
 }) {
+  const availableById = new Map(availableDjs.map((dj) => [dj.id, dj]));
+
   return <LocalizedContent>
     <section className="section-wrap catalogue-page">
       <div className="page-heading">
@@ -35,13 +40,36 @@ export default function OffersPage({
         </aside>
         <div className="results">
           <div className="results-heading"><div><h2>DJs disponibles à {location}</h2><p>{availableDjs.length} résultat{availableDjs.length > 1 ? "s" : ""} · {publicAvailabilityStatus}</p></div></div>
-          {compatiblePackages.length > 0 && availableDjs.map((dj, index) => {
+          {compatiblePackages.length > 0 && catalogueDjs.map((profile, index) => {
+            const availableDj = availableById.get(profile.id);
+            const dj = availableDj || {
+              id: profile.id,
+              name: profile.stage_name,
+              rating: profile.average_rating,
+              reviews: profile.review_count,
+              slot: "Consultez ses prochaines disponibilités",
+              styles: profile.music_styles?.map((style) => style.name).join(" · ") || "Styles à préciser",
+            };
             const item = compatiblePackages[index % compatiblePackages.length];
-            return <article className="dj-card" key={dj.id}><div className={`dj-avatar avatar-${index + 1}`}><Headphones /></div><div className="dj-copy"><div className="dj-title"><h3>{dj.name}</h3><span><Star /> {dj.rating ? `${dj.rating} (${dj.reviews} avis)` : "Profil vérifié"}</span></div><p>{dj.styles}</p><p className="availability"><Clock3 /> Disponible {dj.slot}</p><strong>À partir de {formatEuro(item.base_price)}</strong></div><button className="primary-button" type="button" onClick={() => onOpenDetail(item, dj)}>Voir le détail <ChevronRight /></button></article>;
+            return <article className="dj-card" key={dj.id}><div className={`dj-avatar avatar-${(index % 3) + 1}`}><Headphones /></div><div className="dj-copy"><div className="dj-title"><h3>{dj.name}</h3><span><Star /> {dj.rating ? `${Number(dj.rating).toFixed(1)} (${dj.reviews} avis)` : "Profil vérifié"}</span></div><p>{dj.styles}</p><p className="availability"><Clock3 /> {availableDj ? `Disponible ${dj.slot}` : dj.slot}</p><strong>À partir de {formatEuro(item.base_price)}</strong></div><button className="primary-button" type="button" onClick={() => onOpenDetail(item, dj)}>Voir le détail <ChevronRight /></button></article>;
           })}
-          {(!availableDjs.length || !compatiblePackages.length) && <p className="invoice-empty">{!compatiblePackages.length ? "Aucune formule compatible avec cette prestation." : "Modifiez la date pour rechercher un autre créneau."}</p>}
+          {(!catalogueDjs.length || !compatiblePackages.length) && <p className="invoice-empty">{!compatiblePackages.length ? "Aucune formule compatible avec cette prestation." : "Aucun DJ n’est actuellement publié dans le catalogue."}</p>}
         </div>
       </div>
+      <section className="public-showcase" aria-labelledby="playlist-showcase-title">
+        <div className="showcase-heading"><div><p className="eyebrow dark">Ambiances musicales</p><h2 id="playlist-showcase-title">Playlists de nos événements</h2></div><ListMusic /></div>
+        <div className="public-card-grid">
+          {publicPlaylists.map((playlist) => <article className="public-playlist-card" key={playlist.id}><span className="public-card-icon"><ListMusic /></span><p className="eyebrow dark">Playlist de {playlist.dj_stage_name}</p><h3>{playlist.styles.map((style) => style.name).join(" · ") || "Ambiance personnalisée"}</h3>{playlist.songs.length ? <ul>{playlist.songs.slice(0, 5).map((song) => <li key={`${playlist.id}-${song.title}-${song.artist}`}><strong>{song.title}</strong><span>{song.artist}</span></li>)}</ul> : <p>La sélection musicale est en préparation.</p>}</article>)}
+          {!publicPlaylists.length && <p className="invoice-empty">Les premières playlists publiques apparaîtront ici.</p>}
+        </div>
+      </section>
+      <section className="public-showcase reviews-showcase" aria-labelledby="reviews-showcase-title">
+        <div className="showcase-heading"><div><p className="eyebrow dark">Avis clients</p><h2 id="reviews-showcase-title">Leurs expériences avec Ultimate DJ</h2></div><MessageSquareQuote /></div>
+        <div className="public-card-grid">
+          {publicReviews.map((review) => <article className="public-review-card" key={review.id}><div className="review-stars" aria-label={`${review.rating} étoiles`}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</div><blockquote>“{review.comment}”</blockquote><p><strong>{review.client_first_name}</strong><span>avec {review.dj_stage_name}</span></p></article>)}
+          {!publicReviews.length && <p className="invoice-empty">Aucun avis public pour le moment.</p>}
+        </div>
+      </section>
     </section>
   </LocalizedContent>;
 }

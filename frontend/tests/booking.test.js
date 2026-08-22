@@ -96,9 +96,17 @@ test("canPlanAppointment respecte le type d'événement et les rendez-vous exist
 });
 
 test("canSubmitReview attend la réalisation et évite un second avis", () => {
-  const performed = { id: 25, status: "performed" };
+  const performed = {
+    id: 25,
+    status: "performed",
+    event_date: "2026-01-01",
+    end_date: "2026-01-02",
+    end_time: "02:00:00",
+  };
 
   assert.equal(canSubmitReview(performed), true);
+  assert.equal(canSubmitReview({ ...performed, event_date: "2099-01-01", end_date: "2099-01-02" }), false);
+  assert.equal(canSubmitReview({ ...performed, status: "confirmed", deposit_paid: true, event_date: "2099-01-01", end_date: "2099-01-02" }, new Set(), true), true);
   assert.equal(canSubmitReview({ ...performed, status: "confirmed" }), false);
   assert.equal(canSubmitReview(performed, new Set([25])), false);
 });

@@ -3,7 +3,6 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Avg, Count, Q
 from django.shortcuts import get_object_or_404
@@ -25,6 +24,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from apps.accounts.models import AccountDeletionRequest, DJApplication, DJProfile
+from apps.accounts.emailing import send_user_email
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
@@ -37,6 +37,7 @@ from apps.bookings.models import (
     Venue,
 )
 from apps.bookings.services import BookingCancellationError, BookingCompletionError, CancellationRequestError, ContractSigningError, QuoteAcceptanceError, accept_quote, cancel_booking, complete_booking, reject_booking_cancellation, request_booking_cancellation, sign_contract
+from apps.bookings.notifications import notify_appointment_changed, notify_quote_created, notify_quote_refused
 from apps.bookings.documents import build_contract_pdf, build_invoice_pdf
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
@@ -75,6 +76,7 @@ from .serializers import (
     RefundRequestSerializer,
     RefundSerializer,
     PlaylistSerializer,
+    PublicPlaylistSerializer,
     PlaylistSongSerializer,
     PreparatoryAppointmentSerializer,
     QuoteCalculationRequestSerializer,
@@ -83,6 +85,7 @@ from .serializers import (
     QuoteDJDecisionSerializer,
     QuoteSerializer,
     ReviewSerializer,
+    PublicReviewSerializer,
     ServiceOptionSerializer,
     VenueSerializer,
     calculate_quote_amounts,
@@ -257,13 +260,21 @@ def review_account_deletion_request(request, pk):
             for token in OutstandingToken.objects.filter(user=client_user):
                 BlacklistedToken.objects.get_or_create(token=token)
 
-    decision = "acceptée" if deletion_request.status == AccountDeletionRequest.APPROVED else "refusée"
-    send_mail(
-        f"Ultimate DJ - demande de suppression {decision}",
-        f"Votre demande de suppression a été {decision}.\n\nRéponse de l'administration : {deletion_request.review_message}",
-        settings.DEFAULT_FROM_EMAIL,
-        [client_user.email],
-        fail_silently=True,
+    approved = deletion_request.status == AccountDeletionRequest.APPROVED
+    send_user_email(
+        client_user,
+        {"fr": "Ultimate DJ - décision concernant votre compte", "en": "Ultimate DJ - decision about your account", "nl": "Ultimate DJ - beslissing over uw account"},
+        ({
+            "fr": "Votre demande de suppression a été acceptée.\n\nRéponse de l'administration : {message}",
+            "en": "Your account deletion request has been approved.\n\nAdministration response: {message}",
+            "nl": "Uw verzoek om uw account te verwijderen werd goedgekeurd.\n\nAntwoord van de administratie: {message}",
+        } if approved else {
+            "fr": "Votre demande de suppression a été refusée.\n\nRéponse de l'administration : {message}",
+            "en": "Your account deletion request has been rejected.\n\nAdministration response: {message}",
+            "nl": "Uw verzoek om uw account te verwijderen werd geweigerd.\n\nAntwoord van de administratie: {message}",
+        }),
+        {"message": deletion_request.review_message},
+        after_commit=False,
     )
     return Response(AccountDeletionRequestSerializer(deletion_request).data)
 
@@ -285,13 +296,17 @@ def send_verification_email(user):
             "verify_token": default_token_generator.make_token(user),
         }
     )
-    verification_url = f"{settings.FRONTEND_URL.rstrip('/')}?{parameters}"
-    send_mail(
-        "Ultimate DJ - confirmez votre adresse e-mail",
-        f"Bienvenue chez Ultimate DJ. Confirmez votre adresse e-mail avec ce lien :\n\n{verification_url}\n\nCe lien ne peut être utilisé qu'une fois.",
-        settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-        fail_silently=True,
+    verification_url = f"{settings.FRONTEND_URL.rstrip('/')}/compte?{parameters}"
+    send_user_email(
+        user,
+        {"fr": "Ultimate DJ - confirmez votre adresse e-mail", "en": "Ultimate DJ - confirm your email address", "nl": "Ultimate DJ - bevestig uw e-mailadres"},
+        {
+            "fr": "Bienvenue chez Ultimate DJ. Confirmez votre adresse e-mail avec ce lien :\n\n{url}\n\nCe lien ne peut être utilisé qu'une fois.",
+            "en": "Welcome to Ultimate DJ. Confirm your email address using this link:\n\n{url}\n\nThis link can only be used once.",
+            "nl": "Welkom bij Ultimate DJ. Bevestig uw e-mailadres via deze link:\n\n{url}\n\nDeze link kan slechts één keer worden gebruikt.",
+        },
+        {"url": verification_url},
+        after_commit=False,
     )
 
 
@@ -395,13 +410,17 @@ def request_password_reset(request):
                 "reset_token": default_token_generator.make_token(user),
             }
         )
-        reset_url = f"{settings.FRONTEND_URL.rstrip('/')}?{parameters}"
-        send_mail(
-            "Ultimate DJ - réinitialisation du mot de passe",
-            f"Utilisez ce lien pour choisir un nouveau mot de passe :\n\n{reset_url}\n\nIgnorez ce message si vous n'êtes pas à l'origine de cette demande.",
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            fail_silently=True,
+        reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/compte?{parameters}"
+        send_user_email(
+            user,
+            {"fr": "Ultimate DJ - réinitialisation du mot de passe", "en": "Ultimate DJ - password reset", "nl": "Ultimate DJ - wachtwoord opnieuw instellen"},
+            {
+                "fr": "Utilisez ce lien pour choisir un nouveau mot de passe :\n\n{url}\n\nIgnorez ce message si vous n'êtes pas à l'origine de cette demande.",
+                "en": "Use this link to choose a new password:\n\n{url}\n\nIgnore this message if you did not request it.",
+                "nl": "Gebruik deze link om een nieuw wachtwoord te kiezen:\n\n{url}\n\nNegeer dit bericht als u dit niet hebt aangevraagd.",
+            },
+            {"url": reset_url},
+            after_commit=False,
         )
     return Response({"detail": "Si cette adresse correspond à un compte actif, un lien vient d'être envoyé."})
 
@@ -580,7 +599,8 @@ class QuoteViewSet(ProtectedModelViewSet):
         if not self.request.user.is_staff:
             client = client_connecte(self.request.user)
         requested_dj = serializer.validated_data.get("requested_dj")
-        serializer.save(client=client, status=Quote.SENT if requested_dj else Quote.DRAFT, **amounts)
+        quote = serializer.save(client=client, status=Quote.SENT if requested_dj else Quote.DRAFT, **amounts)
+        notify_quote_created(quote)
 
     @extend_schema(request=QuoteDJDecisionSerializer, responses={200: OpenApiTypes.OBJECT}, summary="Accepter ou refuser une demande en tant que DJ")
     @action(detail=True, methods=["post"], url_path="dj-decision")
@@ -600,6 +620,7 @@ class QuoteViewSet(ProtectedModelViewSet):
             quote.dj_decided_at = timezone.now()
             quote.status = Quote.DRAFT
             quote.save(update_fields=["dj_decision", "dj_decided_at", "status"])
+            notify_quote_refused(quote)
             return Response(QuoteSerializer(quote, context={"request": request}).data)
 
         try:
@@ -753,6 +774,14 @@ class PreparatoryAppointmentViewSet(AdminManagedProtectedViewSet):
         queryset = PreparatoryAppointment.objects.select_related("booking", "booking__client", "booking__dj").all()
         return filtrer_par_reservation(queryset, self.request.user)
 
+    def perform_create(self, serializer):
+        appointment = serializer.save()
+        notify_appointment_changed(appointment, "dj" if dj_connecte(self.request.user) else "client")
+
+    def perform_update(self, serializer):
+        appointment = serializer.save()
+        notify_appointment_changed(appointment, "dj" if dj_connecte(self.request.user) else "client")
+
 
 class ContractViewSet(AdminManagedProtectedViewSet):
     serializer_class = ContractSerializer
@@ -876,8 +905,24 @@ class PlaylistViewSet(ProtectedModelViewSet):
     filterset_fields = ["main_style"]
 
     def get_queryset(self):
-        queryset = Playlist.objects.select_related("booking", "booking__client", "booking__dj", "main_style").all()
+        queryset = Playlist.objects.select_related("booking", "booking__client", "booking__dj", "main_style").prefetch_related("styles", "songs").all()
         return filtrer_par_reservation(queryset, self.request.user)
+
+    @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny], url_path="public")
+    def public(self, request):
+        queryset = (
+            Playlist.objects.filter(
+                is_public=True,
+                booking__deposit_paid=True,
+                booking__status__in=[Booking.CONFIRMED, Booking.PERFORMED, Booking.PAID],
+            )
+            .select_related("booking__dj")
+            .prefetch_related("styles", "songs")
+            .order_by("-created_at")
+        )
+        page = self.paginate_queryset(queryset)
+        serializer = PublicPlaylistSerializer(page or queryset, many=True, context={"request": request})
+        return self.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)
 
 
 class PlaylistSongViewSet(ProtectedModelViewSet):
@@ -915,7 +960,18 @@ class ReviewViewSet(AdminManagedProtectedViewSet):
         if self.request.user.is_staff:
             serializer.save(client=booking.client, dj=booking.dj)
         else:
-            serializer.save(client=booking.client, dj=booking.dj, status=Review.PENDING)
+            serializer.save(client=booking.client, dj=booking.dj, status=Review.PUBLISHED)
+
+    @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny], url_path="public")
+    def public(self, request):
+        queryset = (
+            Review.objects.filter(status=Review.PUBLISHED)
+            .select_related("client__user", "dj")
+            .order_by("-created_at")
+        )
+        page = self.paginate_queryset(queryset)
+        serializer = PublicReviewSerializer(page or queryset, many=True, context={"request": request})
+        return self.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)
 
 
 @extend_schema(

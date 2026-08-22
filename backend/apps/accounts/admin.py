@@ -1,9 +1,8 @@
 from django.contrib import admin, messages
-from django.conf import settings
-from django.core.mail import send_mail
 from django.utils import timezone
 from django.utils.html import format_html
 
+from .emailing import send_user_email
 from .models import AccountDeletionRequest, ClientProfile, DJApplication, DJProfile
 from .services import DJApplicationApprovalError, approve_dj_application
 
@@ -59,12 +58,18 @@ class DJApplicationAdmin(admin.ModelAdmin):
             except DJApplicationApprovalError:
                 continue
             else:
-                send_mail(
-                    "Ultimate DJ - candidature DJ approuvée",
-                    "Votre candidature DJ a été approuvée. Vous pouvez maintenant vous connecter à votre espace DJ. Votre profil restera masqué jusqu’à l’activation de vos disponibilités.",
-                    settings.DEFAULT_FROM_EMAIL,
-                    [application.user.email],
-                    fail_silently=True,
+                send_user_email(
+                    application.user,
+                    subjects={
+                        "fr": "Ultimate DJ - candidature DJ approuvée",
+                        "en": "Ultimate DJ - DJ application approved",
+                        "nl": "Ultimate DJ - DJ-kandidatuur goedgekeurd",
+                    },
+                    messages={
+                        "fr": "Votre candidature DJ a été approuvée. Vous pouvez maintenant vous connecter à votre espace DJ. Votre profil restera masqué jusqu’à l’activation de vos disponibilités.",
+                        "en": "Your DJ application has been approved. You can now sign in to your DJ area. Your profile will remain hidden until you activate your availability.",
+                        "nl": "Uw DJ-kandidatuur is goedgekeurd. U kunt nu inloggen op uw DJ-ruimte. Uw profiel blijft verborgen totdat u uw beschikbaarheid activeert.",
+                    },
                 )
                 approved += 1
         if approved:
@@ -81,12 +86,18 @@ class DJApplicationAdmin(admin.ModelAdmin):
             application.reviewed_at = timezone.now()
             application.reviewed_by = request.user
             application.save(update_fields=["status", "review_message", "reviewed_at", "reviewed_by"])
-            send_mail(
-                "Ultimate DJ - candidature DJ examinée",
-                f"Votre candidature DJ n’a pas été acceptée. Réponse de l’administration : {application.review_message}",
-                settings.DEFAULT_FROM_EMAIL,
-                [application.user.email],
-                fail_silently=True,
+            send_user_email(
+                application.user,
+                subjects={
+                    "fr": "Ultimate DJ - candidature DJ examinée",
+                    "en": "Ultimate DJ - DJ application reviewed",
+                    "nl": "Ultimate DJ - DJ-kandidatuur beoordeeld",
+                },
+                messages={
+                    "fr": f"Votre candidature DJ n’a pas été acceptée. Réponse de l’administration : {application.review_message}",
+                    "en": f"Your DJ application was not accepted. Administration response: {application.review_message}",
+                    "nl": f"Uw DJ-kandidatuur werd niet aanvaard. Antwoord van de administratie: {application.review_message}",
+                },
             )
             updated += 1
         self.message_user(request, f"{updated} candidature(s) refusée(s).", messages.SUCCESS)

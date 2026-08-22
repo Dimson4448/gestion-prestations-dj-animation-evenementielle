@@ -33,7 +33,8 @@ import useClientAccount from "./hooks/useClientAccount";
 import useOperationalWorkspaces from "./hooks/useOperationalWorkspaces";
 import { getAdultBirthDateMax } from "./utils/registration";
 import { getLoginSuccessKey, getPostLoginPage } from "./utils/authentication";
-import { getPageFromHash, getPageHash } from "./utils/navigation";
+import { getPageFromLocation, getPagePath } from "./utils/navigation";
+import { getTomorrowIsoDate, toLocalIsoDate } from "./utils/dates";
 
 const OffersPage = lazy(() => import("./pages/OffersPage"));
 const PackageDetailPage = lazy(() => import("./pages/PackageDetailPage"));
@@ -50,10 +51,11 @@ const unassignedDj = {
   reviews: 0,
 };
 
-const todayIso = new Date().toISOString().slice(0, 10);
+const todayIso = toLocalIsoDate(new Date());
 const adultBirthDateMax = getAdultBirthDateMax();
+const allowEarlyReviews = import.meta.env.DEV;
 const getPageFromHistory = () => {
-  return getPageFromHash(window.location.hash);
+  return getPageFromLocation(window.location.pathname, window.location.hash);
 };
 
 const quoteStatusLabels = {
@@ -69,13 +71,16 @@ export default function App() {
   const [page, setPage] = useState(getPageFromHistory);
   const language = (i18n.resolvedLanguage || i18n.language || "fr").toUpperCase();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [eventDate, setEventDate] = useState("2026-09-12");
+  const [eventDate, setEventDate] = useState(() => getTomorrowIsoDate());
   const {
     availableDjs,
+    catalogueDjs,
     catalogueReady,
     catalogueStatus,
     eventTypeRecords,
     packages,
+    publicPlaylists,
+    publicReviews,
     publicAvailabilityStatus,
   } = useCatalogue(eventDate);
   const [selectedPackageId, setSelectedPackageId] = useState("mariage");
@@ -213,7 +218,7 @@ export default function App() {
   const [playlistStatus, setPlaylistStatus] = useState("");
   const [playlistPending, setPlaylistPending] = useState(false);
   const [playlistBookingId, setPlaylistBookingId] = useState("");
-  const [playlistStyleId, setPlaylistStyleId] = useState("");
+  const [playlistStyleIds, setPlaylistStyleIds] = useState([]);
   const [playlistNotes, setPlaylistNotes] = useState("");
   const [songPlaylistId, setSongPlaylistId] = useState("");
   const [songTitle, setSongTitle] = useState("");
@@ -238,7 +243,7 @@ export default function App() {
     setAppointments, setCancellationRequests, setClientBookings, setClientPayments, setClientProfile,
     setClientProfileStatus, setClientQuotes, setContractStatus, setContracts, setInvoiceStatus, setInvoices,
     setIsAuthenticated, setLoginStatus, setMusicStyles, setPlaylistBookingId, setPlaylistSongs,
-    setPlaylistStatus, setPlaylistStyleId, setPlaylists, setQuoteListStatus, setReviews, setReviewStatus,
+    setPlaylistStatus, setPlaylistStyleIds, setPlaylists, setQuoteListStatus, setReviews, setReviewStatus,
     setSelectedVenueId, setSongPlaylistId, setVenues, setVenueStatus,
   });
 
@@ -296,7 +301,7 @@ export default function App() {
     if (verificationUid && verificationToken) {
       setPage("compte");
       setLoginStatus("Vérification de votre adresse e-mail…");
-      window.history.replaceState({}, document.title, window.location.pathname);
+      window.history.replaceState({ page: "compte" }, document.title, getPagePath("compte"));
       verifyEmail(verificationUid, verificationToken)
         .then(() => setLoginStatus("Votre adresse e-mail est confirmée. Vous pouvez maintenant vous connecter."))
         .catch((error) => {
@@ -326,7 +331,7 @@ export default function App() {
     } else if (paymentResult === "cancelled") {
       setPaymentReturnStatus("Paiement annulé : aucun acompte n’a été confirmé. Vous pourrez réessayer.");
     }
-    window.history.replaceState({}, document.title, window.location.pathname);
+    window.history.replaceState({ page: "compte" }, document.title, getPagePath("compte"));
   }, []);
 
   const { loadAdminDashboard } = useOperationalWorkspaces({
@@ -361,9 +366,13 @@ export default function App() {
     return canPlanAppointment(item, type, plannedAppointmentBookingIds);
   });
   const reviewedBookingIds = new Set(reviews.map((item) => item.booking));
-  const eligibleReviewBookings = clientBookings.filter((item) => canSubmitReview(item, reviewedBookingIds));
+  const eligibleReviewBookings = clientBookings.filter((item) => canSubmitReview(item, reviewedBookingIds, allowEarlyReviews));
 
   useEffect(() => {
+    if (window.location.hash.startsWith("#/")) {
+      const currentPage = getPageFromHistory();
+      window.history.replaceState({ page: currentPage }, document.title, getPagePath(currentPage));
+    }
     const handleHistoryNavigation = () => {
       setPage(getPageFromHistory());
       setMobileNavOpen(false);
@@ -384,9 +393,9 @@ export default function App() {
   }, [distanceKm, durationHours, selectedPackage]);
 
   const navigate = (target) => {
-    const targetHash = getPageHash(target);
-    if (window.location.hash !== targetHash) {
-      window.history.pushState({ page: target }, "", targetHash);
+    const targetPath = getPagePath(target);
+    if (window.location.pathname !== targetPath || window.location.search) {
+      window.history.pushState({ page: target }, "", targetPath);
     }
     setPage(target);
     setMobileNavOpen(false);
@@ -766,7 +775,7 @@ export default function App() {
       setPasswordResetCredentials({ uid: "", token: "" });
       setPasswordResetOpen(false);
       setLoginStatus("Votre mot de passe a été modifié. Vous pouvez maintenant vous connecter.");
-      window.history.replaceState({}, document.title, window.location.pathname);
+      window.history.replaceState({ page: "compte" }, document.title, getPagePath("compte"));
     } catch (error) {
       const details = error.response?.data;
       const firstError = details && Object.values(details).flat()[0];
@@ -1004,8 +1013,8 @@ export default function App() {
 
   const createClientPlaylist = async (event) => {
     event.preventDefault();
-    if (!playlistBookingId || !playlistStyleId) {
-      setPlaylistStatus("Sélectionnez une réservation confirmée et un style musical.");
+    if (!playlistBookingId || playlistStyleIds.length === 0) {
+      setPlaylistStatus("Sélectionnez une réservation confirmée et au moins un style musical.");
       return;
     }
     setPlaylistPending(true);
@@ -1013,12 +1022,14 @@ export default function App() {
     try {
       const response = await apiClient.post("/playlists/", {
         booking: Number(playlistBookingId),
-        main_style: Number(playlistStyleId),
+        main_style: Number(playlistStyleIds[0]),
+        styles: playlistStyleIds.map(Number),
         notes: playlistNotes.trim(),
       });
       setPlaylists((current) => [...current, response.data]);
       setSongPlaylistId(String(response.data.id));
       setPlaylistBookingId("");
+      setPlaylistStyleIds([]);
       setPlaylistNotes("");
       setPlaylistStatus("Playlist créée. Vous pouvez maintenant ajouter vos chansons.");
     } catch (error) {
@@ -1187,6 +1198,7 @@ export default function App() {
 
         {page === "offres" && <OffersPage
           availableDjs={availableDjs}
+          catalogueDjs={catalogueDjs}
           availableEventTypes={availableEventTypes}
           compatiblePackages={compatiblePackages}
           eventDate={eventDate}
@@ -1198,6 +1210,8 @@ export default function App() {
           onOpenDetail={openDetail}
           onReset={() => { setEventType(""); setLocation(""); }}
           publicAvailabilityStatus={publicAvailabilityStatus}
+          publicPlaylists={publicPlaylists}
+          publicReviews={publicReviews}
         />}
 
         {page === "detail" && selectedPackage && <PackageDetailPage detail={{
@@ -1392,7 +1406,28 @@ export default function App() {
                       <form className="playlist-form" onSubmit={createClientPlaylist}>
                         <h4>Créer une playlist</h4>
                         <label>Réservation confirmée<select value={playlistBookingId} onChange={(event) => setPlaylistBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligiblePlaylistBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</option>)}</select></label>
-                        <label>Style principal<select value={playlistStyleId} onChange={(event) => setPlaylistStyleId(event.target.value)} required><option value="">Sélectionner</option>{musicStyles.map((style) => <option value={style.id} key={style.id}>{style.name}</option>)}</select></label>
+                        <fieldset className="playlist-style-selector">
+                          <legend>Styles musicaux <small>Plusieurs choix possibles</small></legend>
+                          <div className="playlist-style-options">
+                            {musicStyles.map((style) => {
+                              const styleId = String(style.id);
+                              return (
+                                <label key={style.id}>
+                                  <input
+                                    type="checkbox"
+                                    checked={playlistStyleIds.includes(styleId)}
+                                    onChange={(event) => setPlaylistStyleIds((current) => (
+                                      event.target.checked
+                                        ? [...current, styleId]
+                                        : current.filter((id) => id !== styleId)
+                                    ))}
+                                  />
+                                  <span>{style.name}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </fieldset>
                         <label>Notes<textarea rows="2" value={playlistNotes} onChange={(event) => setPlaylistNotes(event.target.value)} placeholder="Ambiance souhaitée, moments importants…" /></label>
                         <button className="primary-button" type="submit" disabled={playlistPending}>{playlistPending ? "Création…" : "Créer la playlist"}</button>
                       </form>
@@ -1400,7 +1435,7 @@ export default function App() {
                     {playlists.length > 0 && <>
                       <form className="playlist-form" onSubmit={addPlaylistSong}>
                         <h4>Ajouter une chanson</h4>
-                        <label>Playlist<select value={songPlaylistId} onChange={(event) => setSongPlaylistId(event.target.value)} required>{playlists.map((playlist) => { const style = musicStyles.find((item) => item.id === playlist.main_style); return <option value={playlist.id} key={playlist.id}>Réservation n°{playlist.booking} · {style?.name || "Playlist"}</option>; })}</select></label>
+                        <label>Playlist<select value={songPlaylistId} onChange={(event) => setSongPlaylistId(event.target.value)} required>{playlists.map((playlist) => { const styleNames = (playlist.styles || [playlist.main_style]).map((styleId) => musicStyles.find((item) => item.id === styleId)?.name).filter(Boolean); return <option value={playlist.id} key={playlist.id}>Réservation n°{playlist.booking} · {styleNames.join(", ") || "Playlist"}</option>; })}</select></label>
                         <div className="playlist-song-fields"><label>Titre<input value={songTitle} onChange={(event) => setSongTitle(event.target.value)} required /></label><label>Artiste<input value={songArtist} onChange={(event) => setSongArtist(event.target.value)} required /></label></div>
                         <label>Préférence<select value={songPreference} onChange={(event) => setSongPreference(event.target.value)}><option value="must_play">À jouer absolument</option><option value="play_if_possible">À jouer si possible</option><option value="do_not_play">À ne pas jouer</option></select></label>
                         <button className="primary-button" type="submit" disabled={playlistPending}>{playlistPending ? "Ajout…" : "Ajouter la chanson"}</button>
@@ -1412,6 +1447,7 @@ export default function App() {
                     </>}
                   </div>
                   <ClientReviews
+                    allowEarlyReview={allowEarlyReviews}
                     comment={reviewComment}
                     eligibleBookings={eligibleReviewBookings}
                     onBookingChange={setReviewBookingId}

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -172,6 +174,14 @@ class Booking(models.Model):
         return f"Réservation #{self.pk} - {self.event_date}"
 
 
+    def has_ended(self, at=None):
+        """Indique si la prestation est réellement terminée à la date donnée."""
+        end_at = datetime.combine(self.end_date or self.event_date, self.end_time)
+        if timezone.is_naive(end_at):
+            end_at = timezone.make_aware(end_at, timezone.get_current_timezone())
+        return end_at <= (at or timezone.now())
+
+
 class BookingEquipment(models.Model):
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, verbose_name="réservation")
     equipment = models.ForeignKey(Equipment, on_delete=models.PROTECT, verbose_name="matériel")
@@ -289,7 +299,9 @@ class Contract(models.Model):
 class Playlist(models.Model):
     booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name="playlist", verbose_name="réservation")
     main_style = models.ForeignKey(MusicStyle, on_delete=models.PROTECT, verbose_name="style principal")
+    styles = models.ManyToManyField(MusicStyle, related_name="playlists", verbose_name="styles musicaux")
     notes = models.CharField("notes", max_length=255, blank=True)
+    is_public = models.BooleanField("visible dans le catalogue public", default=True)
     created_at = models.DateTimeField("créé le", auto_now_add=True)
 
     class Meta:
