@@ -169,6 +169,21 @@ REST_FRAMEWORK = {
         "login": config("AUTH_LOGIN_RATE", default="10/minute"),
         "account_action": config("AUTH_ACCOUNT_ACTION_RATE", default="5/minute"),
         "location_search": config("LOCATION_SEARCH_RATE", default="30/minute"),
+        "review": config("REVIEW_RATE", default="20/hour"),
+    },
+}
+
+REVIEW_MIN_INTERVAL_HOURS = config("REVIEW_MIN_INTERVAL_HOURS", default=24, cast=int)
+REVIEW_MAX_PER_BOOKING = config("REVIEW_MAX_PER_BOOKING", default=3, cast=int)
+
+LOG_LEVEL = config("LOG_LEVEL", default="INFO")
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {
+        "apps.payments": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
     },
 }
 

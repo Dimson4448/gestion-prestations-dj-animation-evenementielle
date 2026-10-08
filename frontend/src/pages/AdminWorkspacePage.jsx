@@ -1,31 +1,36 @@
-import { CalendarDays, Check, CircleUserRound, Clock3, FileText } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, CircleUserRound, Clock3, FileText } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { formatEuro, hasBookingEnded } from "../utils/booking";
+import { toLocalIsoDate } from "../utils/dates";
 import LocalizedContent from "../components/LocalizedContent";
 import AdminDashboardOverview from "../components/AdminDashboardOverview";
 
 export default function AdminWorkspacePage({ workspace }) {
   const [selectedSection, setSelectedSection] = useState("overview");
+  const [quoteHistoryOpen, setQuoteHistoryOpen] = useState(false);
   const selectSection = useCallback((section) => setSelectedSection(section), []);
   const {
     acceptAdminQuote, adminBookings, adminCancellationMessages, adminCancellationPendingId,
     adminCancellationRequests, adminDeletionMessages, adminDeletionPendingId, adminDeletionRequests,
-    adminDjs, adminDjSelection, adminPayments, adminPendingId, adminQuotes, adminStatus,
+    adminAllQuotes, adminDjs, adminDjSelection, adminPayments, adminPendingId, adminQuotes, adminReviews, adminStatus,
     approveCancellation, completeAdminBooking, completionPendingId, eventTypeRecords, i18n,
     loadAdminDashboard, packages, quoteStatusLabels, refundAmounts, refundCancellationPayment,
     refundPendingId, rejectCancellation, reviewAccountDeletion, sendQuote, setAdminCancellationMessages,
     setAdminDeletionMessages, setAdminDjSelection, setRefundAmounts,
   } = workspace;
+  const todayIso = toLocalIsoDate(new Date());
+  const activeAdminQuotes = adminQuotes.filter((quote) => quote.event_date >= todayIso);
+  const historicalAdminQuotes = adminQuotes.filter((quote) => quote.event_date < todayIso);
   const bookingsToComplete = adminBookings.filter((item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item));
   return <LocalizedContent>
           <section className={`section-wrap admin-page admin-view-${selectedSection}`}>
-            <AdminDashboardOverview bookings={adminBookings} cancellationRequests={adminCancellationRequests} deletionRequests={adminDeletionRequests} djs={adminDjs} i18n={i18n} onRefresh={loadAdminDashboard} onSectionChange={selectSection} payments={adminPayments} quotes={adminQuotes} />
+            <AdminDashboardOverview allQuotes={adminAllQuotes} bookings={adminBookings} cancellationRequests={adminCancellationRequests} deletionRequests={adminDeletionRequests} djs={adminDjs} i18n={i18n} onRefresh={loadAdminDashboard} onSectionChange={selectSection} payments={adminPayments} quotes={activeAdminQuotes} reviews={adminReviews} />
             <div className="page-heading" id="admin-quotes"><p className="eyebrow dark">Espace administrateur</p><h1>Traiter les demandes de devis</h1><p>Envoyez le devis au client, choisissez un DJ réellement disponible, puis créez automatiquement la réservation, le contrat et la facture d’acompte.</p></div>
-            <div className="admin-toolbar"><div><strong>{adminQuotes.length}</strong><span> devis à traiter</span></div><button className="secondary-button" type="button" onClick={loadAdminDashboard}>Actualiser</button></div>
+            <div className="admin-toolbar"><div><strong>{activeAdminQuotes.length}</strong><span> devis à traiter</span></div><button className="secondary-button" type="button" onClick={loadAdminDashboard}>Actualiser</button></div>
             {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") || adminStatus.includes("clôturée") || adminStatus.includes("refusée") || adminStatus.includes("remboursé") || adminStatus.includes("annulée") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
             <div className="admin-quote-grid">
-              {adminQuotes.map((item) => {
+              {activeAdminQuotes.map((item) => {
                 const itemPackage = packages.find((entry) => String(entry.id) === String(item.package));
                 const itemEventType = eventTypeRecords.find((entry) => String(entry.id) === String(item.event_type));
                 return (
@@ -45,8 +50,27 @@ export default function AdminWorkspacePage({ workspace }) {
                   </article>
                 );
               })}
-              {!adminStatus && !adminQuotes.length && <p className="invoice-empty">Aucun devis en attente de traitement.</p>}
+              {!adminStatus && !activeAdminQuotes.length && <p className="invoice-empty">Aucun devis en attente de traitement.</p>}
             </div>
+            {!!historicalAdminQuotes.length && <section className="admin-quote-history">
+              <button className="dj-panel-trigger" type="button" aria-expanded={quoteHistoryOpen} aria-controls="admin-quote-history" onClick={() => setQuoteHistoryOpen((current) => !current)}>
+                <span><Clock3 /><span><strong>Historique des devis</strong><small>Les événements passés sont conservés pour consultation et ne peuvent plus être traités.</small></span></span>
+                <span className="dj-panel-count">{historicalAdminQuotes.length}</span><ChevronDown className={quoteHistoryOpen ? "open" : ""} />
+              </button>
+              {quoteHistoryOpen && <div className="admin-quote-grid" id="admin-quote-history">
+                {historicalAdminQuotes.map((item) => {
+                  const itemPackage = packages.find((entry) => String(entry.id) === String(item.package));
+                  const itemEventType = eventTypeRecords.find((entry) => String(entry.id) === String(item.event_type));
+                  return <article className="admin-quote-card history-card" key={item.id}>
+                    <div className="quote-row-heading"><h2>Devis n°{item.id}</h2><span className="quote-status expired">Archivé</span></div>
+                    <p><CalendarDays /> {itemEventType?.name || "Événement"} · {new Date(`${item.event_date}T00:00:00`).toLocaleDateString(i18n.language)} à {String(item.start_time).slice(0, 5)}</p>
+                    <p><Clock3 /> {item.duration_hours} heures · {item.guest_count} invités</p>
+                    <p><FileText /> {itemPackage?.name || `Formule n°${item.package}`} · <strong>{formatEuro(item.total_amount)}</strong></p>
+                    <small>Ce devis est archivé car la date de l’événement est passée.</small>
+                  </article>;
+                })}
+              </div>}
+            </section>}
             <div className="admin-booking-panel cancellation-panel">
               <div className="playlist-heading"><div><h2>Demandes d'annulation</h2><p>Consultez le motif du client et répondez avant toute opération de remboursement ou d'annulation.</p></div><FileText /></div>
               <div className="admin-quote-grid">

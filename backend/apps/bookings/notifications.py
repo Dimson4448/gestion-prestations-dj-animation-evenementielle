@@ -4,6 +4,8 @@ from django.core.mail import send_mail
 from django.db import transaction
 
 from apps.accounts.emailing import localized, preferred_language
+from apps.accounts.models import Notification
+from apps.accounts.notifications import create_notification_after_commit
 
 
 def _send_after_commit(subject, message, recipients):
@@ -21,11 +23,11 @@ def _send_localized(user, subjects, messages, context):
         key: localized(value, language) if isinstance(value, dict) and "fr" in value else value
         for key, value in context.items()
     }
-    _send_after_commit(
-        localized(subjects, language).format(**context),
-        localized(messages, language).format(**context),
-        [user.email],
-    )
+    subject = localized(subjects, language).format(**context)
+    message = localized(messages, language).format(**context)
+    _send_after_commit(subject, message, [user.email])
+    link = "/administration" if user.is_staff else ("/dj" if hasattr(user, "dj_profile") else "/compte")
+    create_notification_after_commit(user, subject, message, Notification.BOOKING, link)
 
 
 def notify_quote_created(quote):
@@ -147,13 +149,19 @@ def notify_appointment_changed(appointment, actor):
 
 
 def notify_cancellation_requested(cancellation_request):
-    admin_emails = list(get_user_model().objects.filter(is_staff=True, is_active=True).exclude(email="").values_list("email", flat=True))
+    administrators = list(get_user_model().objects.filter(is_staff=True, is_active=True))
     booking = cancellation_request.booking
-    _send_after_commit(
-        f"Ultimate DJ - demande d'annulation n°{cancellation_request.pk}",
-        f"Une demande d'annulation concerne la réservation n°{booking.pk} du {booking.event_date:%d/%m/%Y}.\n\nMotif : {cancellation_request.reason}\n\nConnectez-vous à l'espace administrateur pour la traiter.",
-        admin_emails,
-    )
+    for administrator in administrators:
+        _send_localized(
+            administrator,
+            {"fr": "Ultimate DJ - demande d'annulation n°{request}", "en": "Ultimate DJ - cancellation request #{request}", "nl": "Ultimate DJ - annuleringsverzoek nr. {request}"},
+            {
+                "fr": "Une demande d'annulation concerne la réservation n°{booking} du {date}.\n\nMotif : {reason}\n\nConnectez-vous à l'espace administrateur pour la traiter.",
+                "en": "A cancellation request concerns booking #{booking} on {date}.\n\nReason: {reason}\n\nSign in to the administrator area to process it.",
+                "nl": "Een annuleringsverzoek betreft reservatie nr. {booking} op {date}.\n\nReden: {reason}\n\nMeld u aan bij de beheerdersruimte om dit te behandelen.",
+            },
+            {"request": cancellation_request.pk, "booking": booking.pk, "date": booking.event_date.strftime("%d/%m/%Y"), "reason": cancellation_request.reason},
+        )
 
 
 def notify_cancellation_reviewed(cancellation_request):

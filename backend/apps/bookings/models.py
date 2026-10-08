@@ -354,7 +354,7 @@ class Review(models.Model):
         (REJECTED, "Rejeté"),
     ]
 
-    booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name="review", verbose_name="réservation")
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name="reviews", verbose_name="réservation")
     client = models.ForeignKey(ClientProfile, on_delete=models.PROTECT, related_name="reviews", verbose_name="client")
     dj = models.ForeignKey(DJProfile, on_delete=models.PROTECT, related_name="reviews", verbose_name="DJ")
     rating = models.PositiveSmallIntegerField("note")

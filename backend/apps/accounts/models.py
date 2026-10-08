@@ -94,6 +94,39 @@ class AccountDeletionRequest(models.Model):
         return f"Suppression #{self.pk} - {self.client}"
 
 
+class Notification(models.Model):
+    """Notification interne liée à une action métier et visible par son destinataire."""
+
+    BOOKING = "booking"
+    PAYMENT = "payment"
+    REVIEW = "review"
+    ACCOUNT = "account"
+    TYPE_CHOICES = [
+        (BOOKING, "Dossier"),
+        (PAYMENT, "Paiement"),
+        (REVIEW, "Avis"),
+        (ACCOUNT, "Compte"),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications", verbose_name="destinataire")
+    notification_type = models.CharField("type", max_length=20, choices=TYPE_CHOICES, default=BOOKING)
+    title = models.CharField("titre", max_length=180)
+    message = models.TextField("message")
+    link = models.CharField("lien", max_length=120, blank=True)
+    created_at = models.DateTimeField("créée le", auto_now_add=True)
+    read_at = models.DateTimeField("lue le", blank=True, null=True)
+
+    class Meta:
+        db_table = "account_notifications"
+        verbose_name = "notification"
+        verbose_name_plural = "notifications"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["user", "read_at", "created_at"], name="idx_notif_user_read_created")]
+
+    def __str__(self):
+        return f"Notification #{self.pk} - {self.user}"
+
+
 class DJProfile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,

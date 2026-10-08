@@ -5,6 +5,7 @@ import {
   calculateQuoteEstimate,
   canCreatePlaylist,
   canPlanAppointment,
+  canRequestCancellation,
   canSubmitReview,
   formatEuro,
   hasBookingEnded,
@@ -31,6 +32,18 @@ test("hasBookingEnded refuse une prestation encore en cours", () => {
   const booking = { event_date: "2026-08-06", end_time: "22:00:00" };
 
   assert.equal(hasBookingEnded(booking, new Date("2026-08-06T21:59:59")), false);
+});
+
+test("canRequestCancellation exige une réservation future dans un statut annulable", () => {
+  const booking = {
+    status: "confirmed",
+    event_date: "2026-10-13",
+    start_time: "18:00:00",
+  };
+
+  assert.equal(canRequestCancellation(booking, new Date("2026-10-12T18:00:00")), true);
+  assert.equal(canRequestCancellation(booking, new Date("2026-10-13T18:00:00")), false);
+  assert.equal(canRequestCancellation({ ...booking, status: "performed" }, new Date("2026-10-12T18:00:00")), false);
 });
 
 test("hasBookingEnded refuse une réservation sans date valide", () => {
@@ -95,7 +108,7 @@ test("canPlanAppointment respecte le type d'événement et les rendez-vous exist
   assert.equal(canPlanAppointment(booking, requiredType, new Set([18])), false);
 });
 
-test("canSubmitReview attend la réalisation et évite un second avis", () => {
+test("canSubmitReview attend la réalisation et autorise plusieurs avis", () => {
   const performed = {
     id: 25,
     status: "performed",
@@ -106,9 +119,9 @@ test("canSubmitReview attend la réalisation et évite un second avis", () => {
 
   assert.equal(canSubmitReview(performed), true);
   assert.equal(canSubmitReview({ ...performed, event_date: "2099-01-01", end_date: "2099-01-02" }), false);
-  assert.equal(canSubmitReview({ ...performed, status: "confirmed", deposit_paid: true, event_date: "2099-01-01", end_date: "2099-01-02" }, new Set(), true), true);
+  assert.equal(canSubmitReview({ ...performed, status: "confirmed", deposit_paid: true, event_date: "2099-01-01", end_date: "2099-01-02" }, true), true);
   assert.equal(canSubmitReview({ ...performed, status: "confirmed" }), false);
-  assert.equal(canSubmitReview(performed, new Set([25])), false);
+  assert.equal(canSubmitReview(performed), true);
 });
 
 test("mapAvailableDjs transforme les créneaux Django sans dupliquer un DJ", () => {

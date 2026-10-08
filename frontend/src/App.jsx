@@ -25,7 +25,7 @@ import ClientAccountDeletion from "./components/ClientAccountDeletion";
 import ClientQuotes from "./components/ClientQuotes";
 import ClientAccountOverview from "./components/ClientAccountOverview";
 import HomePage from "./pages/HomePage";
-import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canSubmitReview, formatEuro } from "./utils/booking";
+import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canRequestCancellation, canSubmitReview, formatEuro } from "./utils/booking";
 import { filterPackagesForEventType } from "./utils/catalogue";
 import { allowedEventTypeNames } from "./utils/eventTypes";
 import useCatalogue from "./hooks/useCatalogue";
@@ -179,6 +179,8 @@ export default function App() {
   const [checkoutStatus, setCheckoutStatus] = useState("");
   const [paymentReturnStatus, setPaymentReturnStatus] = useState("");
   const [adminQuotes, setAdminQuotes] = useState([]);
+  const [adminAllQuotes, setAdminAllQuotes] = useState([]);
+  const [adminReviews, setAdminReviews] = useState([]);
   const [adminDjs, setAdminDjs] = useState([]);
   const [adminDjSelection, setAdminDjSelection] = useState({});
   const [adminStatus, setAdminStatus] = useState("");
@@ -194,8 +196,8 @@ export default function App() {
   const [djAppointmentPendingId, setDjAppointmentPendingId] = useState(null);
   const [djSongPendingId, setDjSongPendingId] = useState(null);
   const [availabilityPendingId, setAvailabilityPendingId] = useState(null);
-  const [availabilityDate, setAvailabilityDate] = useState(todayIso);
-  const [availabilityEndDate, setAvailabilityEndDate] = useState(todayIso);
+  const [availabilityDate, setAvailabilityDate] = useState(getTomorrowIsoDate);
+  const [availabilityEndDate, setAvailabilityEndDate] = useState(getTomorrowIsoDate);
   const [availabilityStart, setAvailabilityStart] = useState("18:00");
   const [availabilityEnd, setAvailabilityEnd] = useState("23:59");
   const [availabilityStatus, setAvailabilityStatus] = useState("available");
@@ -336,7 +338,7 @@ export default function App() {
 
   const { loadAdminDashboard } = useOperationalWorkspaces({
     currentUser, isAuthenticated, setAdminBookings, setAdminCancellationRequests,
-    setAdminDeletionRequests, setAdminDjs, setAdminPayments, setAdminQuotes, setAdminStatus,
+    setAdminAllQuotes, setAdminDeletionRequests, setAdminDjs, setAdminPayments, setAdminQuotes, setAdminReviews, setAdminStatus,
     setDjAppointments, setDjAvailabilities, setDjBookings, setDjSongs, setDjStatus,
   });
 
@@ -358,6 +360,9 @@ export default function App() {
   }, [selectedPackage, selectedPackageId]);
   const playlistBookingIds = new Set(playlists.map((item) => item.booking));
   const eligiblePlaylistBookings = clientBookings.filter((item) => canCreatePlaylist(item, playlistBookingIds));
+  const editablePlaylists = playlists.filter((playlist) => (
+    canRequestCancellation(clientBookings.find((booking) => booking.id === playlist.booking))
+  ));
   const plannedAppointmentBookingIds = new Set(
     appointments.filter((item) => ["proposed", "counter_proposed", "accepted"].includes(item.status)).map((item) => item.booking),
   );
@@ -365,8 +370,7 @@ export default function App() {
     const type = eventTypeRecords.find((record) => record.id === item.event_type);
     return canPlanAppointment(item, type, plannedAppointmentBookingIds);
   });
-  const reviewedBookingIds = new Set(reviews.map((item) => item.booking));
-  const eligibleReviewBookings = clientBookings.filter((item) => canSubmitReview(item, reviewedBookingIds, allowEarlyReviews));
+  const eligibleReviewBookings = clientBookings.filter((item) => canSubmitReview(item, allowEarlyReviews));
 
   useEffect(() => {
     if (window.location.hash.startsWith("#/")) {
@@ -1129,7 +1133,7 @@ export default function App() {
       setReviewBookingId("");
       setReviewRating(5);
       setReviewComment("");
-      setReviewStatus("Merci ! Votre avis est enregistré et attend sa modération.");
+      setReviewStatus(t("clientReviews.publishedMessage"));
     } catch (error) {
       const details = error.response?.data;
       const firstError = details && Object.values(details).flat()[0];
@@ -1229,7 +1233,7 @@ export default function App() {
         {page === "administration" && currentUser?.is_staff && <AdminWorkspacePage workspace={{
           acceptAdminQuote, adminBookings, adminCancellationMessages, adminCancellationPendingId,
           adminCancellationRequests, adminDeletionMessages, adminDeletionPendingId, adminDeletionRequests,
-          adminDjs, adminDjSelection, adminPayments, adminPendingId, adminQuotes, adminStatus,
+          adminAllQuotes, adminDjs, adminDjSelection, adminPayments, adminPendingId, adminQuotes, adminReviews, adminStatus,
           approveCancellation, completeAdminBooking, completionPendingId, eventTypeRecords, i18n,
           loadAdminDashboard, packages, quoteStatusLabels, refundAmounts, refundCancellationPayment,
           refundPendingId, rejectCancellation, reviewAccountDeletion, sendQuote, setAdminCancellationMessages,
@@ -1351,7 +1355,7 @@ export default function App() {
                     <div className="playlist-heading"><div><h3>Mes demandes d'annulation</h3><p>Une demande n'annule pas automatiquement la prestation et ne déclenche aucun remboursement.</p></div><FileText /></div>
                     {cancellationStatus && <p className={cancellationStatus.includes("transmise") ? "form-message success" : "form-message"} role="status">{cancellationStatus}</p>}
                     <div className="cancellation-list">
-                      {clientBookings.filter((booking) => ["preparatory_meeting", "confirmed", "paid"].includes(booking.status)).map((booking) => {
+                      {clientBookings.filter((booking) => canRequestCancellation(booking)).map((booking) => {
                         const bookingRequests = cancellationRequests.filter((request) => request.booking === booking.id);
                         const pendingRequest = bookingRequests.find((request) => request.status === "pending");
                         return (
@@ -1362,7 +1366,7 @@ export default function App() {
                           </article>
                         );
                       })}
-                      {!clientBookings.some((booking) => ["preparatory_meeting", "confirmed", "paid"].includes(booking.status)) && <p className="invoice-empty">Aucune réservation ne peut actuellement faire l'objet d'une demande.</p>}
+                      {!clientBookings.some((booking) => canRequestCancellation(booking)) && <p className="invoice-empty">Aucune réservation ne peut actuellement faire l'objet d'une demande.</p>}
                     </div>
                   </div>
                   <ClientContracts
@@ -1432,19 +1436,22 @@ export default function App() {
                         <button className="primary-button" type="submit" disabled={playlistPending}>{playlistPending ? "Création…" : "Créer la playlist"}</button>
                       </form>
                     )}
-                    {playlists.length > 0 && <>
+                    {editablePlaylists.length > 0 && (
                       <form className="playlist-form" onSubmit={addPlaylistSong}>
                         <h4>Ajouter une chanson</h4>
-                        <label>Playlist<select value={songPlaylistId} onChange={(event) => setSongPlaylistId(event.target.value)} required>{playlists.map((playlist) => { const styleNames = (playlist.styles || [playlist.main_style]).map((styleId) => musicStyles.find((item) => item.id === styleId)?.name).filter(Boolean); return <option value={playlist.id} key={playlist.id}>Réservation n°{playlist.booking} · {styleNames.join(", ") || "Playlist"}</option>; })}</select></label>
+                        <label>Playlist<select value={songPlaylistId} onChange={(event) => setSongPlaylistId(event.target.value)} required>{editablePlaylists.map((playlist) => { const styleNames = (playlist.styles || [playlist.main_style]).map((styleId) => musicStyles.find((item) => item.id === styleId)?.name).filter(Boolean); return <option value={playlist.id} key={playlist.id}>Réservation n°{playlist.booking} · {styleNames.join(", ") || "Playlist"}</option>; })}</select></label>
                         <div className="playlist-song-fields"><label>Titre<input value={songTitle} onChange={(event) => setSongTitle(event.target.value)} required /></label><label>Artiste<input value={songArtist} onChange={(event) => setSongArtist(event.target.value)} required /></label></div>
                         <label>Préférence<select value={songPreference} onChange={(event) => setSongPreference(event.target.value)}><option value="must_play">À jouer absolument</option><option value="play_if_possible">À jouer si possible</option><option value="do_not_play">À ne pas jouer</option></select></label>
                         <button className="primary-button" type="submit" disabled={playlistPending}>{playlistPending ? "Ajout…" : "Ajouter la chanson"}</button>
                       </form>
+                    )}
+                    {playlists.length > 0 && <>
                       <div className="playlist-songs">
                         {playlistSongs.map((song) => <article key={song.id}><div><strong>{song.title}</strong><span>{song.artist}</span></div><div><span>{song.preference_level === "must_play" ? "Incontournable" : song.preference_level === "do_not_play" ? "À éviter" : "Si possible"}</span><small className={`song-status ${song.status}`}>{song.status === "approved" ? "Approuvée" : song.status === "rejected" ? "Refusée" : "Demandée"}</small></div></article>)}
                         {!playlistSongs.length && <p className="invoice-empty">Aucune chanson ajoutée.</p>}
                       </div>
                     </>}
+                    {playlists.length > 0 && !editablePlaylists.length && <p className="invoice-empty">La playlist reste consultable, mais elle ne peut plus être modifiée après la prestation.</p>}
                   </div>
                   <ClientReviews
                     allowEarlyReview={allowEarlyReviews}

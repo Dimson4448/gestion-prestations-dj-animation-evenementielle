@@ -6,28 +6,32 @@ import { unwrapApiList } from "../utils/apiCollections";
 export default function useOperationalWorkspaces(workspaces) {
   const {
     currentUser, isAuthenticated, setAdminBookings, setAdminCancellationRequests,
-    setAdminDeletionRequests, setAdminDjs, setAdminPayments, setAdminQuotes, setAdminStatus,
+    setAdminAllQuotes, setAdminDeletionRequests, setAdminDjs, setAdminPayments, setAdminQuotes, setAdminReviews, setAdminStatus,
     setDjAppointments, setDjAvailabilities, setDjBookings, setDjSongs, setDjStatus,
   } = workspaces;
 
   const loadAdminDashboard = useCallback(async () => {
     setAdminStatus("Chargement des devis, réservations et DJs…");
     try {
-      const [quotesResponse, djsResponse, bookingsResponse, paymentsResponse, deletionResponse] = await Promise.all([
+      const [quotesResponse, djsResponse, bookingsResponse, paymentsResponse, deletionResponse, reviewsResponse] = await Promise.all([
         apiClient.get("/quotes/", { params: { ordering: "-created_at" } }),
         apiClient.get("/djs/", { params: { ordering: "stage_name" } }),
         apiClient.get("/bookings/", { params: { ordering: "-event_date" } }),
         apiClient.get("/payments/", { params: { ordering: "-paid_at" } }),
         getAccountDeletionRequests(),
+        apiClient.get("/reviews/", { params: { ordering: "-created_at" } }),
       ]);
       const quotes = unwrapApiList(quotesResponse.data);
       const djs = unwrapApiList(djsResponse.data);
       const bookingRecords = unwrapApiList(bookingsResponse.data);
       const payments = unwrapApiList(paymentsResponse.data);
+      const reviews = unwrapApiList(reviewsResponse.data);
       const requestResponses = await Promise.all(
         bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
       );
       setAdminQuotes(quotes.filter((item) => ["draft", "sent"].includes(item.status)));
+      setAdminAllQuotes(quotes);
+      setAdminReviews(reviews);
       setAdminDjs(djs);
       setAdminPayments(payments);
       setAdminDeletionRequests((Array.isArray(deletionResponse) ? deletionResponse : []).filter((item) => item.status === "pending"));

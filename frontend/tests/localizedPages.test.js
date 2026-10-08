@@ -24,10 +24,12 @@ test("la fiche d'une offre importe toutes les icônes utilisées par ses actions
   assert.match(source, /Demander un devis <ChevronRight \/>/);
 });
 
-test("l'espace DJ ouvre les rendez-vous et les demandes musicales à la demande", async () => {
+test("l'espace DJ ouvre indépendamment les rendez-vous et les demandes musicales", async () => {
   const source = await readFile(new URL("../src/pages/DJWorkspacePage.jsx", import.meta.url), "utf8");
   assert.match(source, /aria-controls="dj-appointments-panel"/);
   assert.match(source, /aria-controls="dj-songs-panel"/);
-  assert.match(source, /aria-expanded=\{openPanel === "appointments"\}/);
-  assert.match(source, /aria-expanded=\{openPanel === "songs"\}/);
+  assert.match(source, /aria-expanded=\{openPanels\.appointments\}/);
+  assert.match(source, /aria-expanded=\{openPanels\.songs\}/);
+  assert.match(source, /togglePanel\("appointments"\)/);
+  assert.match(source, /togglePanel\("songs"\)/);
 });

@@ -16,6 +16,15 @@ export const hasBookingEnded = (booking, now = new Date()) => {
   return !Number.isNaN(end.getTime()) && end <= now;
 };
 
+const cancellableBookingStatuses = new Set(["preparatory_meeting", "confirmed", "paid"]);
+
+export const canRequestCancellation = (booking, now = new Date()) => {
+  if (!booking?.event_date || !cancellableBookingStatuses.has(booking.status)) return false;
+
+  const start = new Date(`${booking.event_date}T${booking.start_time || "00:00:00"}`);
+  return !Number.isNaN(start.getTime()) && start > now;
+};
+
 const safeNumber = (value) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
@@ -52,11 +61,10 @@ export const canPlanAppointment = (booking, eventType, plannedBookingIds = new S
       && !plannedBookingIds.has(booking.id),
   );
 
-export const canSubmitReview = (booking, reviewedBookingIds = new Set(), allowEarlyReview = false) =>
+export const canSubmitReview = (booking, allowEarlyReview = false) =>
   Boolean(
     ((completedBookingStatuses.has(booking?.status) && hasBookingEnded(booking))
       || (allowEarlyReview && booking?.status === "confirmed" && booking?.deposit_paid))
-      && !reviewedBookingIds.has(booking.id),
   );
 
 export const mapAvailableDjs = (slots) => {

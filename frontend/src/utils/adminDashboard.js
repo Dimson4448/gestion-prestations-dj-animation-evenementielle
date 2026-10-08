@@ -4,13 +4,14 @@ const numberValue = (value) => {
 };
 
 export const getAdminDashboardMetrics = ({
-  bookings = [], cancellationRequests = [], deletionRequests = [], djs = [], payments = [], quotes = [],
+  allQuotes = [], bookings = [], cancellationRequests = [], deletionRequests = [], djs = [], payments = [], quotes = [], reviews = [],
 }, today = new Date()) => {
   const todayIso = today.toISOString().slice(0, 10);
   const paidPayments = payments.filter((payment) => ["paid", "refunded"].includes(payment.status));
   const grossRevenue = paidPayments.reduce((total, payment) => total + numberValue(payment.amount), 0);
   const refundedRevenue = payments.reduce((total, payment) => total + numberValue(payment.refunded_amount), 0);
   const confirmedBookings = bookings.filter((booking) => booking.status === "confirmed");
+  const completedBookings = bookings.filter((booking) => ["performed", "paid"].includes(booking.status));
   const upcomingBookings = confirmedBookings
     .filter((booking) => booking.event_date >= todayIso)
     .sort((left, right) => left.event_date.localeCompare(right.event_date));
@@ -19,6 +20,13 @@ export const getAdminDashboardMetrics = ({
     activeDjs: djs.length,
     alerts: cancellationRequests.length + deletionRequests.length,
     confirmedBookings: confirmedBookings.length,
+    completedBookings: completedBookings.length,
+    quoteConversionRate: allQuotes.length ? Math.round((bookings.length / allQuotes.length) * 100) : 0,
+    reviewAverage: reviews.length ? (reviews.reduce((total, review) => total + numberValue(review.rating), 0) / reviews.length).toFixed(1) : null,
+    reviewsByDj: djs.map((dj) => {
+      const djReviews = reviews.filter((review) => Number(review.dj) === Number(dj.id));
+      return { id: dj.id, name: dj.stage_name, count: djReviews.length, average: djReviews.length ? (djReviews.reduce((total, review) => total + numberValue(review.rating), 0) / djReviews.length).toFixed(1) : null };
+    }).sort((left, right) => Number(right.average || 0) - Number(left.average || 0)),
     grossRevenue,
     netRevenue: Math.max(grossRevenue - refundedRevenue, 0),
     pendingPayments: payments.filter((payment) => payment.status === "pending").length,

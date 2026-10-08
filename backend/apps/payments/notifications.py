@@ -4,6 +4,8 @@ from django.core.mail import send_mail
 from django.db import transaction
 
 from apps.accounts.emailing import localized, preferred_language
+from apps.accounts.models import Notification
+from apps.accounts.notifications import create_notification_after_commit
 
 from .models import Refund
 
@@ -28,6 +30,7 @@ def notify_payment_confirmed(payment):
         "nl": "Uw betaling van {amount} {currency} voor factuur {invoice} werd door Stripe bevestigd.\n\nDe bijgewerkte factuur is beschikbaar in uw klantenruimte.",
     }, language).format(**context)
     _send_after_commit(subject, message, [user.email])
+    create_notification_after_commit(user, subject, message, Notification.PAYMENT)
 
 
 def notify_refund_processed(refund):
@@ -55,3 +58,4 @@ def notify_refund_processed(refund):
     else:
         return
     _send_after_commit(subject, message, recipients)
+    create_notification_after_commit(user, subject, message, Notification.PAYMENT)

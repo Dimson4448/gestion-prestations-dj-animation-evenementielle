@@ -16,7 +16,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJApplication, DJProfile
+from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJApplication, DJProfile, Notification
 from apps.accounts.services import DJApplicationApprovalError, approve_dj_application
 from apps.availability.models import DJAvailability
 from apps.bookings.models import Booking, CancellationRequest, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Review, Venue
@@ -857,6 +857,66 @@ class ApiUltimateDJTests(APITestCase):
         self.assertNotIn(created.data["id"], public_ids)
         self.assertNotIn(reserved_slot.pk, public_ids)
 
+    def test_un_nouveau_creneau_commence_au_plus_tot_demain_et_le_public_ne_voit_pas_le_passe(self):
+        dj, _ = self.create_available_dj()
+        past_slot = DJAvailability.objects.create(
+            dj=dj,
+            available_date=date.today() - timedelta(days=1),
+            start_time="18:00:00",
+            end_time="23:00:00",
+            status=DJAvailability.AVAILABLE,
+        )
+        self.client.force_authenticate(user=dj.user)
+        created_today = self.client.post(
+            "/api/v1/availability/",
+            {
+                "available_date": str(date.today()),
+                "start_time": "18:00:00",
+                "end_time": "23:00:00",
+                "status": DJAvailability.AVAILABLE,
+            },
+            format="json",
+        )
+        self.assertEqual(created_today.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("available_date", created_today.data)
+
+        archived_update = self.client.patch(
+            f"/api/v1/availability/{past_slot.pk}/",
+            {"status": DJAvailability.BLOCKED},
+            format="json",
+        )
+        archived_delete = self.client.delete(f"/api/v1/availability/{past_slot.pk}/")
+        self.assertEqual(archived_update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(archived_delete.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=None)
+        public_response = self.client.get("/api/v1/availability/")
+        public_ids = {item["id"] for item in public_response.data["results"]}
+        self.assertNotIn(past_slot.pk, public_ids)
+
+    def test_un_dj_ne_peut_pas_creer_de_creneaux_qui_se_chevauchent(self):
+        dj, _ = self.create_available_dj()
+        event_date = date.today() + timedelta(days=45)
+        DJAvailability.objects.create(
+            dj=dj,
+            available_date=event_date,
+            start_time="18:00:00",
+            end_time="23:00:00",
+        )
+        self.client.force_authenticate(user=dj.user)
+        response = self.client.post(
+            "/api/v1/availability/",
+            {
+                "available_date": str(event_date),
+                "start_time": "20:00:00",
+                "end_time": "23:30:00",
+                "status": DJAvailability.AVAILABLE,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("available_date", response.data)
+
     def test_un_creneau_et_une_reservation_peuvent_traverser_minuit(self):
         dj, _ = self.create_available_dj()
         event_date = date.today() + timedelta(days=40)
@@ -1552,6 +1612,27 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(public_playlist["dj_stage_name"], booking.dj.stage_name)
         self.assertEqual(public_playlist["songs"][0]["title"], "September")
 
+    def test_client_ne_peut_plus_ajouter_de_chanson_apres_le_debut_de_la_prestation(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        booking.deposit_paid = True
+        booking.status = Booking.CONFIRMED
+        booking.event_date = date.today() - timedelta(days=1)
+        booking.save(update_fields=["deposit_paid", "status", "event_date"])
+        style, _ = MusicStyle.objects.get_or_create(name="Funk")
+        playlist = Playlist.objects.create(booking=booking, main_style=style)
+        playlist.styles.add(style)
+        self.client.force_authenticate(user=self.client_user)
+
+        response = self.client.post(
+            "/api/v1/playlist-songs/",
+            {"playlist": playlist.pk, "title": "Superstition", "artist": "Stevie Wonder"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("playlist", response.data)
+
     def test_rendez_vous_preparatoire_suit_la_reservation_confirmee(self):
         contract = self.create_contract_for_client()
         booking = contract.booking
@@ -1747,11 +1828,12 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(created.data["dj"], booking.dj_id)
         duplicate = self.client.post(
             "/api/v1/reviews/",
-            {"booking": booking.pk, "rating": 4, "comment": "Deuxième avis interdit"},
+            {"booking": booking.pk, "rating": 4, "comment": "Deuxième avis publié"},
             format="json",
         )
         deletion = self.client.delete(f"/api/v1/reviews/{created.data['id']}/")
         self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("délai", str(duplicate.data))
         self.assertEqual(deletion.status_code, status.HTTP_403_FORBIDDEN)
 
         edited = self.client.patch(
@@ -1791,6 +1873,35 @@ class ApiUltimateDJTests(APITestCase):
             format="json",
         )
         self.assertEqual(locked.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_notifications_internes_sont_privees_et_peuvent_etre_lues(self):
+        notification = Notification.objects.create(
+            user=self.client_user,
+            notification_type=Notification.BOOKING,
+            title="Votre devis a été envoyé",
+            message="Consultez votre espace client.",
+            link="/compte",
+        )
+        other_user = get_user_model().objects.create_user(
+            username="autre_notification",
+            email="autre-notification@example.com",
+            password="MotDePasseTest2026!",
+        )
+        Notification.objects.create(
+            user=other_user,
+            notification_type=Notification.ACCOUNT,
+            title="Privée",
+            message="Cette notification ne doit pas être visible.",
+        )
+
+        self.client.force_authenticate(user=self.client_user)
+        listed = self.client.get("/api/v1/notifications/")
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["id"] for item in listed.data["results"]], [notification.pk])
+
+        read = self.client.post(f"/api/v1/notifications/{notification.pk}/read/")
+        self.assertEqual(read.status_code, status.HTTP_200_OK)
+        self.assertIsNotNone(read.data["read_at"])
 
     def test_dj_cloture_la_prestation_et_genere_la_facture_de_solde(self):
         contract = self.create_contract_for_client()

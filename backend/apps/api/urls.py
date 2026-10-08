@@ -14,6 +14,7 @@ from .views import (
     EventTypeViewSet,
     InvoiceViewSet,
     MusicStyleViewSet,
+    NotificationViewSet,
     PackageViewSet,
     PaymentViewSet,
     PlaylistSongViewSet,
@@ -58,6 +59,7 @@ router.register("payments", PaymentViewSet, basename="payment")
 router.register("playlists", PlaylistViewSet, basename="playlist")
 router.register("playlist-songs", PlaylistSongViewSet, basename="playlist-song")
 router.register("reviews", ReviewViewSet, basename="review")
+router.register("notifications", NotificationViewSet, basename="notification")
 
 urlpatterns = [
     path("auth/register/", register_client, name="register-client"),

@@ -13,3 +13,7 @@ export function validateAvailabilityTimes(startDate, startTime, endDate, endTime
   }
   return { valid: true, error: "" };
 }
+
+export function isHistoricalAvailability(availability, tomorrowIso) {
+  return Boolean(availability?.available_date && availability.available_date < tomorrowIso);
+}

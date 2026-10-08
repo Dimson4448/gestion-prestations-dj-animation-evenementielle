@@ -38,7 +38,7 @@ export default function ClientReviews({
 
       {isOpen && <div className="review-panel-content" id={panelId}>
         {allowEarlyReview && <p className="review-test-notice">{t("reviewTestMode")}</p>}
-        {statusMessage && <p className={statusMessage.includes("Merci") ? "form-message success" : "invoice-empty"} role="status">{statusMessage}</p>}
+        {statusMessage && <p className={statusMessage === t("clientReviews.publishedMessage") ? "form-message success" : "invoice-empty"} role="status">{statusMessage}</p>}
 
         {eligibleBookings.length > 0 ? (
           <form className="playlist-form" onSubmit={onSubmit}>
@@ -67,7 +67,7 @@ export default function ClientReviews({
           <button className="primary-button" type="submit" disabled={pending}>{pending ? t("clientReviews.sending") : t("clientReviews.send")}</button>
           </form>
         ) : (
-          <p className="invoice-empty">{t("clientReviews.notAvailableYet")}</p>
+          <p className="invoice-empty">{reviews.length ? t("clientReviews.alreadySubmitted") : t("clientReviews.notAvailableYet")}</p>
         )}
 
         <div className="review-list">

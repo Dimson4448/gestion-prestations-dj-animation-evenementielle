@@ -1,21 +1,25 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, ChevronDown, Clock3, FileText, Music2, ShieldCheck } from "lucide-react";
+import { CalendarDays, ChevronDown, Clock3, FileText, Music2, ShieldCheck, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { formatEuro, hasBookingEnded } from "../utils/booking";
+import { isHistoricalAvailability } from "../utils/availability";
+import { getTomorrowIsoDate } from "../utils/dates";
 import LocalizedContent from "../components/LocalizedContent";
 import { apiClient } from "../api";
 import { unwrapApiList } from "../utils/apiCollections";
 
-const todayIso = new Date().toISOString().slice(0, 10);
-
 export default function DJWorkspacePage({ workspace }) {
   const { t } = useTranslation();
-  const [openPanel, setOpenPanel] = useState(null);
+  const [openPanels, setOpenPanels] = useState({ appointments: false, songs: false });
   const [quoteRequests, setQuoteRequests] = useState([]);
   const [quoteRequestStatus, setQuoteRequestStatus] = useState(t("djRequests.loading"));
   const [quotePendingId, setQuotePendingId] = useState(null);
+  const [djReviews, setDjReviews] = useState([]);
+  const [djReviewsStatus, setDjReviewsStatus] = useState(t("djReviews.loading"));
   const [appointmentDrafts, setAppointmentDrafts] = useState({});
+  const [availabilityHistoryOpen, setAvailabilityHistoryOpen] = useState(false);
+  const [tomorrowIso, setTomorrowIso] = useState(getTomorrowIsoDate);
   const {
     availabilityDate, availabilityEnd, availabilityEndDate, availabilityMessage, availabilityPendingId, availabilityReason, availabilityStart,
     availabilityStatus, completeDjBooking, createDjAvailability, deleteDjAvailability, djAppointments,
@@ -23,6 +27,27 @@ export default function DJWorkspacePage({ workspace }) {
     i18n, setAvailabilityDate, setAvailabilityEnd, setAvailabilityEndDate, setAvailabilityReason, setAvailabilityStart, setDjBookings,
     setAvailabilityStatus, updateDjAppointment, updateDjAvailability, updateDjSong,
   } = workspace;
+  const activeAvailabilities = djAvailabilities.filter((availability) => !isHistoricalAvailability(availability, tomorrowIso));
+  const historicalAvailabilities = djAvailabilities.filter((availability) => isHistoricalAvailability(availability, tomorrowIso));
+  const upcomingBookings = djBookings.filter((booking) => booking.status === "confirmed" && booking.event_date >= tomorrowIso).slice(0, 6);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTomorrowIso(getTomorrowIsoDate()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    apiClient.get("/reviews/", { params: { ordering: "-created_at" } })
+      .then((response) => {
+        if (!active) return;
+        const records = unwrapApiList(response.data);
+        setDjReviews(records);
+        setDjReviewsStatus(records.length ? "" : t("djReviews.empty"));
+      })
+      .catch(() => active && setDjReviewsStatus(t("djReviews.loadError")));
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -60,6 +85,10 @@ export default function DJWorkspacePage({ workspace }) {
       ...current,
       [appointmentId]: { mode: "online", ...current[appointmentId], [field]: value },
     }));
+  };
+
+  const togglePanel = (panel) => {
+    setOpenPanels((current) => ({ ...current, [panel]: !current[panel] }));
   };
 
   const decideAppointment = async (appointment, status) => {
@@ -102,6 +131,17 @@ export default function DJWorkspacePage({ workspace }) {
             </section>
             <div className="admin-toolbar"><div><strong>{djBookings.length}</strong><span> prestations affectées</span></div></div>
             {djStatus && <p className={djStatus.includes("clôturée") || djStatus.includes("marqué") || djStatus.includes("annulé") || djStatus.includes("acceptée") || djStatus.includes("refusée") || djStatus.includes("enregistré") || djStatus.includes("maintenant") || djStatus.includes("supprimé") ? "form-message success" : "form-message"} role="status">{djStatus}</p>}
+            <section className="dj-agenda-panel">
+              <div className="playlist-heading"><div><h2>Mon agenda à venir</h2><p>Vos prochaines prestations confirmées et leur niveau de préparation.</p></div><CalendarDays /></div>
+              <div className="dj-agenda-list">
+                {upcomingBookings.map((booking) => <article key={booking.id}>
+                  <time dateTime={booking.event_date}>{new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language, { day: "2-digit", month: "short" })}<small>{String(booking.start_time).slice(0, 5)}</small></time>
+                  <div><strong>{booking.event_type_name || `Réservation n°${booking.id}`}</strong><span>{booking.client_name || `Client — réservation n°${booking.id}`}</span><small>{booking.venue_name || "Lieu à confirmer"}{booking.venue_city ? `, ${booking.venue_city}` : ""}</small></div>
+                  <span className={`agenda-readiness ${booking.deposit_paid ? "ready" : "pending"}`}>{booking.deposit_paid ? "Acompte confirmé" : "Acompte en attente"}</span>
+                </article>)}
+                {!upcomingBookings.length && <p className="invoice-empty">Aucune prestation confirmée à venir.</p>}
+              </div>
+            </section>
             <div className="admin-quote-grid">
               {djBookings.map((booking) => {
                 const canComplete = booking.status === "confirmed" && booking.deposit_paid && hasBookingEnded(booking);
@@ -120,11 +160,11 @@ export default function DJWorkspacePage({ workspace }) {
             </div>
             <div className="dj-workflow-grid">
               <section className="dj-action-panel">
-                <button className="dj-panel-trigger" type="button" aria-expanded={openPanel === "appointments"} aria-controls="dj-appointments-panel" onClick={() => setOpenPanel((panel) => panel === "appointments" ? null : "appointments")}>
+                <button className="dj-panel-trigger" type="button" aria-expanded={openPanels.appointments} aria-controls="dj-appointments-panel" onClick={() => togglePanel("appointments")}>
                   <span><CalendarDays /><span><strong>Rendez-vous préparatoires</strong><small>Confirmez le suivi effectué avec vos clients.</small></span></span>
-                  <span className="dj-panel-count">{djAppointments.length}</span><ChevronDown className={openPanel === "appointments" ? "open" : ""} />
+                  <span className="dj-panel-count">{djAppointments.length}</span><ChevronDown className={openPanels.appointments ? "open" : ""} />
                 </button>
-                {openPanel === "appointments" && <div className="appointment-list dj-panel-content" id="dj-appointments-panel">
+                {openPanels.appointments && <div className="appointment-list dj-panel-content" id="dj-appointments-panel">
                   {djAppointments.map((appointment) => {
                     const appointmentDate = new Date(appointment.scheduled_at);
                     const draft = appointmentDrafts[appointment.id] || {};
@@ -151,11 +191,11 @@ export default function DJWorkspacePage({ workspace }) {
                 </div>}
               </section>
               <section className="dj-action-panel">
-                <button className="dj-panel-trigger" type="button" aria-expanded={openPanel === "songs"} aria-controls="dj-songs-panel" onClick={() => setOpenPanel((panel) => panel === "songs" ? null : "songs")}>
+                <button className="dj-panel-trigger" type="button" aria-expanded={openPanels.songs} aria-controls="dj-songs-panel" onClick={() => togglePanel("songs")}>
                   <span><Music2 /><span><strong>Demandes musicales</strong><small>Acceptez ou refusez les propositions des clients.</small></span></span>
-                  <span className="dj-panel-count">{djSongs.length}</span><ChevronDown className={openPanel === "songs" ? "open" : ""} />
+                  <span className="dj-panel-count">{djSongs.length}</span><ChevronDown className={openPanels.songs ? "open" : ""} />
                 </button>
-                {openPanel === "songs" && <div className="playlist-songs dj-panel-content" id="dj-songs-panel">
+                {openPanels.songs && <div className="playlist-songs dj-panel-content" id="dj-songs-panel">
                   {djSongs.map((song) => (
                     <article key={song.id}>
                       <div><strong>{song.title}</strong><span>{song.artist} · Playlist n°{song.playlist}</span></div>
@@ -166,10 +206,23 @@ export default function DJWorkspacePage({ workspace }) {
                 </div>}
               </section>
             </div>
+            <section className="dj-reviews-panel">
+              <div className="playlist-heading"><div><h2>{t("djReviews.title")}</h2><p>{t("djReviews.intro")}</p></div><Star /></div>
+              {djReviewsStatus && <p className="invoice-empty" role="status">{djReviewsStatus}</p>}
+              <div className="dj-reviews-list">
+                {djReviews.map((review) => (
+                  <article key={review.id}>
+                    <div className="review-stars" aria-label={t("djReviews.stars", { count: review.rating })}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</div>
+                    <p>{review.comment}</p>
+                    <small>{t("djReviews.booking", { id: review.booking })} · {new Date(review.created_at).toLocaleDateString(i18n.language)}</small>
+                  </article>
+                ))}
+              </div>
+            </section>
             <section className="availability-panel">
               <div className="playlist-heading"><div><h2>Mes disponibilités</h2><p>Ouvrez les créneaux pendant lesquels l’administration peut vous affecter une prestation.</p></div><Clock3 /></div>
               <form className="availability-form" onSubmit={createDjAvailability}>
-                <label>Date de début<input type="date" min={todayIso} value={availabilityDate} onChange={(event) => { setAvailabilityDate(event.target.value); if (availabilityEndDate < event.target.value) setAvailabilityEndDate(event.target.value); }} required /></label>
+                <label>Date de début<input type="date" min={tomorrowIso} value={availabilityDate} onChange={(event) => { setAvailabilityDate(event.target.value); if (availabilityEndDate < event.target.value) setAvailabilityEndDate(event.target.value); }} required /></label>
                 <label>Début<input type="time" value={availabilityStart} onChange={(event) => setAvailabilityStart(event.target.value)} required /></label>
                 <label>Date de fin<input type="date" min={availabilityDate} value={availabilityEndDate} onChange={(event) => setAvailabilityEndDate(event.target.value)} required /></label>
                 <label>Fin<input type="time" min={availabilityEndDate === availabilityDate ? availabilityStart : undefined} value={availabilityEnd} onChange={(event) => setAvailabilityEnd(event.target.value)} aria-describedby="availability-message" required /></label>
@@ -179,14 +232,28 @@ export default function DJWorkspacePage({ workspace }) {
               </form>
               {availabilityMessage && <p id="availability-message" className={`availability-message ${availabilityMessage.includes("enregistré et") ? "success" : "error"}`} role="status">{availabilityMessage}</p>}
               <div className="availability-list">
-                {djAvailabilities.map((availability) => (
+                {activeAvailabilities.map((availability) => (
                   <article key={availability.id}>
                     <div><strong>{new Date(`${availability.available_date}T00:00:00`).toLocaleDateString(i18n.language)} · {String(availability.start_time).slice(0, 5)}</strong><span>jusqu’au {new Date(`${availability.end_date || availability.available_date}T00:00:00`).toLocaleDateString(i18n.language)} · {String(availability.end_time).slice(0, 5)}</span>{availability.reason && <small>{availability.reason}</small>}</div>
                     <div className="dj-action-buttons"><span className={`availability-status ${availability.status}`}>{availability.status === "available" ? "Disponible" : availability.status === "reserved" ? "Réservé — acompte en attente" : availability.status === "occupied" ? "Occupé — acompte payé" : "Bloqué"}</span>{availability.status === "available" && <button className="document-button" type="button" onClick={() => updateDjAvailability(availability, "blocked")} disabled={availabilityPendingId === availability.id}>Bloquer</button>}{availability.status === "blocked" && <button className="document-button" type="button" onClick={() => updateDjAvailability(availability, "available")} disabled={availabilityPendingId === availability.id}>Rouvrir</button>}{!['reserved', 'occupied'].includes(availability.status) && <button className="document-button danger-button" type="button" onClick={() => deleteDjAvailability(availability)} disabled={availabilityPendingId === availability.id}>Supprimer</button>}</div>
                   </article>
                 ))}
-                {!djAvailabilities.length && <p className="invoice-empty">Aucun créneau enregistré.</p>}
+                {!activeAvailabilities.length && <p className="invoice-empty">Aucun créneau à venir enregistré.</p>}
               </div>
+              {!!historicalAvailabilities.length && <section className="availability-history">
+                <button className="dj-panel-trigger" type="button" aria-expanded={availabilityHistoryOpen} aria-controls="availability-history" onClick={() => setAvailabilityHistoryOpen((current) => !current)}>
+                  <span><Clock3 /><span><strong>Historique des disponibilités</strong><small>Les créneaux passés sont conservés en lecture seule.</small></span></span>
+                  <span className="dj-panel-count">{historicalAvailabilities.length}</span><ChevronDown className={availabilityHistoryOpen ? "open" : ""} />
+                </button>
+                {availabilityHistoryOpen && <div className="availability-list" id="availability-history">
+                  {historicalAvailabilities.map((availability) => (
+                    <article key={availability.id}>
+                      <div><strong>{new Date(`${availability.available_date}T00:00:00`).toLocaleDateString(i18n.language)} · {String(availability.start_time).slice(0, 5)}</strong><span>jusqu’au {new Date(`${availability.end_date || availability.available_date}T00:00:00`).toLocaleDateString(i18n.language)} · {String(availability.end_time).slice(0, 5)}</span>{availability.reason && <small>{availability.reason}</small>}</div>
+                      <span className={`availability-status ${availability.status}`}>{availability.status === "available" ? "Disponible" : availability.status === "reserved" ? "Réservé — acompte en attente" : availability.status === "occupied" ? "Occupé — acompte payé" : "Bloqué"}</span>
+                    </article>
+                  ))}
+                </div>}
+              </section>}
             </section>
           </section>
   </LocalizedContent>;

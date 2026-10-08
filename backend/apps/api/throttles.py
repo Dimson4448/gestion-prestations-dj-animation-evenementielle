@@ -18,3 +18,7 @@ class AccountActionRateThrottle(IpRateThrottle):
 
 class LocationSearchRateThrottle(IpRateThrottle):
     scope = "location_search"
+
+
+class ReviewRateThrottle(IpRateThrottle):
+    scope = "review"

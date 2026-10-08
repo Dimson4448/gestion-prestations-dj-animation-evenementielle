@@ -29,7 +29,10 @@ export default function ClientInvoices({
       {checkoutStatus && <p className="form-message" role="alert">{checkoutStatus}</p>}
 
       {invoices.map((invoice) => {
-        const invoicePayments = clientPayments.filter((payment) => payment.invoice === invoice.id);
+        const invoicePayments = clientPayments.filter((payment) => (
+          payment.invoice === invoice.id
+          && (["paid", "refunded"].includes(payment.status) || payment.refund_status !== "none")
+        ));
         const invoiceType = t(`clientInvoices.type.${invoice.invoice_type}`, { defaultValue: t("clientInvoices.type.full") });
         const invoiceState = t(`clientInvoices.status.${invoice.status}`, { defaultValue: invoice.status });
 

@@ -17,7 +17,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJApplication, DJProfile, validate_adult
+from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJApplication, DJProfile, Notification, validate_adult
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
@@ -54,6 +54,13 @@ class CurrentUserSerializer(serializers.Serializer):
         if hasattr(user, "client_profile"):
             return "client"
         return "user"
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ["id", "notification_type", "title", "message", "link", "created_at", "read_at"]
+        read_only_fields = fields
 
 
 class ClientProfileUpdateSerializer(serializers.Serializer):
@@ -465,7 +472,7 @@ class DJAvailabilitySerializer(serializers.ModelSerializer):
         attrs["end_date"] = end_date
         target_status = attrs.get("status", getattr(self.instance, "status", DJAvailability.AVAILABLE))
 
-        if available_date and available_date < date.today():
+        if self.instance is None and available_date and available_date < timezone.localdate() + timedelta(days=1):
             raise serializers.ValidationError({"available_date": "Un créneau ne peut pas être placé dans le passé."})
         if available_date and end_date and end_date < available_date:
             raise serializers.ValidationError({"end_date": "La date de fin ne peut pas précéder la date de début."})
@@ -474,6 +481,8 @@ class DJAvailabilitySerializer(serializers.ModelSerializer):
         if self.instance is None and request and request.user.is_staff and "dj" not in attrs:
             raise serializers.ValidationError({"dj_id": "Sélectionnez le DJ concerné."})
         if request and not request.user.is_staff:
+            if self.instance and self.instance.available_date < timezone.localdate() + timedelta(days=1):
+                raise serializers.ValidationError({"available_date": "Un créneau archivé ne peut plus être modifié par le DJ."})
             if self.instance and self.instance.status in {DJAvailability.RESERVED, DJAvailability.OCCUPIED}:
                 raise serializers.ValidationError({"status": "Un créneau réservé ou occupé ne peut être modifié par le DJ."})
             if target_status in {DJAvailability.RESERVED, DJAvailability.OCCUPIED}:
@@ -493,6 +502,22 @@ class DJAvailabilitySerializer(serializers.ModelSerializer):
                 duplicate = duplicate.exclude(pk=self.instance.pk)
             if duplicate.exists():
                 raise serializers.ValidationError({"start_time": "Ce créneau existe déjà pour cette date."})
+            if end_time:
+                candidate_start = datetime.combine(available_date, start_time)
+                candidate_end = datetime.combine(end_date, end_time)
+                existing_slots = DJAvailability.objects.filter(
+                    dj=dj,
+                    available_date__lte=end_date,
+                )
+                if self.instance:
+                    existing_slots = existing_slots.exclude(pk=self.instance.pk)
+                for existing_slot in existing_slots:
+                    existing_start = datetime.combine(existing_slot.available_date, existing_slot.start_time)
+                    existing_end = datetime.combine(existing_slot.end_date or existing_slot.available_date, existing_slot.end_time)
+                    if existing_start < candidate_end and candidate_start < existing_end:
+                        raise serializers.ValidationError(
+                            {"available_date": "Ce créneau chevauche déjà un créneau existant pour ce DJ."}
+                        )
         return attrs
 
     @extend_schema_field(OpenApiTypes.OBJECT)
@@ -677,6 +702,13 @@ class QuoteDJDecisionSerializer(serializers.Serializer):
 
 class BookingSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "booking"
+    client_name = serializers.SerializerMethodField()
+    venue_name = serializers.CharField(source="venue.name", read_only=True)
+    venue_city = serializers.CharField(source="venue.city", read_only=True)
+    event_type_name = serializers.CharField(source="event_type.name", read_only=True)
+
+    def get_client_name(self, booking):
+        return booking.client.user.get_full_name().strip() or booking.client.user.email
 
     class Meta:
         model = Booking
@@ -699,6 +731,10 @@ class BookingSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             "deposit_paid",
             "cancellation_reason",
             "created_at",
+            "client_name",
+            "venue_name",
+            "venue_city",
+            "event_type_name",
             "liens",
         ]
         read_only_fields = ["created_at"]
@@ -984,6 +1020,10 @@ class PlaylistSongSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             raise serializers.ValidationError({"playlist": "La playlist d'une chanson ne peut pas être modifiée."})
         if client and "status" in self.initial_data:
             raise serializers.ValidationError({"status": "Le statut d'une chanson est géré par le DJ ou l'administration."})
+        if client:
+            event_start = timezone.make_aware(datetime.combine(booking.event_date, booking.start_time))
+            if event_start <= timezone.now():
+                raise serializers.ValidationError({"playlist": "La playlist ne peut plus être modifiée après le début de la prestation."})
         return attrs
 
     def create(self, validated_data):
@@ -1029,6 +1069,15 @@ class ReviewSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             raise serializers.ValidationError({"status": "Le statut de l'avis est géré par l'administration."})
         if self.instance and self.instance.status != Review.PENDING:
             raise serializers.ValidationError("Un avis déjà modéré ne peut plus être modifié par le client.")
+        if not self.instance:
+            previous_reviews = Review.objects.filter(booking=booking, client=client).order_by("-created_at")
+            if previous_reviews.count() >= settings.REVIEW_MAX_PER_BOOKING:
+                raise serializers.ValidationError({"booking": "Le nombre maximal d'avis pour cette prestation est atteint."})
+            last_review = previous_reviews.first()
+            if last_review and settings.REVIEW_MIN_INTERVAL_HOURS > 0:
+                earliest_next_review = last_review.created_at + timedelta(hours=settings.REVIEW_MIN_INTERVAL_HOURS)
+                if earliest_next_review > timezone.now():
+                    raise serializers.ValidationError({"booking": "Vous pourrez publier un nouvel avis après un délai de 24 heures."})
         return attrs
 
 

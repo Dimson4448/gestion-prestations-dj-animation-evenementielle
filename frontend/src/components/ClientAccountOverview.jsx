@@ -28,6 +28,16 @@ export default function ClientAccountOverview({ appointments, contracts, invoice
     window.setTimeout(() => section.classList.remove("client-section-highlight"), 1800);
   };
 
+  const nextAction = contracts.some((contract) => contract.status === "sent")
+    ? { target: "client-contracts", label: t("clientOverview.next.contract") }
+    : invoices.some((invoice) => invoice.status === "sent")
+      ? { target: "client-invoices", label: t("clientOverview.next.invoice") }
+      : appointments.some((appointment) => ["proposed", "counter_proposed"].includes(appointment.status))
+        ? { target: "client-appointments", label: t("clientOverview.next.appointment") }
+        : quotes.some((quote) => quote.status === "sent")
+          ? { target: "client-quotes", label: t("clientOverview.next.quote") }
+          : { target: "client-quotes", label: t("clientOverview.next.complete") };
+
   return (
     <section className="client-overview" aria-labelledby="client-overview-title">
       <div className="client-overview-heading">
@@ -48,6 +58,11 @@ export default function ClientAccountOverview({ appointments, contracts, invoice
             <em>{t("clientOverview.open")}</em>
           </button>
         ))}
+      </div>
+
+      <div className="client-next-action">
+        <div><strong>{t("clientOverview.next.title")}</strong><span>{nextAction.label}</span></div>
+        <button className="document-button" type="button" onClick={() => openSection(nextAction.target)}>{t("clientOverview.open")}</button>
       </div>
     </section>
   );

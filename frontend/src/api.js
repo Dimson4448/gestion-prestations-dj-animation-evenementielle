@@ -17,6 +17,7 @@ export const apiClient = axios.create({
     "Content-Type": "application/json",
   },
 });
+export const publicRequestConfig = { skipAuthentication: true };
 const refreshClient = axios.create({ baseURL: apiBaseUrl, headers: { "Content-Type": "application/json" } });
 
 const addInterfaceLanguage = (config) => {
@@ -75,7 +76,10 @@ export const verifyEmail = async (uid, token) => apiClient.post("/auth/verify-em
 export const resendVerificationEmail = async (email) => (await apiClient.post("/auth/verify-email/resend/", { email })).data;
 export const requestPasswordReset = async (email) => (await apiClient.post("/auth/password-reset/", { email })).data;
 export const confirmPasswordReset = async (uid, token, password) => apiClient.post("/auth/password-reset/confirm/", { uid, token, password });
-export const searchLocations = async (query) => (await apiClient.get("/locations/search/", { params: { q: query } })).data;
+export const searchLocations = async (query) => (await apiClient.get("/locations/search/", {
+  ...publicRequestConfig,
+  params: { q: query },
+})).data;
 
 export const logout = async () => {
   const refresh = getStoredRefreshToken();
@@ -94,6 +98,10 @@ if (storedAccessToken) {
 let refreshPromise = null;
 
 apiClient.interceptors.request.use((config) => {
+  if (config.skipAuthentication) {
+    delete config.headers.Authorization;
+    return config;
+  }
   const access = getStoredAccessToken();
   if (access) config.headers.Authorization = `Bearer ${access}`;
   return config;

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -23,8 +24,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
-from apps.accounts.models import AccountDeletionRequest, DJApplication, DJProfile
+from apps.accounts.emailing import localized, preferred_language
+from apps.accounts.models import AccountDeletionRequest, DJApplication, DJProfile, Notification
 from apps.accounts.emailing import send_user_email
+from apps.accounts.notifications import create_notification_after_commit
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
@@ -45,7 +48,7 @@ from apps.payments.services import StripeCheckoutError, StripeConfigurationError
 
 from .permissions import AdministrationOuProprietaire, DJOuAdministration, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
 from .locations import LocationSearchUnavailable, search_cities
-from .throttles import AccountActionRateThrottle, LocationSearchRateThrottle, LoginRateThrottle
+from .throttles import AccountActionRateThrottle, LocationSearchRateThrottle, LoginRateThrottle, ReviewRateThrottle
 from .serializers import (
     BookingSerializer,
     AccountDeletionRequestSerializer,
@@ -71,6 +74,7 @@ from .serializers import (
     PasswordResetRequestSerializer,
     PasswordChangeSerializer,
     MusicStyleSerializer,
+    NotificationSerializer,
     PackageSerializer,
     PaymentSerializer,
     RefundRequestSerializer,
@@ -523,7 +527,10 @@ class AvailabilityViewSet(viewsets.ModelViewSet):
         elif user.is_authenticated and dj_connecte(user):
             queryset = queryset.filter(dj=dj_connecte(user))
         else:
-            queryset = queryset.filter(status=DJAvailability.AVAILABLE)
+            queryset = queryset.filter(
+                status=DJAvailability.AVAILABLE,
+                available_date__gte=timezone.localdate() + timedelta(days=1),
+            )
         dj_id = self.request.query_params.get("dj")
         date = self.request.query_params.get("date")
         if dj_id:
@@ -539,6 +546,8 @@ class AvailabilityViewSet(viewsets.ModelViewSet):
             serializer.save(dj=dj_connecte(self.request.user))
 
     def perform_destroy(self, instance):
+        if not self.request.user.is_staff and instance.available_date < timezone.localdate() + timedelta(days=1):
+            raise ValidationError({"available_date": "Un créneau archivé ne peut plus être supprimé par le DJ."})
         if not self.request.user.is_staff and instance.status in {DJAvailability.RESERVED, DJAvailability.OCCUPIED}:
             raise ValidationError({"status": "Un créneau réservé ou occupé ne peut être supprimé par le DJ."})
         instance.delete()
@@ -943,6 +952,11 @@ class ReviewViewSet(AdminManagedProtectedViewSet):
     search_fields = ["comment", "dj__stage_name"]
     ordering_fields = ["created_at", "rating"]
 
+    def get_throttles(self):
+        if self.action == "create":
+            return [ReviewRateThrottle()]
+        return super().get_throttles()
+
     def get_queryset(self):
         queryset = Review.objects.select_related("booking", "client", "dj").all()
         if self.request.user.is_staff:
@@ -960,7 +974,31 @@ class ReviewViewSet(AdminManagedProtectedViewSet):
         if self.request.user.is_staff:
             serializer.save(client=booking.client, dj=booking.dj)
         else:
-            serializer.save(client=booking.client, dj=booking.dj, status=Review.PUBLISHED)
+            review = serializer.save(client=booking.client, dj=booking.dj, status=Review.PUBLISHED)
+            language = preferred_language(booking.dj.user)
+            title = localized(
+                {
+                    "fr": "Ultimate DJ - nouvel avis client",
+                    "en": "Ultimate DJ - new client review",
+                    "nl": "Ultimate DJ - nieuwe klantbeoordeling",
+                },
+                language,
+            )
+            message = localized(
+                {
+                    "fr": "Un avis de {rating}/5 a été publié pour la réservation n°{booking}.",
+                    "en": "A {rating}/5 review was published for booking #{booking}.",
+                    "nl": "Een beoordeling van {rating}/5 werd gepubliceerd voor reservatie nr. {booking}.",
+                },
+                language,
+            ).format(rating=review.rating, booking=booking.pk)
+            create_notification_after_commit(
+                booking.dj.user,
+                title,
+                message,
+                Notification.REVIEW,
+                "/dj",
+            )
 
     @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny], url_path="public")
     def public(self, request):
@@ -973,6 +1011,27 @@ class ReviewViewSet(AdminManagedProtectedViewSet):
         serializer = PublicReviewSerializer(page or queryset, many=True, context={"request": request})
         return self.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)
 
+
+class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    ordering_fields = ["created_at", "read_at"]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def read(self, request, pk=None):
+        notification = self.get_object()
+        if notification.read_at is None:
+            notification.read_at = timezone.now()
+            notification.save(update_fields=["read_at"])
+        return Response(self.get_serializer(notification).data)
+
+    @action(detail=False, methods=["post"])
+    def read_all(self, request):
+        Notification.objects.filter(user=request.user, read_at__isnull=True).update(read_at=timezone.now())
+        return Response({"detail": "Notifications marquées comme lues."})
 
 @extend_schema(
     request=QuoteCalculationRequestSerializer,

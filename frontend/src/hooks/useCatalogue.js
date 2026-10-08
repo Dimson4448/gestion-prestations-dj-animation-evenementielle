@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { apiClient } from "../api";
+import { apiClient, publicRequestConfig } from "../api";
 import { mapAvailableDjs } from "../utils/booking";
 import { decoratePackages } from "../utils/catalogue";
 import { filterAllowedEventTypes } from "../utils/eventTypes";
@@ -20,10 +20,10 @@ export default function useCatalogue(eventDate) {
   useEffect(() => {
     let active = true;
     Promise.all([
-      apiClient.get("/packages/"),
-      apiClient.get("/djs/", { params: { ordering: "stage_name" } }),
-      apiClient.get("/playlists/public/"),
-      apiClient.get("/reviews/public/", { params: { ordering: "-created_at" } }),
+      apiClient.get("/packages/", publicRequestConfig),
+      apiClient.get("/djs/", { ...publicRequestConfig, params: { ordering: "stage_name" } }),
+      apiClient.get("/playlists/public/", publicRequestConfig),
+      apiClient.get("/reviews/public/", { ...publicRequestConfig, params: { ordering: "-created_at" } }),
     ]).then(([packagesResponse, djsResponse, playlistsResponse, reviewsResponse]) => {
       if (!active) return;
       const nextPackages = decoratePackages(unwrapApiList(packagesResponse.data));
@@ -51,7 +51,7 @@ export default function useCatalogue(eventDate) {
     if (!eventDate) return undefined;
     let active = true;
     setPublicAvailabilityStatus("Recherche des créneaux disponibles…");
-    apiClient.get("/availability/", { params: { date: eventDate } }).then((response) => {
+    apiClient.get("/availability/", { ...publicRequestConfig, params: { date: eventDate } }).then((response) => {
       if (!active) return;
       const records = mapAvailableDjs(unwrapApiList(response.data));
       setAvailableDjs(records);
@@ -68,7 +68,7 @@ export default function useCatalogue(eventDate) {
 
   useEffect(() => {
     let active = true;
-    apiClient.get("/event-types/").then((response) => {
+    apiClient.get("/event-types/", publicRequestConfig).then((response) => {
       if (!active) return;
       setEventTypeRecords(filterAllowedEventTypes(unwrapApiList(response.data)));
     }).catch(() => active && setEventTypeRecords([]));
