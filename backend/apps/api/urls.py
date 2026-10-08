@@ -6,8 +6,11 @@ from apps.payments.views import stripe_webhook
 from .views import (
     AvailabilityViewSet,
     account_deletion_requests,
+    admin_csv_export,
     cancel_account_deletion_request,
     BookingViewSet,
+    BookingMessageViewSet,
+    booking_calendar_ics,
     ContractViewSet,
     DJProfileViewSet,
     EquipmentViewSet,
@@ -15,6 +18,7 @@ from .views import (
     InvoiceViewSet,
     MusicStyleViewSet,
     NotificationViewSet,
+    notification_preferences,
     PackageViewSet,
     PaymentViewSet,
     PlaylistSongViewSet,
@@ -60,9 +64,11 @@ router.register("playlists", PlaylistViewSet, basename="playlist")
 router.register("playlist-songs", PlaylistSongViewSet, basename="playlist-song")
 router.register("reviews", ReviewViewSet, basename="review")
 router.register("notifications", NotificationViewSet, basename="notification")
+router.register("booking-messages", BookingMessageViewSet, basename="booking-message")
 
 urlpatterns = [
     path("auth/register/", register_client, name="register-client"),
+    path("administration/exports/<str:resource>.csv", admin_csv_export, name="admin-csv-export"),
     path("auth/register-dj/", register_dj_application, name="register-dj-application"),
     path("auth/dj-application/", dj_application_status, name="dj-application-status"),
     path("auth/verify-email/", verify_email, name="verify-email"),
@@ -71,6 +77,8 @@ urlpatterns = [
     path("auth/password-reset/confirm/", confirm_password_reset, name="confirm-password-reset"),
     path("auth/me/", current_user, name="current-user"),
     path("auth/profile/", client_profile, name="client-profile"),
+    path("auth/notification-preferences/", notification_preferences, name="notification-preferences"),
+    path("bookings/<int:pk>/calendar.ics", booking_calendar_ics, name="booking-calendar-ics"),
     path("auth/deletion-requests/", account_deletion_requests, name="account-deletion-requests"),
     path("auth/deletion-requests/<int:pk>/cancel/", cancel_account_deletion_request, name="cancel-account-deletion-request"),
     path("auth/deletion-requests/<int:pk>/review/", review_account_deletion_request, name="review-account-deletion-request"),

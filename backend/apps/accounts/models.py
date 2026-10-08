@@ -127,6 +127,22 @@ class Notification(models.Model):
         return f"Notification #{self.pk} - {self.user}"
 
 
+class NotificationPreference(models.Model):
+    """Choix de diffusion des alertes non critiques pour chaque compte."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notification_preferences")
+    email_enabled = models.BooleanField("notifications e-mail", default=True)
+    internal_enabled = models.BooleanField("notifications dans l'application", default=True)
+    booking_enabled = models.BooleanField("alertes de dossier", default=True)
+    payment_enabled = models.BooleanField("alertes de paiement", default=True)
+    review_enabled = models.BooleanField("alertes d'avis", default=True)
+
+    class Meta:
+        db_table = "notification_preferences"
+        verbose_name = "préférence de notification"
+        verbose_name_plural = "préférences de notification"
+
+
 class DJProfile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,

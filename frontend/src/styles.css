@@ -65,6 +65,26 @@ svg { width: 20px; height: 20px; }
 .notification-menu-panel button b { color: white; }
 .notification-menu-panel button small { overflow: hidden; color: #aebbd8; text-overflow: ellipsis; white-space: nowrap; }
 .notification-menu-panel p { margin: 4px 8px 8px; color: #aebbd8; }
+.booking-messages { display: grid; gap: 12px; margin-top: 24px; padding: 22px; border: 1px solid #bfe8f4; border-radius: 15px; background: #f5fdff; }
+.notification-preferences { display: grid; gap: 12px; margin-top: 24px; padding: 22px; border: 1px solid #d8d5ff; border-radius: 15px; background: #f8f7ff; }
+.notification-preferences-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; }
+.notification-preferences-list label { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.notification-preferences-list input { inline-size: 18px; block-size: 18px; accent-color: #00bee8; }
+.dj-review-response { margin-top: 12px; padding: 10px; border-left: 3px solid #00bee8; background: #f4fbfd; }
+.dj-review-response-form { display: grid; gap: 8px; margin-top: 12px; }
+.dj-review-response-form label { display: grid; gap: 5px; font-weight: 700; }
+.dj-review-response-form textarea { resize: vertical; padding: 8px; border: 1px solid #c7d6e7; border-radius: 8px; font: inherit; }
+.admin-exports { display: grid; gap: 12px; margin: 20px 0; padding: 18px; border: 1px solid #bfe8f4; border-radius: 14px; background: #f5fdff; }
+.admin-exports h2 { margin: 0; font-size: 1.2rem; }
+.admin-exports p { margin: 4px 0 0; }
+.admin-exports > div:last-of-type { display: flex; flex-wrap: wrap; gap: 8px; }
+.review-moderation { margin: 20px 0; padding: 20px; border: 1px solid #f2d398; border-radius: 14px; background: #fffaf0; }
+@media (max-width: 620px) { .notification-preferences-list { grid-template-columns: 1fr; } }
+.booking-messages > label, .booking-messages form label { display: grid; gap: 6px; font-weight: 800; }
+.booking-messages select, .booking-messages textarea { width: 100%; padding: 10px; border: 1px solid #c7d6e7; border-radius: 8px; font: inherit; }
+.messages-thread { display: grid; gap: 8px; max-height: 320px; overflow: auto; }
+.messages-thread article { display: grid; gap: 3px; padding: 11px; border: 1px solid #dce5ef; border-radius: 9px; background: white; }
+.messages-thread small { color: var(--muted); }.messages-thread p { margin: 0; white-space: pre-wrap; }
 .language-switcher { display: flex; gap: 2px; margin-left: 10px; padding-left: 10px; border-left: 1px solid #313a52; }
 .language-switcher button { min-height: 34px; padding: 0 7px; font-size: .78rem; }
 .language-switcher button.selected { color: var(--night); background: var(--cyan); }

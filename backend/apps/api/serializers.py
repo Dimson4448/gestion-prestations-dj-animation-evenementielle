@@ -17,10 +17,11 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJApplication, DJProfile, Notification, validate_adult
+from apps.accounts.models import AccountDeletionRequest, ClientProfile, DJApplication, DJProfile, Notification, NotificationPreference, validate_adult
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
+    BookingMessage,
     CancellationRequest,
     Contract,
     Playlist,
@@ -61,6 +62,38 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = ["id", "notification_type", "title", "message", "link", "created_at", "read_at"]
         read_only_fields = fields
+
+
+class NotificationPreferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationPreference
+        fields = ["email_enabled", "internal_enabled", "booking_enabled", "payment_enabled", "review_enabled"]
+
+
+class BookingMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.SerializerMethodField()
+    sender_role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BookingMessage
+        fields = ["id", "booking", "sender", "sender_name", "sender_role", "body", "created_at", "read_at"]
+        read_only_fields = ["sender", "created_at", "read_at"]
+
+    def get_sender_name(self, message):
+        return message.sender.get_full_name().strip() or message.sender.email
+
+    def get_sender_role(self, message):
+        if message.sender.is_staff:
+            return "admin"
+        if hasattr(message.sender, "dj_profile"):
+            return "dj"
+        return "client"
+
+    def validate_body(self, value):
+        value = " ".join(value.split())
+        if len(value) < 2:
+            raise serializers.ValidationError("Le message doit contenir au moins deux caractères.")
+        return value
 
 
 class ClientProfileUpdateSerializer(serializers.Serializer):
@@ -1038,8 +1071,8 @@ class ReviewSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ["id", "booking", "client", "dj", "rating", "comment", "status", "created_at", "liens"]
-        read_only_fields = ["client", "dj", "created_at"]
+        fields = ["id", "booking", "client", "dj", "rating", "comment", "status", "dj_response", "dj_responded_at", "reported_at", "report_reason", "created_at", "liens"]
+        read_only_fields = ["client", "dj", "created_at", "dj_response", "dj_responded_at", "reported_at", "report_reason"]
 
     def validate_rating(self, value):
         if value < 1 or value > 5:
@@ -1087,7 +1120,7 @@ class PublicReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ["id", "dj_stage_name", "client_first_name", "rating", "comment", "created_at"]
+        fields = ["id", "dj_stage_name", "client_first_name", "rating", "comment", "dj_response", "dj_responded_at", "created_at"]
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_client_first_name(self, review):

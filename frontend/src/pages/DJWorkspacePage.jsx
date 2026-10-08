@@ -8,6 +8,8 @@ import { getTomorrowIsoDate } from "../utils/dates";
 import LocalizedContent from "../components/LocalizedContent";
 import { apiClient } from "../api";
 import { unwrapApiList } from "../utils/apiCollections";
+import BookingMessages from "../components/BookingMessages";
+import NotificationPreferences from "../components/NotificationPreferences";
 
 export default function DJWorkspacePage({ workspace }) {
   const { t } = useTranslation();
@@ -17,6 +19,8 @@ export default function DJWorkspacePage({ workspace }) {
   const [quotePendingId, setQuotePendingId] = useState(null);
   const [djReviews, setDjReviews] = useState([]);
   const [djReviewsStatus, setDjReviewsStatus] = useState(t("djReviews.loading"));
+  const [reviewResponseDrafts, setReviewResponseDrafts] = useState({});
+  const [reviewResponsePendingId, setReviewResponsePendingId] = useState(null);
   const [appointmentDrafts, setAppointmentDrafts] = useState({});
   const [availabilityHistoryOpen, setAvailabilityHistoryOpen] = useState(false);
   const [tomorrowIso, setTomorrowIso] = useState(getTomorrowIsoDate);
@@ -30,6 +34,25 @@ export default function DJWorkspacePage({ workspace }) {
   const activeAvailabilities = djAvailabilities.filter((availability) => !isHistoricalAvailability(availability, tomorrowIso));
   const historicalAvailabilities = djAvailabilities.filter((availability) => isHistoricalAvailability(availability, tomorrowIso));
   const upcomingBookings = djBookings.filter((booking) => booking.status === "confirmed" && booking.event_date >= tomorrowIso).slice(0, 6);
+
+  const submitReviewResponse = async (reviewId) => {
+    const response = (reviewResponseDrafts[reviewId] || "").trim();
+    if (response.length < 2) {
+      setDjReviewsStatus(t("djReviews.responseTooShort"));
+      return;
+    }
+    setReviewResponsePendingId(reviewId);
+    try {
+      const result = await apiClient.post(`/reviews/${reviewId}/respond/`, { response });
+      setDjReviews((current) => current.map((review) => review.id === reviewId ? result.data : review));
+      setReviewResponseDrafts((current) => ({ ...current, [reviewId]: "" }));
+      setDjReviewsStatus(t("djReviews.responseSaved"));
+    } catch {
+      setDjReviewsStatus(t("djReviews.responseError"));
+    } finally {
+      setReviewResponsePendingId(null);
+    }
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => setTomorrowIso(getTomorrowIsoDate()), 60_000);
@@ -74,7 +97,13 @@ export default function DJWorkspacePage({ workspace }) {
       }
       setQuoteRequestStatus(t(decision === "accepted" ? "djRequests.acceptedMessage" : "djRequests.refusedMessage", { id: quote.id }));
     } catch (error) {
-      setQuoteRequestStatus(error.response?.data?.detail || t("djRequests.decisionError"));
+      const errorCode = error.response?.data?.code;
+      const translationKey = errorCode === "active_client_booking_conflict"
+        ? "quoteConflicts.client"
+        : errorCode === "active_dj_booking_conflict"
+          ? "quoteConflicts.dj"
+          : "djRequests.decisionError";
+      setQuoteRequestStatus(t(translationKey));
     } finally {
       setQuotePendingId(null);
     }
@@ -215,6 +244,7 @@ export default function DJWorkspacePage({ workspace }) {
                     <div className="review-stars" aria-label={t("djReviews.stars", { count: review.rating })}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</div>
                     <p>{review.comment}</p>
                     <small>{t("djReviews.booking", { id: review.booking })} · {new Date(review.created_at).toLocaleDateString(i18n.language)}</small>
+                    {review.dj_response ? <p className="dj-review-response"><strong>{t("djReviews.response")}</strong> {review.dj_response}</p> : <form className="dj-review-response-form" onSubmit={(event) => { event.preventDefault(); submitReviewResponse(review.id); }}><label>{t("djReviews.writeResponse")}<textarea rows="2" maxLength="255" value={reviewResponseDrafts[review.id] || ""} onChange={(event) => setReviewResponseDrafts((current) => ({ ...current, [review.id]: event.target.value }))} /></label><button className="document-button" type="submit" disabled={reviewResponsePendingId === review.id}>{reviewResponsePendingId === review.id ? t("djReviews.savingResponse") : t("djReviews.sendResponse")}</button></form>}
                   </article>
                 ))}
               </div>
@@ -255,6 +285,8 @@ export default function DJWorkspacePage({ workspace }) {
                 </div>}
               </section>}
             </section>
+            <BookingMessages bookings={djBookings} />
+            <NotificationPreferences />
           </section>
   </LocalizedContent>;
 }

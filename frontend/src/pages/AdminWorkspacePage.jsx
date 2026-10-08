@@ -1,14 +1,21 @@
 import { CalendarDays, Check, ChevronDown, CircleUserRound, Clock3, FileText } from "lucide-react";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { formatEuro, hasBookingEnded } from "../utils/booking";
 import { toLocalIsoDate } from "../utils/dates";
 import LocalizedContent from "../components/LocalizedContent";
 import AdminDashboardOverview from "../components/AdminDashboardOverview";
+import { apiClient } from "../api";
 
 export default function AdminWorkspacePage({ workspace }) {
+  const { t } = useTranslation();
   const [selectedSection, setSelectedSection] = useState("overview");
   const [quoteHistoryOpen, setQuoteHistoryOpen] = useState(false);
+  const [exportStatus, setExportStatus] = useState("");
+  const [exportPending, setExportPending] = useState("");
+  const [reviewModerationStatus, setReviewModerationStatus] = useState("");
+  const [reviewModerationPendingId, setReviewModerationPendingId] = useState(null);
   const selectSection = useCallback((section) => setSelectedSection(section), []);
   const {
     acceptAdminQuote, adminBookings, adminCancellationMessages, adminCancellationPendingId,
@@ -23,11 +30,45 @@ export default function AdminWorkspacePage({ workspace }) {
   const activeAdminQuotes = adminQuotes.filter((quote) => quote.event_date >= todayIso);
   const historicalAdminQuotes = adminQuotes.filter((quote) => quote.event_date < todayIso);
   const bookingsToComplete = adminBookings.filter((item) => item.status === "confirmed" && item.deposit_paid && hasBookingEnded(item));
+  const reportedReviews = adminReviews.filter((review) => review.reported_at && review.status === "pending");
+  const downloadExport = async (resource) => {
+    setExportPending(resource);
+    setExportStatus("");
+    try {
+      const response = await apiClient.get(`/administration/exports/${resource}.csv`, { responseType: "blob" });
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `ultimate-dj-${resource}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setExportStatus(t("adminExports.success"));
+    } catch {
+      setExportStatus(t("adminExports.error"));
+    } finally {
+      setExportPending("");
+    }
+  };
+  const moderateReview = async (reviewId, status) => {
+    setReviewModerationPendingId(reviewId);
+    setReviewModerationStatus("");
+    try {
+      await apiClient.patch(`/reviews/${reviewId}/`, { status });
+      await loadAdminDashboard();
+      setReviewModerationStatus(t("reviewModeration.success"));
+    } catch {
+      setReviewModerationStatus(t("reviewModeration.error"));
+    } finally {
+      setReviewModerationPendingId(null);
+    }
+  };
   return <LocalizedContent>
           <section className={`section-wrap admin-page admin-view-${selectedSection}`}>
             <AdminDashboardOverview allQuotes={adminAllQuotes} bookings={adminBookings} cancellationRequests={adminCancellationRequests} deletionRequests={adminDeletionRequests} djs={adminDjs} i18n={i18n} onRefresh={loadAdminDashboard} onSectionChange={selectSection} payments={adminPayments} quotes={activeAdminQuotes} reviews={adminReviews} />
             <div className="page-heading" id="admin-quotes"><p className="eyebrow dark">Espace administrateur</p><h1>Traiter les demandes de devis</h1><p>Envoyez le devis au client, choisissez un DJ réellement disponible, puis créez automatiquement la réservation, le contrat et la facture d’acompte.</p></div>
             <div className="admin-toolbar"><div><strong>{activeAdminQuotes.length}</strong><span> devis à traiter</span></div><button className="secondary-button" type="button" onClick={loadAdminDashboard}>Actualiser</button></div>
+            <section className="admin-exports" aria-labelledby="admin-exports-title"><div><h2 id="admin-exports-title">{t("adminExports.title")}</h2><p>{t("adminExports.intro")}</p></div><div>{["quotes", "bookings", "payments", "reviews"].map((resource) => <button className="document-button" type="button" key={resource} onClick={() => downloadExport(resource)} disabled={exportPending === resource}>{exportPending === resource ? t("adminExports.preparing") : t(`adminExports.${resource}`)}</button>)}</div>{exportStatus && <p className="form-message success" role="status">{exportStatus}</p>}</section>
+            <section className="review-moderation" aria-labelledby="review-moderation-title"><div className="playlist-heading"><div><h2 id="review-moderation-title">{t("reviewModeration.title")}</h2><p>{t("reviewModeration.intro")}</p></div><FileText /></div>{reviewModerationStatus && <p className="form-message success" role="status">{reviewModerationStatus}</p>}<div className="admin-quote-grid">{reportedReviews.map((review) => <article className="admin-quote-card" key={review.id}><div className="quote-row-heading"><h2>{t("reviewModeration.review", { id: review.id })}</h2><span className="quote-status sent">{t("reviewModeration.reported")}</span></div><p>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)} — {review.comment}</p><small><strong>{t("reviewModeration.reason")}</strong> {review.report_reason}</small><div className="cancellation-admin-actions"><button className="primary-button" type="button" disabled={reviewModerationPendingId === review.id} onClick={() => moderateReview(review.id, "published")}>{t("reviewModeration.publish")}</button><button className="document-button danger-button" type="button" disabled={reviewModerationPendingId === review.id} onClick={() => moderateReview(review.id, "rejected")}>{t("reviewModeration.remove")}</button></div></article>)}{!reportedReviews.length && <p className="invoice-empty">{t("reviewModeration.empty")}</p>}</div></section>
             {adminStatus && <p className={adminStatus.includes("créés") || adminStatus.includes("prêt") || adminStatus.includes("clôturée") || adminStatus.includes("refusée") || adminStatus.includes("remboursé") || adminStatus.includes("annulée") ? "form-message success" : "form-message"} role="status">{adminStatus}</p>}
             <div className="admin-quote-grid">
               {activeAdminQuotes.map((item) => {

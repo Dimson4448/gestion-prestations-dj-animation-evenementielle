@@ -4,6 +4,8 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
 
+from .models import Notification, NotificationPreference
+
 
 logger = logging.getLogger(__name__)
 SUPPORTED_LANGUAGES = {"fr", "en", "nl"}
@@ -22,8 +24,18 @@ def localized(values, language):
     return values.get(language) or values["fr"]
 
 
-def send_user_email(user, subjects, messages, context=None, *, after_commit=True):
+def send_user_email(user, subjects, messages, context=None, *, after_commit=True, notification_type=None):
     if user is None or not user.email:
+        return False
+    preference, _ = NotificationPreference.objects.get_or_create(user=user)
+    if not preference.email_enabled:
+        return False
+    category_enabled = {
+        Notification.BOOKING: preference.booking_enabled,
+        Notification.PAYMENT: preference.payment_enabled,
+        Notification.REVIEW: preference.review_enabled,
+    }.get(notification_type, True)
+    if not category_enabled:
         return False
     language = preferred_language(user)
     context = context or {}

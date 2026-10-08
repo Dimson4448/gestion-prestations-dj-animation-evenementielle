@@ -182,6 +182,23 @@ class Booking(models.Model):
         return end_at <= (at or timezone.now())
 
 
+class BookingMessage(models.Model):
+    """Message interne attaché à un dossier, lisible par ses trois parties."""
+
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name="messages", verbose_name="réservation")
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="booking_messages", verbose_name="expéditeur")
+    body = models.TextField("message", max_length=2000)
+    created_at = models.DateTimeField("envoyé le", auto_now_add=True)
+    read_at = models.DateTimeField("lu le", blank=True, null=True)
+
+    class Meta:
+        db_table = "booking_messages"
+        verbose_name = "message de dossier"
+        verbose_name_plural = "messages de dossier"
+        ordering = ["created_at"]
+        indexes = [models.Index(fields=["booking", "created_at"], name="idx_message_booking_created")]
+
+
 class BookingEquipment(models.Model):
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, verbose_name="réservation")
     equipment = models.ForeignKey(Equipment, on_delete=models.PROTECT, verbose_name="matériel")
@@ -360,6 +377,10 @@ class Review(models.Model):
     rating = models.PositiveSmallIntegerField("note")
     comment = models.CharField("commentaire", max_length=255)
     status = models.CharField("statut", max_length=20, choices=STATUS_CHOICES, default=PENDING)
+    dj_response = models.CharField("réponse du DJ", max_length=255, blank=True)
+    dj_responded_at = models.DateTimeField("réponse du DJ le", null=True, blank=True)
+    reported_at = models.DateTimeField("signalé le", null=True, blank=True)
+    report_reason = models.CharField("motif du signalement", max_length=255, blank=True)
     created_at = models.DateTimeField("créé le", auto_now_add=True)
 
     class Meta:

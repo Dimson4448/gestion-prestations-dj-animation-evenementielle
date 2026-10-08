@@ -22,7 +22,7 @@ from apps.availability.models import DJAvailability
 from apps.bookings.models import Booking, CancellationRequest, Contract, Playlist, PlaylistSong, PreparatoryAppointment, Quote, Review, Venue
 from apps.catalog.models import EventType, MusicStyle, Package
 from apps.payments.models import Invoice, Payment, Refund
-from apps.bookings.services import accept_quote
+from apps.bookings.services import QuoteAcceptanceError, accept_quote, cancel_booking
 
 
 class ApiUltimateDJTests(APITestCase):
@@ -1386,6 +1386,83 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(Contract.objects.count(), 1)
         self.assertEqual(Invoice.objects.count(), 1)
 
+    def test_un_client_ne_peut_pas_avoir_deux_dossiers_actifs_qui_se_chevauchent(self):
+        event_date = date.today() + timedelta(days=30)
+        first_quote = Quote.objects.create(
+            client=self.client_profile,
+            event_type=self.event_type,
+            package=self.package,
+            venue=self.venue,
+            event_date=event_date,
+            start_time="18:00:00",
+            duration_hours="5.0",
+            guest_count=60,
+            distance_km="20.00",
+            parking_available=True,
+            status=Quote.SENT,
+            subtotal="545.00",
+            travel_fee="13.00",
+            total_amount="558.00",
+            deposit_amount="167.40",
+        )
+        first_dj, _ = self.create_available_dj()
+        first_booking, _, _ = accept_quote(first_quote.pk, first_dj.pk)
+
+        second_dj_user = get_user_model().objects.create_user(
+            username="dj_second_client_conflict",
+            email="dj-second-client-conflict@example.com",
+            password="MotDePasseDJ2026!",
+        )
+        second_dj = DJProfile.objects.create(
+            user=second_dj_user,
+            stage_name="DJ Second conflit client",
+            bio="DJ disponible pour le test de conflit client.",
+            base_hourly_rate="90.00",
+            travel_rate_per_km="0.65",
+            years_experience=6,
+            is_available=True,
+        )
+        DJAvailability.objects.create(
+            dj=second_dj,
+            available_date=event_date,
+            start_time="17:00:00",
+            end_time="23:59:00",
+            status=DJAvailability.AVAILABLE,
+        )
+        second_quote = Quote.objects.create(
+            client=self.client_profile,
+            requested_dj=second_dj,
+            event_type=self.event_type,
+            package=self.package,
+            venue=self.venue,
+            event_date=event_date,
+            start_time="20:00:00",
+            duration_hours="3.0",
+            guest_count=60,
+            distance_km="20.00",
+            parking_available=True,
+            status=Quote.SENT,
+            subtotal="545.00",
+            travel_fee="13.00",
+            total_amount="558.00",
+            deposit_amount="167.40",
+        )
+
+        with self.assertRaisesRegex(QuoteAcceptanceError, "client possède déjà"):
+            accept_quote(second_quote.pk, second_dj.pk)
+        self.assertFalse(Booking.objects.filter(quote=second_quote).exists())
+
+        admin = get_user_model().objects.create_superuser(
+            username="admin_client_conflict_cancellation",
+            email="admin-client-conflict-cancellation@example.com",
+            password="MotDePasseAdmin2026!",
+        )
+        cancel_booking(first_booking.pk, admin, "Le client a annulé le premier contrat.")
+        second_booking, _, _ = accept_quote(second_quote.pk, second_dj.pk)
+
+        self.assertEqual(second_booking.client_id, self.client_profile.pk)
+        self.assertEqual(second_booking.dj_id, second_dj.pk)
+
     def test_client_peut_signer_son_contrat_envoye(self):
         contract = self.create_contract_for_client()
         self.client.force_authenticate(user=self.client_user)
@@ -1902,6 +1979,26 @@ class ApiUltimateDJTests(APITestCase):
         read = self.client.post(f"/api/v1/notifications/{notification.pk}/read/")
         self.assertEqual(read.status_code, status.HTTP_200_OK)
         self.assertIsNotNone(read.data["read_at"])
+
+    def test_messages_de_dossier_et_export_calendrier_sont_reserves_aux_parties(self):
+        contract = self.create_contract_for_client()
+        booking = contract.booking
+        self.client.force_authenticate(user=self.client_user)
+        created = self.client.post(
+            "/api/v1/booking-messages/",
+            {"booking": booking.pk, "body": "Pouvez-vous confirmer les horaires d'installation ?"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["sender_role"], "client")
+        calendar = self.client.get(f"/api/v1/bookings/{booking.pk}/calendar.ics")
+        self.assertEqual(calendar.status_code, status.HTTP_200_OK)
+        self.assertIn("BEGIN:VCALENDAR", calendar.content.decode())
+
+        self.client.force_authenticate(user=booking.dj.user)
+        messages = self.client.get(f"/api/v1/booking-messages/?booking={booking.pk}")
+        self.assertEqual(messages.status_code, status.HTTP_200_OK)
+        self.assertEqual(messages.data["results"][0]["body"], "Pouvez-vous confirmer les horaires d'installation ?")
 
     def test_dj_cloture_la_prestation_et_genere_la_facture_de_solde(self):
         contract = self.create_contract_for_client()

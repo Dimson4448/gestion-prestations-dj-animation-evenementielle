@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from django.db import models, transaction
 from django.utils import timezone
 
-from apps.accounts.models import DJProfile
+from apps.accounts.models import ClientProfile, DJProfile
 from apps.availability.models import DJAvailability
 from apps.payments.models import Invoice, Payment
 
@@ -13,6 +13,10 @@ from .notifications import notify_balance_invoice_created, notify_booking_cancel
 
 class QuoteAcceptanceError(Exception):
     """Erreur fonctionnelle empêchant la conversion complète d'un devis."""
+
+    def __init__(self, message, code="quote_acceptance_error"):
+        super().__init__(message)
+        self.code = code
 
 
 class ContractSigningError(Exception):
@@ -36,6 +40,23 @@ def _event_end(quote):
     return start + timedelta(seconds=int(quote.duration_hours * 3600))
 
 
+def _overlaps_booking(booking, event_start, event_end):
+    """Indique si un dossier couvre une partie du créneau demandé."""
+    booking_start = datetime.combine(booking.event_date, booking.start_time)
+    booking_end = datetime.combine(booking.end_date or booking.event_date, booking.end_time)
+    return booking_start < event_end and booking_end > event_start
+
+
+def _has_active_booking_conflict(*, field, profile, event_start, event_end):
+    """Recherche un chevauchement, en ignorant les dossiers officiellement annulés."""
+    bookings = (
+        Booking.objects.select_for_update()
+        .filter(**{field: profile}, event_date__lte=event_end.date())
+        .exclude(status=Booking.CANCELLED)
+    )
+    return any(_overlaps_booking(booking, event_start, event_end) for booking in bookings)
+
+
 @transaction.atomic
 def accept_quote(quote_id, dj_id):
     """Convertit atomiquement un devis envoyé en réservation exploitable."""
@@ -49,6 +70,10 @@ def accept_quote(quote_id, dj_id):
         raise QuoteAcceptanceError("Seul un devis envoyé peut être accepté.")
     if Booking.objects.filter(quote=quote).exists():
         raise QuoteAcceptanceError("Ce devis possède déjà une réservation.")
+
+    # Deux acceptations sur deux devis distincts peuvent viser le même client.
+    # Le verrou du profil client rend la vérification suivante atomique dans ce cas.
+    client = ClientProfile.objects.select_for_update().get(pk=quote.client_id)
 
     try:
         dj = DJProfile.objects.select_for_update().get(pk=dj_id, is_available=True)
@@ -71,18 +96,32 @@ def accept_quote(quote_id, dj_id):
     if availability is None:
         raise QuoteAcceptanceError("Le DJ ne possède pas de créneau disponible couvrant toute la prestation.")
 
-    possible_conflicts = Booking.objects.select_for_update().filter(dj=dj, event_date__lte=event_end.date()).exclude(status=Booking.CANCELLED)
-    has_conflict = any(
-        datetime.combine(item.event_date, item.start_time) < event_end
-        and datetime.combine(item.end_date or item.event_date, item.end_time) > event_start
-        for item in possible_conflicts
-    )
-    if has_conflict:
-        raise QuoteAcceptanceError("Le DJ possède déjà une réservation sur ce créneau.")
+    if _has_active_booking_conflict(
+        field="dj",
+        profile=dj,
+        event_start=event_start,
+        event_end=event_end,
+    ):
+        raise QuoteAcceptanceError(
+            "Le DJ possède déjà une réservation sur ce créneau.",
+            code="active_dj_booking_conflict",
+        )
+
+    if _has_active_booking_conflict(
+        field="client",
+        profile=client,
+        event_start=event_start,
+        event_end=event_end,
+    ):
+        raise QuoteAcceptanceError(
+            "Le client possède déjà une réservation active sur ce créneau. "
+            "Le contrat existant doit être annulé avant d'en accepter un autre.",
+            code="active_client_booking_conflict",
+        )
 
     booking = Booking.objects.create(
         quote=quote,
-        client=quote.client,
+        client=client,
         dj=dj,
         event_type=quote.event_type,
         package=quote.package,

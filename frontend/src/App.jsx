@@ -24,6 +24,8 @@ import ClientReviews from "./components/ClientReviews";
 import ClientAccountDeletion from "./components/ClientAccountDeletion";
 import ClientQuotes from "./components/ClientQuotes";
 import ClientAccountOverview from "./components/ClientAccountOverview";
+import BookingMessages from "./components/BookingMessages";
+import NotificationPreferences from "./components/NotificationPreferences";
 import HomePage from "./pages/HomePage";
 import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canRequestCancellation, canSubmitReview, formatEuro } from "./utils/booking";
 import { filterPackagesForEventType } from "./utils/catalogue";
@@ -595,7 +597,13 @@ export default function App() {
       setAdminQuotes((current) => current.filter((item) => item.id !== quoteId));
       setAdminStatus(`Devis n°${quoteId} accepté : réservation n°${response.data.booking.id}, contrat et facture d’acompte créés.`);
     } catch (error) {
-      setAdminStatus(error.response?.data?.detail || "Le devis n’a pas pu être accepté.");
+      const errorCode = error.response?.data?.code;
+      const translationKey = errorCode === "active_client_booking_conflict"
+        ? "quoteConflicts.client"
+        : errorCode === "active_dj_booking_conflict"
+          ? "quoteConflicts.dj"
+          : null;
+      setAdminStatus(translationKey ? t(translationKey) : (error.response?.data?.detail || "Le devis n’a pas pu être accepté."));
     } finally {
       setAdminPendingId(null);
     }
@@ -1467,6 +1475,8 @@ export default function App() {
                     reviews={reviews}
                     statusMessage={reviewStatus}
                   />
+                  <BookingMessages bookings={clientBookings} />
+                  <NotificationPreferences />
                   <ClientAccountDeletion
                     cancelRequest={cancelAccountDeletion}
                     onReasonChange={setAccountDeletionReason}

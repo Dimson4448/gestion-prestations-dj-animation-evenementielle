@@ -33,6 +33,7 @@ class Invoice(models.Model):
     status = models.CharField("statut", max_length=20, choices=STATUS_CHOICES, default=DRAFT)
     issued_at = models.DateTimeField("émise le", auto_now_add=True)
     due_at = models.DateTimeField("échéance")
+    last_payment_reminder_at = models.DateTimeField("dernier rappel de paiement", null=True, blank=True)
 
     class Meta:
         db_table = "invoices"

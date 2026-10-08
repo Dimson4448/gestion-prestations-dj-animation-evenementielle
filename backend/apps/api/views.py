@@ -1,5 +1,9 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
+import csv
+from io import BytesIO
+from io import StringIO
 from urllib.parse import urlencode
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -25,12 +29,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from apps.accounts.emailing import localized, preferred_language
-from apps.accounts.models import AccountDeletionRequest, DJApplication, DJProfile, Notification
+from apps.accounts.models import AccountDeletionRequest, DJApplication, DJProfile, Notification, NotificationPreference
 from apps.accounts.emailing import send_user_email
 from apps.accounts.notifications import create_notification_after_commit
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
+    BookingMessage,
     Contract,
     Playlist,
     PlaylistSong,
@@ -75,6 +80,8 @@ from .serializers import (
     PasswordChangeSerializer,
     MusicStyleSerializer,
     NotificationSerializer,
+    NotificationPreferenceSerializer,
+    BookingMessageSerializer,
     PackageSerializer,
     PaymentSerializer,
     RefundRequestSerializer,
@@ -157,11 +164,48 @@ def filtrer_par_reservation(queryset, user, prefix=""):
     return queryset.none()
 
 
+def user_can_access_booking(user, booking):
+    return user.is_staff or booking.client.user_id == user.pk or booking.dj.user_id == user.pk
+
+
 @extend_schema(responses={200: CurrentUserSerializer}, summary="Afficher l'utilisateur connecté")
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def current_user(request):
     return Response(CurrentUserSerializer(request.user).data)
+
+
+@api_view(["GET", "PATCH"])
+@permission_classes([permissions.IsAuthenticated])
+def notification_preferences(request):
+    preference, _ = NotificationPreference.objects.get_or_create(user=request.user)
+    if request.method == "PATCH":
+        serializer = NotificationPreferenceSerializer(preference, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+    return Response(NotificationPreferenceSerializer(preference).data)
+
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAdminUser])
+def admin_csv_export(request, resource):
+    resources = {
+        "quotes": (Quote.objects.select_related("client__user", "requested_dj"), ["id", "status", "event_date", "total_amount"], "devis"),
+        "bookings": (Booking.objects.select_related("client__user", "dj", "venue"), ["id", "status", "event_date", "start_time", "end_time", "total_amount", "deposit_paid"], "prestations"),
+        "payments": (Payment.objects.select_related("booking", "invoice"), ["id", "status", "amount", "currency", "paid_at"], "paiements"),
+        "reviews": (Review.objects.select_related("dj", "client__user"), ["id", "rating", "status", "comment", "created_at"], "avis"),
+    }
+    if resource not in resources:
+        raise ValidationError({"resource": "Export inconnu."})
+    queryset, fields, filename = resources[resource]
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(fields)
+    for item in queryset.order_by("-pk"):
+        writer.writerow([getattr(item, field) for field in fields])
+    response = HttpResponse(output.getvalue(), content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="ultimate-dj-{filename}.csv"'
+    return response
 
 
 @extend_schema(responses={200: OpenApiTypes.OBJECT}, summary="Rechercher une ville en Belgique et dans le monde")
@@ -635,7 +679,7 @@ class QuoteViewSet(ProtectedModelViewSet):
         try:
             booking, contract, invoice = accept_quote(quote.pk, dj.pk)
         except QuoteAcceptanceError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": str(exc), "code": exc.code}, status=status.HTTP_400_BAD_REQUEST)
         quote.refresh_from_db()
         return Response({
             "quote": QuoteSerializer(quote, context={"request": request}).data,
@@ -657,7 +701,7 @@ class QuoteViewSet(ProtectedModelViewSet):
         try:
             booking, contract, invoice = accept_quote(quote.pk, serializer.validated_data["dj"].pk)
         except QuoteAcceptanceError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": str(exc), "code": exc.code}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(
             {
@@ -772,6 +816,24 @@ class BookingViewSet(AdminManagedProtectedViewSet):
         except CancellationRequestError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(CancellationRequestSerializer(cancellation_request).data)
+
+    @extend_schema(
+        responses={(200, "application/zip"): OpenApiResponse(response=OpenApiTypes.BINARY, description="Dossier documentaire ZIP")},
+        summary="Télécharger les documents disponibles du dossier",
+    )
+    @action(detail=True, methods=["get"], url_path="documents")
+    def documents(self, request, pk=None):
+        booking = self.get_object()
+        archive = BytesIO()
+        with ZipFile(archive, "w", ZIP_DEFLATED) as zip_file:
+            contract = Contract.objects.filter(booking=booking).first()
+            if contract:
+                zip_file.writestr(f"{contract.contract_number}.pdf", build_contract_pdf(contract))
+            for invoice in booking.invoices.order_by("issued_at"):
+                zip_file.writestr(f"{invoice.invoice_number}.pdf", build_invoice_pdf(invoice))
+        response = HttpResponse(archive.getvalue(), content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="ultimate-dj-dossier-{booking.pk}.zip"'
+        return response
 
 class PreparatoryAppointmentViewSet(AdminManagedProtectedViewSet):
     admin_only_actions = {"destroy"}
@@ -1000,6 +1062,31 @@ class ReviewViewSet(AdminManagedProtectedViewSet):
                 "/dj",
             )
 
+    @action(detail=True, methods=["post"], url_path="respond")
+    def respond(self, request, pk=None):
+        review = self.get_object()
+        if not dj_connecte(request.user) or review.dj_id != dj_connecte(request.user).pk:
+            raise PermissionDenied("Seul le DJ concerné peut répondre à cet avis.")
+        response_text = " ".join(str(request.data.get("response", "")).split())
+        if len(response_text) < 2:
+            raise ValidationError({"response": "La réponse doit contenir au moins deux caractères."})
+        review.dj_response = response_text[:255]
+        review.dj_responded_at = timezone.now()
+        review.save(update_fields=["dj_response", "dj_responded_at"])
+        return Response(self.get_serializer(review).data)
+
+    @action(detail=True, methods=["post"], url_path="report")
+    def report(self, request, pk=None):
+        review = self.get_object()
+        reason = " ".join(str(request.data.get("reason", "")).split())
+        if len(reason) < 5:
+            raise ValidationError({"reason": "Indiquez un motif d'au moins cinq caractères."})
+        review.report_reason = reason[:255]
+        review.reported_at = timezone.now()
+        review.status = Review.PENDING
+        review.save(update_fields=["report_reason", "reported_at", "status"])
+        return Response(self.get_serializer(review).data)
+
     @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny], url_path="public")
     def public(self, request):
         queryset = (
@@ -1032,6 +1119,65 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     def read_all(self, request):
         Notification.objects.filter(user=request.user, read_at__isnull=True).update(read_at=timezone.now())
         return Response({"detail": "Notifications marquées comme lues."})
+
+
+class BookingMessageViewSet(viewsets.ModelViewSet):
+    serializer_class = BookingMessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ["get", "post", "head", "options"]
+    filterset_fields = ["booking"]
+    ordering_fields = ["created_at"]
+
+    def get_queryset(self):
+        queryset = BookingMessage.objects.select_related("booking__client__user", "booking__dj__user", "sender")
+        booking_id = self.request.query_params.get("booking")
+        if self.request.user.is_staff:
+            return queryset.filter(booking_id=booking_id) if booking_id else queryset
+        client = client_connecte(self.request.user)
+        dj = dj_connecte(self.request.user)
+        if client:
+            queryset = queryset.filter(booking__client=client)
+        elif dj:
+            queryset = queryset.filter(booking__dj=dj)
+        else:
+            return queryset.none()
+        return queryset.filter(booking_id=booking_id) if booking_id else queryset
+
+    def perform_create(self, serializer):
+        booking = serializer.validated_data["booking"]
+        if not user_can_access_booking(self.request.user, booking):
+            raise PermissionDenied("Vous ne pouvez pas écrire dans ce dossier.")
+        message = serializer.save(sender=self.request.user)
+        recipients = [booking.client.user, booking.dj.user]
+        recipients.extend(get_user_model().objects.filter(is_staff=True, is_active=True))
+        for recipient in {user.pk: user for user in recipients if user.pk != self.request.user.pk}.values():
+            create_notification_after_commit(
+                recipient,
+                "Ultimate DJ - nouveau message",
+                f"Nouveau message dans la réservation n°{booking.pk}.",
+                Notification.BOOKING,
+                "/administration" if recipient.is_staff else ("/dj" if hasattr(recipient, "dj_profile") else "/compte"),
+            )
+
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def booking_calendar_ics(request, pk):
+    booking = get_object_or_404(Booking.objects.select_related("client__user", "dj__user", "venue", "event_type"), pk=pk)
+    if not user_can_access_booking(request.user, booking):
+        raise PermissionDenied("Vous ne pouvez pas exporter ce calendrier.")
+    start = datetime.combine(booking.event_date, booking.start_time).strftime("%Y%m%dT%H%M%S")
+    end = datetime.combine(booking.end_date or booking.event_date, booking.end_time).strftime("%Y%m%dT%H%M%S")
+    summary = f"Ultimate DJ - {booking.event_type.name}".replace("\\", "\\\\").replace(",", "\\,")
+    location = f"{booking.venue.name}, {booking.venue.city}".replace("\\", "\\\\").replace(",", "\\,")
+    content = "\r\n".join([
+        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Ultimate DJ//FR", "BEGIN:VEVENT",
+        f"UID:ultimate-dj-booking-{booking.pk}@ultimate-dj", f"DTSTART:{start}", f"DTEND:{end}",
+        f"SUMMARY:{summary}", f"LOCATION:{location}", f"DESCRIPTION:Réservation Ultimate DJ n°{booking.pk}", "END:VEVENT", "END:VCALENDAR", "",
+    ])
+    response = HttpResponse(content, content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="ultimate-dj-reservation-{booking.pk}.ics"'
+    return response
 
 @extend_schema(
     request=QuoteCalculationRequestSerializer,

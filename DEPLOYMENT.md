@@ -27,3 +27,11 @@ Les secrets ne doivent jamais être ajoutés à Git : ils sont renseignés dans 
 1. Utiliser des comptes administrateurs nominatifs et ne jamais partager un compte superutilisateur.
 2. Mettre en place une alerte sur les réponses HTTP 5xx, les erreurs Stripe et l'échec d'une sauvegarde.
 3. Avant chaque déploiement : `python manage.py check --deploy`, migrations et suite de tests en préproduction.
+
+## Tâches planifiées
+
+Planifier chaque matin la commande suivante avec le planificateur de l'hébergeur ou Windows Task Scheduler :
+
+`python manage.py send_payment_reminders --days 3`
+
+Tester d'abord avec `--dry-run`. La tâche doit utiliser les mêmes variables d'environnement sécurisées que Django et ses sorties doivent être envoyées vers la journalisation de production.
