@@ -1,4 +1,5 @@
 import { CreditCard, Download } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { formatEuro } from "../utils/booking";
@@ -21,6 +22,7 @@ export default function ClientInvoices({
   startCheckout,
 }) {
   const { i18n, t } = useTranslation();
+  const [privacyAccepted, setPrivacyAccepted] = useState({});
 
   return (
     <div className="invoice-list" id="client-invoices">
@@ -65,16 +67,27 @@ export default function ClientInvoices({
               </button>
 
               {invoice.status === "sent" && (
-                <button
-                  className="primary-button payment-button"
-                  type="button"
-                  onClick={() => startCheckout(invoice)}
-                  disabled={checkoutPendingId === invoice.id}
-                >
-                  <CreditCard /> {checkoutPendingId === invoice.id
-                    ? t("clientInvoices.redirecting")
-                    : t(invoice.invoice_type === "deposit" ? "clientInvoices.payDeposit" : "clientInvoices.payBalance")}
-                </button>
+                <div className="payment-consent">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(privacyAccepted[invoice.id])}
+                      onChange={(event) => setPrivacyAccepted((current) => ({ ...current, [invoice.id]: event.target.checked }))}
+                    />
+                    {t("paymentConsent.text")}
+                    <button type="button" className="text-button" onClick={() => window.location.assign("/confidentialite")}>{t("paymentConsent.link")}</button>
+                  </label>
+                  <button
+                    className="primary-button payment-button"
+                    type="button"
+                    onClick={() => startCheckout(invoice, privacyAccepted[invoice.id])}
+                    disabled={checkoutPendingId === invoice.id || !privacyAccepted[invoice.id]}
+                  >
+                    <CreditCard /> {checkoutPendingId === invoice.id
+                      ? t("clientInvoices.redirecting")
+                      : t(invoice.invoice_type === "deposit" ? "clientInvoices.payDeposit" : "clientInvoices.payBalance")}
+                  </button>
+                </div>
               )}
             </div>
           </article>

@@ -47,6 +47,7 @@ export const authenticate = async (username, password) => {
 };
 
 export const getCurrentUser = async () => (await apiClient.get("/auth/me/")).data;
+export const getPublicBusinessInfo = async () => (await apiClient.get("/public/business-info/", publicRequestConfig)).data;
 export const getClientProfile = async () => (await apiClient.get("/auth/profile/")).data;
 export const updateClientProfile = async (payload) => (await apiClient.patch("/auth/profile/", payload)).data;
 export const changePassword = async (currentPassword, newPassword) => apiClient.post("/auth/password-change/", {

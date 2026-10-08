@@ -28,7 +28,7 @@ def amount_to_cents(amount: Decimal) -> int:
     return int((amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
-def create_invoice_checkout(invoice: Invoice) -> tuple[Payment, str]:
+def create_invoice_checkout(invoice: Invoice, privacy_policy_version: str) -> tuple[Payment, str]:
     if not settings.STRIPE_SECRET_KEY or not settings.STRIPE_SECRET_KEY.startswith("sk_test_"):
         raise StripeConfigurationError("Une clé secrète Stripe de test est requise.")
 
@@ -83,6 +83,8 @@ def create_invoice_checkout(invoice: Invoice) -> tuple[Payment, str]:
             "amount": invoice.amount,
             "currency": "EUR",
             "status": Payment.PENDING,
+            "privacy_policy_accepted_at": timezone.now(),
+            "privacy_policy_version": privacy_policy_version,
         },
     )
     return payment, session.url

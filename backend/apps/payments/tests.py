@@ -260,13 +260,15 @@ class DepositCheckoutTests(APITestCase):
             url="https://checkout.stripe.com/c/pay/cs_test_beta_001",
         )
 
-        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/")
+        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/", {"privacy_policy_version": "2026-10-08"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["session_id"], "cs_test_beta_001")
         payment = Payment.objects.get(stripe_session_id="cs_test_beta_001")
         self.assertEqual(payment.amount, Decimal("180.00"))
         self.assertEqual(payment.status, Payment.PENDING)
+        self.assertEqual(payment.privacy_policy_version, "2026-10-08")
+        self.assertIsNotNone(payment.privacy_policy_accepted_at)
         stripe_parameters = create_session.call_args.kwargs
         self.assertEqual(stripe_parameters["line_items"][0]["price_data"]["unit_amount"], 18000)
         self.assertEqual(stripe_parameters["line_items"][0]["price_data"]["currency"], "eur")
@@ -276,9 +278,17 @@ class DepositCheckoutTests(APITestCase):
         self.invoice.status = Invoice.PAID
         self.invoice.save(update_fields=["status"])
 
-        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/")
+        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/", {"privacy_policy_version": "2026-10-08"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        create_session.assert_not_called()
+
+    @patch("apps.payments.services.stripe.checkout.Session.create")
+    def test_refuse_un_paiement_sans_consentement_confidentialite(self, create_session):
+        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/", {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("confidentialit", response.data["detail"].lower())
         create_session.assert_not_called()
 
     @patch("apps.payments.services.stripe.checkout.Session.create")
@@ -286,7 +296,7 @@ class DepositCheckoutTests(APITestCase):
         self.invoice.status = Invoice.DRAFT
         self.invoice.save(update_fields=["status"])
 
-        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/")
+        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/", {"privacy_policy_version": "2026-10-08"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         create_session.assert_not_called()
@@ -303,7 +313,7 @@ class DepositCheckoutTests(APITestCase):
             url="https://checkout.stripe.com/c/pay/cs_test_solde_001",
         )
 
-        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/")
+        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/", {"privacy_policy_version": "2026-10-08"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         stripe_parameters = create_session.call_args.kwargs

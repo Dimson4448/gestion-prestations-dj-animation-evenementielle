@@ -175,6 +175,18 @@ def current_user(request):
     return Response(CurrentUserSerializer(request.user).data)
 
 
+@extend_schema(responses={200: OpenApiTypes.OBJECT}, summary="Coordonnées publiques du service")
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def public_business_info(request):
+    return Response({
+        "legal_name": settings.BUSINESS_LEGAL_NAME,
+        "address": settings.BUSINESS_ADDRESS,
+        "email": settings.BUSINESS_EMAIL,
+        "phone": settings.BUSINESS_PHONE,
+    })
+
+
 @api_view(["GET", "PATCH"])
 @permission_classes([permissions.IsAuthenticated])
 def notification_preferences(request):
@@ -915,8 +927,14 @@ class InvoiceViewSet(AdminManagedProtectedViewSet):
                 {"detail": "Seul le client de la réservation peut démarrer ce paiement."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        privacy_policy_version = request.data.get("privacy_policy_version")
+        if privacy_policy_version != "2026-10-08":
+            return Response(
+                {"detail": "La politique de confidentialité doit être acceptée avant le paiement."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
-            payment, checkout_url = create_invoice_checkout(invoice)
+            payment, checkout_url = create_invoice_checkout(invoice, privacy_policy_version)
         except (ValueError, StripeConfigurationError) as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except StripeCheckoutError as exc:

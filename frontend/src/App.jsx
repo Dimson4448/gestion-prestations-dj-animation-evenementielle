@@ -43,6 +43,7 @@ const PackageDetailPage = lazy(() => import("./pages/PackageDetailPage"));
 const QuoteRequestPage = lazy(() => import("./pages/QuoteRequestPage"));
 const AdminWorkspacePage = lazy(() => import("./pages/AdminWorkspacePage"));
 const DJWorkspacePage = lazy(() => import("./pages/DJWorkspacePage"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
 
 const unassignedDj = {
   id: null,
@@ -1151,11 +1152,13 @@ export default function App() {
     }
   };
 
-  const startInvoiceCheckout = async (invoice) => {
+  const startInvoiceCheckout = async (invoice, privacyAccepted) => {
     setCheckoutPendingId(invoice.id);
     setCheckoutStatus("");
     try {
-      const response = await apiClient.post(`/invoices/${invoice.id}/checkout/`);
+      const response = await apiClient.post(`/invoices/${invoice.id}/checkout/`, {
+        privacy_policy_version: privacyAccepted ? "2026-10-08" : "",
+      });
       const checkoutUrl = new URL(response.data.checkout_url);
       if (checkoutUrl.protocol !== "https:" || checkoutUrl.hostname !== "checkout.stripe.com") {
         throw new Error("URL Stripe inattendue");
@@ -1238,6 +1241,8 @@ export default function App() {
           setVenueName, setVenuePostalCode, setVenueStreet, startTime, submitQuote, venueCountry, venueName,
           venuePending, venuePostalCode, venues, venueStatus, venueStreet,
         }} />}
+        {page === "legal" && <LegalPage type="legal" />}
+        {page === "privacy" && <LegalPage type="privacy" />}
         {page === "administration" && currentUser?.is_staff && <AdminWorkspacePage workspace={{
           acceptAdminQuote, adminBookings, adminCancellationMessages, adminCancellationPendingId,
           adminCancellationRequests, adminDeletionMessages, adminDeletionPendingId, adminDeletionRequests,

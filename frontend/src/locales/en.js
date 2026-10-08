@@ -1,4 +1,6 @@
 export default {
+  paymentConsent: { text: "I have read and accept the privacy policy.", link: "Read" },
+  legalPages: { legal: { title: "Legal notice", sections: [{ heading: "Publisher", text: "Ultimate DJ is an academic project. Professional contact details will be published before any commercial operation." }, { heading: "Liability", text: "Published information is for guidance. Contracts and payments are restricted to authenticated users." }] }, privacy: { title: "Privacy policy", sections: [{ heading: "Data processed", text: "We process data needed for quotes, services, contracts, invoices and payments." }, { heading: "Your rights", text: "You may request access, correction or deletion. Documents subject to legal retention remain archived." }] } },
   quoteConflicts: { client: "This client already has an active booking during this time slot. The existing contract must be cancelled first.", dj: "This DJ already has an active booking during this time slot." },
   notifications: { title: "Notifications", open: "Open notifications", empty: "No recent notifications." },
   notificationPreferences: { title: "Notification preferences", intro: "Choose the alerts you would like to receive.", loading: "Loading your preferences…", saved: "Preferences saved.", loadError: "Unable to load your preferences.", saveError: "The preference could not be saved.", fields: { email_enabled: "Receive emails", internal_enabled: "Receive in-app notifications", booking_enabled: "Booking alerts", payment_enabled: "Payment alerts", review_enabled: "Review alerts" } },
@@ -48,6 +50,6 @@ export default {
     status: { pending: "Pending", approved: "Approved", rejected: "Rejected" },
     statusText: { pending: "The administration still needs to review your supporting documents.", approved: "Your application has been approved. Your DJ area will be available after refreshing your session.", rejected: "Your application was not approved. Read the administration response to understand the reason." },
   },
-  footer: { tagline: "Book. Mix. Celebrate.", offers: "Offers", quote: "Quote", account: "My account", admin: "Administration", version: "© 2026 Ultimate DJ · Beta version 0.2.0" },
+  footer: { tagline: "Book. Mix. Celebrate.", offers: "Offers", quote: "Quote", account: "My account", admin: "Administration", legal: "Legal notice", privacy: "Privacy", contact: "Contact", navigation: "Navigation", version: "© 2026 Ultimate DJ" },
   error: { eyebrow: "Temporary issue", title: "The page could not be displayed.", text: "Reload the application. If the problem persists, check that the Django backend is running.", reload: "Reload the application" },
 };

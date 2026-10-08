@@ -1,4 +1,6 @@
 export default {
+  paymentConsent: { text: "Ik heb het privacybeleid gelezen en aanvaard.", link: "Lezen" },
+  legalPages: { legal: { title: "Wettelijke vermeldingen", sections: [{ heading: "Uitgever", text: "Ultimate DJ is een academisch project. Professionele contactgegevens worden vóór commerciële ingebruikname gepubliceerd." }, { heading: "Aansprakelijkheid", text: "De gepubliceerde informatie is louter informatief. Contracten en betalingen zijn voorbehouden aan geauthenticeerde gebruikers." }] }, privacy: { title: "Privacybeleid", sections: [{ heading: "Verwerkte gegevens", text: "Wij verwerken gegevens die nodig zijn voor offertes, prestaties, contracten, facturen en betalingen." }, { heading: "Uw rechten", text: "U kunt inzage, correctie of verwijdering vragen. Documenten met een wettelijke bewaarplicht blijven gearchiveerd." }] } },
   quoteConflicts: { client: "Deze klant heeft al een actieve boeking in dit tijdslot. Het bestaande contract moet eerst worden geannuleerd.", dj: "Deze DJ heeft al een actieve boeking in dit tijdslot." },
   notifications: { title: "Meldingen", open: "Meldingen openen", empty: "Geen recente meldingen." },
   notificationPreferences: { title: "Meldingsvoorkeuren", intro: "Kies welke meldingen u wilt ontvangen.", loading: "Uw voorkeuren worden geladen…", saved: "Voorkeuren opgeslagen.", loadError: "Uw voorkeuren kunnen niet worden geladen.", saveError: "De voorkeur kon niet worden opgeslagen.", fields: { email_enabled: "E-mails ontvangen", internal_enabled: "Meldingen in de applicatie ontvangen", booking_enabled: "Dossiermeldingen", payment_enabled: "Betalingsmeldingen", review_enabled: "Beoordelingsmeldingen" } },
@@ -48,6 +50,6 @@ export default {
     status: { pending: "In behandeling", approved: "Goedgekeurd", rejected: "Afgewezen" },
     statusText: { pending: "De beheerder moet uw bewijsstukken nog beoordelen.", approved: "Uw kandidatuur is goedgekeurd. Uw DJ-ruimte is beschikbaar nadat uw sessie is vernieuwd.", rejected: "Uw kandidatuur werd niet goedgekeurd. Lees het antwoord van de beheerder voor de reden." },
   },
-  footer: { tagline: "Boeken. Mixen. Vieren.", offers: "Aanbiedingen", quote: "Offerte", account: "Mijn account", admin: "Beheer", version: "© 2026 Ultimate DJ · Bètaversie 0.2.0" },
+  footer: { tagline: "Boeken. Mixen. Vieren.", offers: "Aanbiedingen", quote: "Offerte", account: "Mijn account", admin: "Beheer", legal: "Wettelijke vermeldingen", privacy: "Privacy", contact: "Contact", navigation: "Navigatie", version: "© 2026 Ultimate DJ" },
   error: { eyebrow: "Tijdelijk probleem", title: "De pagina kon niet worden weergegeven.", text: "Laad de toepassing opnieuw. Controleer of de Django-backend actief is als het probleem aanhoudt.", reload: "Toepassing opnieuw laden" },
 };

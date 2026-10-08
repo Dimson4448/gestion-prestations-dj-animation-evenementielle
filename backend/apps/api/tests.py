@@ -29,6 +29,19 @@ class ApiUltimateDJTests(APITestCase):
     def test_cle_de_signature_jwt_respecte_la_longueur_minimale(self):
         self.assertGreaterEqual(len(settings.SECRET_KEY.encode("utf-8")), 32)
 
+    @override_settings(
+        BUSINESS_LEGAL_NAME="Ultimate DJ",
+        BUSINESS_ADDRESS="Rue de la Musique 12, 1000 Bruxelles",
+        BUSINESS_EMAIL="contact@example.test",
+        BUSINESS_PHONE="+32 470 00 00 00",
+    )
+    def test_coordonnees_publiques_proviennent_de_la_configuration(self):
+        response = self.client.get("/api/v1/public/business-info/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["email"], "contact@example.test")
+        self.assertEqual(response.data["phone"], "+32 470 00 00 00")
+
     def setUp(self):
         cache.clear()
         self.package = Package.objects.create(

@@ -6,6 +6,8 @@ const pagePaths = {
   compte: "/compte",
   administration: "/administration",
   dj: "/dj",
+  legal: "/mentions-legales",
+  privacy: "/confidentialite",
 };
 
 const pagesByPath = new Map(Object.entries(pagePaths).map(([page, path]) => [path, page]));

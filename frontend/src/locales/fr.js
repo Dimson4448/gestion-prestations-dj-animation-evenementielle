@@ -1,4 +1,6 @@
 export default {
+  paymentConsent: { text: "J’ai lu et j’accepte la politique de confidentialité.", link: "Lire" },
+  legalPages: { legal: { title: "Mentions légales", sections: [{ heading: "Éditeur", text: "Ultimate DJ est un projet académique. Les coordonnées professionnelles seront publiées avant toute mise en exploitation." }, { heading: "Responsabilité", text: "Les informations publiées sont fournies à titre informatif. Les contrats et paiements sont réservés aux utilisateurs authentifiés." }] }, privacy: { title: "Politique de confidentialité", sections: [{ heading: "Données traitées", text: "Nous traitons les données nécessaires aux devis, prestations, contrats, factures et paiements." }, { heading: "Vos droits", text: "Vous pouvez demander l'accès, la rectification ou la suppression de vos données. Les documents soumis à une obligation légale de conservation restent archivés." }] } },
   quoteConflicts: { client: "Ce client a déjà une réservation active sur ce créneau. Le contrat existant doit d'abord être annulé.", dj: "Ce DJ a déjà une réservation active sur ce créneau." },
   notifications: { title: "Notifications", open: "Ouvrir les notifications", empty: "Aucune notification récente." },
   notificationPreferences: { title: "Préférences de notification", intro: "Choisissez les alertes que vous souhaitez recevoir.", loading: "Chargement de vos préférences…", saved: "Préférences enregistrées.", loadError: "Impossible de charger vos préférences.", saveError: "La préférence n’a pas pu être enregistrée.", fields: { email_enabled: "Recevoir les e-mails", internal_enabled: "Recevoir les notifications dans l’application", booking_enabled: "Alertes liées aux dossiers", payment_enabled: "Alertes de paiement", review_enabled: "Alertes d’avis" } },
@@ -48,6 +50,6 @@ export default {
     status: { pending: "En attente", approved: "Acceptée", rejected: "Refusée" },
     statusText: { pending: "L’administration doit encore examiner vos justificatifs.", approved: "Votre candidature est acceptée. Votre espace DJ sera disponible après actualisation de votre session.", rejected: "Votre candidature n’a pas été retenue. Consultez la réponse de l’administration pour connaître le motif." },
   },
-  footer: { tagline: "Réserver. Mixer. Célébrer.", offers: "Offres", quote: "Devis", account: "Mon compte", admin: "Administration", version: "© 2026 Ultimate DJ · Version beta 0.2.0" },
+  footer: { tagline: "Réserver. Mixer. Célébrer.", offers: "Offres", quote: "Devis", account: "Mon compte", admin: "Administration", legal: "Mentions légales", privacy: "Confidentialité", contact: "Contact", navigation: "Navigation", version: "© 2026 Ultimate DJ" },
   error: { eyebrow: "Incident temporaire", title: "La page n’a pas pu s’afficher.", text: "Rechargez l’application. Si le problème persiste, vérifiez que le backend Django est démarré.", reload: "Recharger l’application" },
 };

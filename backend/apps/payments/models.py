@@ -76,6 +76,8 @@ class Payment(models.Model):
     currency = models.CharField("devise", max_length=3, default="EUR")
     status = models.CharField("statut", max_length=20, choices=STATUS_CHOICES, default=PENDING)
     paid_at = models.DateTimeField("payé le", null=True, blank=True)
+    privacy_policy_accepted_at = models.DateTimeField(null=True, blank=True, verbose_name="politique de confidentialité acceptée le")
+    privacy_policy_version = models.CharField(max_length=32, blank=True, verbose_name="version de la politique acceptée")
 
     class Meta:
         db_table = "payments"
