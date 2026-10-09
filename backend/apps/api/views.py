@@ -187,6 +187,7 @@ def public_business_info(request):
     })
 
 
+@extend_schema(request=NotificationPreferenceSerializer, responses={200: NotificationPreferenceSerializer}, summary="Consulter ou modifier les préférences de notification")
 @api_view(["GET", "PATCH"])
 @permission_classes([permissions.IsAuthenticated])
 def notification_preferences(request):
@@ -198,6 +199,7 @@ def notification_preferences(request):
     return Response(NotificationPreferenceSerializer(preference).data)
 
 
+@extend_schema(responses={(200, "text/csv"): OpenApiTypes.BINARY}, summary="Exporter une ressource d'administration au format CSV")
 @api_view(["GET"])
 @permission_classes([permissions.IsAdminUser])
 def admin_csv_export(request, resource):
@@ -1123,6 +1125,8 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ["created_at", "read_at"]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False) or not self.request.user.is_authenticated:
+            return Notification.objects.none()
         return Notification.objects.filter(user=self.request.user)
 
     @action(detail=True, methods=["post"])
@@ -1178,6 +1182,7 @@ class BookingMessageViewSet(viewsets.ModelViewSet):
             )
 
 
+@extend_schema(responses={(200, "text/calendar"): OpenApiTypes.BINARY}, summary="Exporter une réservation au format calendrier ICS")
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def booking_calendar_ics(request, pk):

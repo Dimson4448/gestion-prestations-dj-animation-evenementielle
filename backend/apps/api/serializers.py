@@ -79,10 +79,12 @@ class BookingMessageSerializer(serializers.ModelSerializer):
         fields = ["id", "booking", "sender", "sender_name", "sender_role", "body", "created_at", "read_at"]
         read_only_fields = ["sender", "created_at", "read_at"]
 
-    def get_sender_name(self, message):
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_sender_name(self, message) -> str:
         return message.sender.get_full_name().strip() or message.sender.email
 
-    def get_sender_role(self, message):
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_sender_role(self, message) -> str:
         if message.sender.is_staff:
             return "admin"
         if hasattr(message.sender, "dj_profile"):
@@ -740,7 +742,8 @@ class BookingSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     venue_city = serializers.CharField(source="venue.city", read_only=True)
     event_type_name = serializers.CharField(source="event_type.name", read_only=True)
 
-    def get_client_name(self, booking):
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_client_name(self, booking) -> str:
         return booking.client.user.get_full_name().strip() or booking.client.user.email
 
     class Meta:
