@@ -4,7 +4,7 @@ Projet : Gestion des prestations DJ et animation événementielle
 Étudiant : Tchamako Vianney Dimitri  
 Dépôt GitHub : https://github.com/Dimson4448/gestion-prestations-dj-animation-evenementielle
 
-Dernière mise à jour : 19 août 2026
+Dernière mise à jour : 9 octobre 2026
 
 ## Objectif du logbook
 
@@ -337,10 +337,32 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - La validation de cette étape compte 41 tests frontend réussis et un build Vite réussi.
 - Aucun modèle Django n'a changé ; le dump MariaDB ne nécessite donc pas de mise à jour.
 
+### 2026-10-08 - Consolidation des dossiers, de la messagerie et des disponibilités
+
+- Ajout d'une messagerie liée à chaque réservation, accessible uniquement au client, au DJ concerné et à l'administration.
+- Ajout du téléchargement du dossier de réservation et d'un fichier calendrier `.ics` pour faciliter le suivi de l'événement.
+- Mise en place des préférences de notification et des alertes liées aux dossiers, paiements et avis.
+- Ajout de la modération des avis clients, du signalement et de la réponse du DJ.
+- Renforcement des règles de disponibilité : un DJ ne peut pas accepter deux prestations qui se chevauchent.
+- Ajout d'une règle complémentaire : un client ne peut pas conclure deux réservations actives sur le même créneau ; une annulation officielle libère le créneau.
+- Vérification des contrôles de chevauchement et des droits d'accès par des tests Django ciblés.
+
+### 2026-10-09 - Finalisation légale, paiement, qualité et livraison
+
+- Ajout des pages publiques de mentions légales et de politique de confidentialité en français, anglais et néerlandais.
+- Mise en place d'un footer public avec les liens légaux et les coordonnées de contact configurées côté backend, sans exposer les données privées des utilisateurs.
+- Ajout du consentement obligatoire à la politique de confidentialité avant le démarrage d'un paiement Stripe ; la date et la version acceptée sont enregistrées avec le paiement.
+- Ajout de l'endpoint public de configuration des coordonnées de l'activité, utilisé par le frontend et les pages légales.
+- Amélioration de la documentation OpenAPI afin que le contrôle de configuration de production ne produise plus d'avertissements bloquants.
+- Correction du test d'e-mail localisé et validation de la suite Django complète, du build React et de la vérification de production par GitHub Actions.
+- Nettoyage du dépôt GitHub : fusion de la branche utile dans `main` et suppression des branches devenues obsolètes ; une seule branche principale est conservée.
+- Rédaction de la fiche de scénarios de tests manuels couvrant les rôles, conflits de disponibilité, paiements, remboursements, API, multilinguisme et accessibilité de base.
+- Les tests automatiques et le build de production sont validés par GitHub Actions sur la branche `main`.
+
 ## État actuel et prochaines étapes
 
 - Le backend Django, le frontend React, MariaDB, Stripe en mode test et les principaux parcours métier sont intégrés.
 - Les quatre prestations prévues par le cahier des charges sont respectées.
 - Les espaces client, DJ et administration disposent de contrôles d'accès distincts.
-- Les prochaines étapes portent sur les tests manuels de bout en bout, la préparation d'un déploiement HTTPS et la configuration ultérieure de Stripe en production.
+- Les prochaines étapes portent sur les tests manuels de bout en bout avec les comptes de démonstration, la préparation des diagrammes et de la présentation orale, puis la préparation d'un déploiement HTTPS et de Stripe en production.
 - Le dump MariaDB doit continuer à être actualisé lorsqu'une migration ou une modification de données de référence le nécessite.
