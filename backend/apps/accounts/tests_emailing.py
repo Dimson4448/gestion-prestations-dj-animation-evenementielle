@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.core import mail
 from django.test import SimpleTestCase, override_settings
@@ -19,7 +20,14 @@ class LocalizedEmailTests(SimpleTestCase):
         profile = SimpleNamespace(preferred_language=language)
         return SimpleNamespace(email=f"client-{language}@example.test", client_profile=profile)
 
-    def test_envoie_le_message_dans_les_trois_langues(self):
+    @patch("apps.accounts.emailing.NotificationPreference.objects.get_or_create")
+    def test_envoie_le_message_dans_les_trois_langues(self, get_or_create):
+        get_or_create.return_value = (SimpleNamespace(
+            email_enabled=True,
+            booking_enabled=True,
+            payment_enabled=True,
+            review_enabled=True,
+        ), True)
         for language, expected in (("fr", "Bonjour"), ("en", "Hello"), ("nl", "Hallo")):
             send_user_email(
                 self.user(language), self.subjects, self.messages, {"name": "Alex"}, after_commit=False
