@@ -358,6 +358,7 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - Nettoyage du dépôt GitHub : fusion de la branche utile dans `main` et suppression des branches devenues obsolètes ; une seule branche principale est conservée.
 - Rédaction de la fiche de scénarios de tests manuels couvrant les rôles, conflits de disponibilité, paiements, remboursements, API, multilinguisme et accessibilité de base.
 - Les tests automatiques et le build de production sont validés par GitHub Actions sur la branche `main`.
+- Régénération du dump SQL versionné depuis la base MariaDB réellement utilisée par Django (`ultimate_dj_django`, port 3307) : schéma complet, état des migrations et catalogue public, sans données privées de comptes, dossiers, messages ou paiements.
 
 ## État actuel et prochaines étapes
 
