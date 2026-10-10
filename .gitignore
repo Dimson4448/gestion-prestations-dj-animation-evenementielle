@@ -23,3 +23,6 @@ backend/media/
 # Frontend
 frontend/dist/
 frontend/.vite/
+
+# Fichier local d'import unique vers le gestionnaire de mots de passe Edge.
+demo-edge-passwords.csv

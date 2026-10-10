@@ -5,7 +5,7 @@ import { getPublicBusinessInfo } from "../api";
 const publicBusinessFallback = {
   legal_name: "Ultimate DJ",
   address: "",
-  email: "dimitritchamako@gmail.com",
+  email: "ultimate.dj.be@gmail.com",
   phone: "+32 465 77 98 48",
 };
 

@@ -12,8 +12,8 @@ export default function SiteFooter({ currentUser, onNavigate }) {
       <section className="footer-section footer-contact" aria-label={t("footer.contact")}>
         <strong>{t("footer.contact")}</strong>
         <div>
-          {business.email && <a href={`mailto:${business.email}`}>{business.email}</a>}
-          {business.phone && <a href={`tel:${business.phone.replace(/\s/g, "")}`}>{business.phone}</a>}
+          {business.email && <a href={`mailto:${business.email}`}>{t("footer.email")}: {business.email}</a>}
+          {business.phone && <a href={`tel:${business.phone.replace(/\s/g, "")}`}>{t("footer.phone")}: {business.phone}</a>}
         </div>
       </section>
       <section className="footer-section footer-links">

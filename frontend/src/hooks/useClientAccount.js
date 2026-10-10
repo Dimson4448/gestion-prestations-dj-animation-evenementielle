@@ -3,6 +3,19 @@ import { useEffect } from "react";
 import { apiClient, clearAuthentication, getAccountDeletionRequests, getClientProfile } from "../api";
 import { isUserInRole, unwrapApiList } from "../utils/apiCollections";
 
+const getAllMusicStyles = async () => {
+  let nextPage = "/music-styles/?ordering=name";
+  const styles = [];
+
+  while (nextPage) {
+    const response = await apiClient.get(nextPage);
+    styles.push(...unwrapApiList(response.data));
+    nextPage = response.data?.next || null;
+  }
+
+  return styles;
+};
+
 export default function useClientAccount(account) {
   const {
     currentUser, isAuthenticated, setAccountDeletionRequests, setAccountDeletionStatus, setAppointmentStatus,
@@ -127,32 +140,32 @@ useEffect(() => {
     apiClient.get("/bookings/", { params: { ordering: "-event_date" } }),
     apiClient.get("/playlists/"),
     apiClient.get("/playlist-songs/", { params: { ordering: "title" } }),
-    apiClient.get("/music-styles/", { params: { ordering: "name" } }),
+    getAllMusicStyles(),
   ])
-    .then(async ([bookingsResponse, playlistsResponse, songsResponse, stylesResponse]) => {
+    .then(async ([bookingsResponse, playlistsResponse, songsResponse, styleRecords]) => {
       if (!mounted) return;
         const bookingRecords = unwrapApiList(bookingsResponse.data);
         const playlistRecords = unwrapApiList(playlistsResponse.data);
         const songRecords = unwrapApiList(songsResponse.data);
-        const styleRecords = unwrapApiList(stylesResponse.data);
       setClientBookings(bookingRecords);
       const requestResponses = await Promise.all(
         bookingRecords.map((booking) => apiClient.get(`/bookings/${booking.id}/cancellation-requests/`)),
       );
       if (!mounted) return;
       setCancellationRequests(requestResponses.flatMap((response) => response.data));
-      setPlaylists(playlistRecords);
+      const eligible = bookingRecords.filter((item) => item.deposit_paid && ["confirmed", "performed", "paid"].includes(item.status) && !playlistRecords.some((playlist) => playlist.booking === item.id));
+      const initializedPlaylists = await Promise.all(eligible.map((booking) => (
+        apiClient.post("/playlists/initialize/", { booking: booking.id }).then((response) => response.data)
+      )));
+      if (!mounted) return;
+      const allPlaylists = [...playlistRecords, ...initializedPlaylists];
+      setPlaylists(allPlaylists);
       setPlaylistSongs(songRecords);
       setMusicStyles(styleRecords);
-      const eligible = bookingRecords.filter((item) => item.deposit_paid && ["confirmed", "performed", "paid"].includes(item.status) && !playlistRecords.some((playlist) => playlist.booking === item.id));
-      setPlaylistBookingId((current) => current || String(eligible[0]?.id || ""));
-      setPlaylistStyleIds((current) => (
-        current.length > 0 || !styleRecords[0]?.id
-          ? current
-          : [String(styleRecords[0].id)]
-      ));
-      setSongPlaylistId((current) => current || String(playlistRecords[0]?.id || ""));
-      setPlaylistStatus(playlistRecords.length || eligible.length ? "" : "La playlist sera disponible après confirmation de l’acompte.");
+      setPlaylistBookingId("");
+      setPlaylistStyleIds([]);
+      setSongPlaylistId((current) => current || String(allPlaylists[0]?.id || ""));
+      setPlaylistStatus(allPlaylists.length ? "" : "La playlist sera disponible après confirmation de l’acompte.");
     })
     .catch(() => mounted && setPlaylistStatus("Impossible de charger les playlists pour le moment."));
   return () => { mounted = false; };

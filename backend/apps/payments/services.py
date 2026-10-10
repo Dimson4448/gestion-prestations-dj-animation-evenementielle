@@ -7,6 +7,7 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from apps.availability.models import DJAvailability
+from apps.bookings.services import ensure_playlist_from_quote
 
 from .models import Invoice, Payment, Refund
 from .notifications import notify_payment_confirmed, notify_refund_processed
@@ -28,7 +29,9 @@ def amount_to_cents(amount: Decimal) -> int:
     return int((amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
+@transaction.atomic
 def create_invoice_checkout(invoice: Invoice, privacy_policy_version: str) -> tuple[Payment, str]:
+    invoice = Invoice.objects.select_for_update().select_related("booking").get(pk=invoice.pk)
     if not settings.STRIPE_SECRET_KEY or not settings.STRIPE_SECRET_KEY.startswith("sk_test_"):
         raise StripeConfigurationError("Une clé secrète Stripe de test est requise.")
 
@@ -38,6 +41,16 @@ def create_invoice_checkout(invoice: Invoice, privacy_policy_version: str) -> tu
         raise ValueError("Seule une facture envoyée et non payée peut démarrer un paiement.")
     if invoice.amount <= 0:
         raise ValueError("Le montant de la facture doit être supérieur à zéro.")
+    if Payment.objects.filter(invoice=invoice, status=Payment.PENDING).exists():
+        raise ValueError("Un paiement est déjà en cours pour cette facture. Terminez-le ou attendez son expiration avant de recommencer.")
+    if Payment.objects.filter(
+        booking=invoice.booking,
+        invoice__invoice_type=invoice.invoice_type,
+        amount=invoice.amount,
+        currency="EUR",
+        status=Payment.PAID,
+    ).exists():
+        raise ValueError("Ce paiement a déjà été confirmé pour ce dossier.")
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
     try:
@@ -139,11 +152,38 @@ def confirm_checkout_payment(session) -> bool:
             status=DJAvailability.RESERVED,
             reason=f"Réservation #{booking.pk}",
         ).update(status=DJAvailability.OCCUPIED)
+        ensure_playlist_from_quote(booking)
     elif invoice.invoice_type in {Invoice.BALANCE, Invoice.FULL}:
         booking.status = booking.PAID
         booking.save(update_fields=["status"])
     notify_payment_confirmed(payment)
     return True
+
+
+def synchronize_checkout_payment(session_id: str) -> tuple[Payment, bool]:
+    """Vérifie une session Checkout auprès de Stripe au retour du client.
+
+    Le webhook demeure le mécanisme principal en production. Cette vérification
+    complémentaire évite qu'un environnement local non exposé à Internet laisse
+    un paiement légitime bloqué en attente après le retour depuis Stripe.
+    """
+    payment = Payment.objects.select_related("invoice", "booking").get(stripe_session_id=session_id)
+    if payment.status == Payment.PAID:
+        return payment, False
+    if not settings.STRIPE_SECRET_KEY or not settings.STRIPE_SECRET_KEY.startswith("sk_test_"):
+        raise StripeConfigurationError("Une clé secrète Stripe de test est requise.")
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+    except stripe.StripeError as exc:
+        raise StripeCheckoutError("La session Stripe n'a pas pu être vérifiée.") from exc
+
+    if session.get("payment_status") != "paid":
+        return payment, False
+    confirmed = confirm_checkout_payment(session)
+    payment.refresh_from_db()
+    return payment, confirmed
 
 
 @transaction.atomic

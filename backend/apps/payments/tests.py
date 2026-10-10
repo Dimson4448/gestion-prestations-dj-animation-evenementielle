@@ -11,8 +11,8 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import ClientProfile, DJProfile
 from apps.availability.models import DJAvailability
-from apps.bookings.models import Booking, Quote, Venue
-from apps.catalog.models import EventType, Package
+from apps.bookings.models import Booking, Playlist, Quote, Venue
+from apps.catalog.models import EventType, MusicStyle, Package
 
 from .models import Invoice, Payment, Refund
 
@@ -79,6 +79,7 @@ class DepositCheckoutTests(APITestCase):
             status=Quote.ACCEPTED,
             total_amount="600.00",
             deposit_amount="180.00",
+            music_preferences="Soul, Afrobeats",
         )
         self.booking = Booking.objects.create(
             quote=self.quote,
@@ -121,6 +122,49 @@ class DepositCheckoutTests(APITestCase):
         self.invoice.status = Invoice.PAID
         self.invoice.save(update_fields=["status"])
         return payment
+
+    @patch("apps.payments.services.stripe.checkout.Session.retrieve")
+    def test_retour_checkout_confirme_le_paiement_sans_webhook_local(self, retrieve_session):
+        payment = self.create_pending_payment()
+        retrieve_session.return_value = {
+            "id": payment.stripe_session_id,
+            "payment_status": "paid",
+            "amount_total": 18000,
+            "currency": "eur",
+            "payment_intent": "pi_test_checkout_return",
+            "metadata": {"invoice_id": str(self.invoice.pk), "booking_id": str(self.booking.pk)},
+        }
+
+        response = self.client.post(
+            "/api/v1/payments/checkout-return/",
+            {"session_id": payment.stripe_session_id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["confirmed"])
+        payment.refresh_from_db()
+        self.booking.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(payment.status, Payment.PAID)
+        self.assertEqual(self.invoice.status, Invoice.PAID)
+        self.assertTrue(self.booking.deposit_paid)
+        self.assertEqual(self.booking.status, Booking.CONFIRMED)
+        playlist = Playlist.objects.get(booking=self.booking)
+        self.assertEqual(playlist.notes, "Soul, Afrobeats")
+
+    def test_initialisation_playlist_reprend_les_styles_du_devis(self):
+        soul, _ = MusicStyle.objects.get_or_create(name="Soul")
+        afrobeats, _ = MusicStyle.objects.get_or_create(name="Afrobeats")
+        self.booking.deposit_paid = True
+        self.booking.status = Booking.CONFIRMED
+        self.booking.save(update_fields=["deposit_paid", "status"])
+
+        response = self.client.post("/api/v1/playlists/initialize/", {"booking": self.booking.pk}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["main_style"], soul.pk)
+        self.assertCountEqual(response.data["styles"], [soul.pk, afrobeats.pk])
 
     def test_enregistre_une_demande_de_remboursement_auditable(self):
         payment = self.create_paid_payment()
@@ -281,6 +325,34 @@ class DepositCheckoutTests(APITestCase):
         response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/", {"privacy_policy_version": "2026-10-08"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        create_session.assert_not_called()
+
+    @patch("apps.payments.services.stripe.checkout.Session.create")
+    def test_refuse_une_seconde_session_en_attente_pour_la_meme_facture(self, create_session):
+        self.create_pending_payment()
+
+        response = self.client.post(f"/api/v1/invoices/{self.invoice.pk}/checkout/", {"privacy_policy_version": "2026-10-08"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("déjà en cours", response.data["detail"])
+        create_session.assert_not_called()
+
+    @patch("apps.payments.services.stripe.checkout.Session.create")
+    def test_refuse_un_meme_paiement_deja_reussi_sur_le_dossier(self, create_session):
+        previous = self.create_paid_payment()
+        duplicate_invoice = Invoice.objects.create(
+            booking=self.booking,
+            invoice_number="ACOMPTE-BETA-DOUBLON",
+            invoice_type=Invoice.DEPOSIT,
+            amount=previous.amount,
+            status=Invoice.SENT,
+            due_at=timezone.now() + timedelta(days=7),
+        )
+
+        response = self.client.post(f"/api/v1/invoices/{duplicate_invoice.pk}/checkout/", {"privacy_policy_version": "2026-10-08"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("déjà été confirmé", response.data["detail"])
         create_session.assert_not_called()
 
     @patch("apps.payments.services.stripe.checkout.Session.create")

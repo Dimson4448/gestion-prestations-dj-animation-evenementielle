@@ -5,7 +5,7 @@ from django.db import transaction
 
 from apps.accounts.emailing import localized, preferred_language
 from apps.accounts.models import Notification
-from apps.accounts.notifications import create_notification_after_commit
+from apps.accounts.notifications import create_notification_after_commit, notify_administrators_after_commit
 
 
 def _send_after_commit(subject, message, recipients):
@@ -42,16 +42,27 @@ def notify_quote_created(quote):
             "nl": "Uw offerteaanvraag nr. {number} voor {date} werd geregistreerd. U wordt via uw klantenruimte en per e-mail op de hoogte gehouden.",
         }, context,
     )
-    if quote.requested_dj_id:
-        _send_localized(
-            quote.requested_dj.user,
-            {"fr": "Ultimate DJ - nouvelle demande de prestation", "en": "Ultimate DJ - new booking request", "nl": "Ultimate DJ - nieuwe opdracht"},
-            {
-                "fr": "Une demande de prestation n°{number}, prévue le {date}, vous attend dans votre espace DJ.",
-                "en": "Booking request #{number}, scheduled for {date}, is waiting in your DJ area.",
-                "nl": "Opdrachtaanvraag nr. {number}, gepland op {date}, wacht in uw DJ-ruimte.",
-            }, context,
-        )
+    notify_administrators_after_commit(
+        {"fr": "Ultimate DJ - nouveau devis n°{number}", "en": "Ultimate DJ - new quote #{number}", "nl": "Ultimate DJ - nieuwe offerte nr. {number}"},
+        {"fr": "Une nouvelle demande de devis n°{number} est à traiter pour le {date}.", "en": "A new quote request #{number} requires processing for {date}.", "nl": "Een nieuwe offerteaanvraag nr. {number} moet worden behandeld voor {date}."},
+        context,
+    )
+
+
+def notify_quote_sent_to_dj(quote):
+    """Avertit le DJ uniquement après la validation administrative du devis."""
+    if not quote.requested_dj_id:
+        return
+    _send_localized(
+        quote.requested_dj.user,
+        {"fr": "Ultimate DJ - demande de prestation à examiner", "en": "Ultimate DJ - booking request to review", "nl": "Ultimate DJ - opdrachtaanvraag te beoordelen"},
+        {
+            "fr": "L'administration a validé la demande n°{number}, prévue le {date}. Vous pouvez maintenant l'accepter ou la refuser dans votre espace DJ.",
+            "en": "The administration validated request #{number}, scheduled for {date}. You can now accept or decline it in your DJ area.",
+            "nl": "De administratie valideerde aanvraag nr. {number}, gepland op {date}. U kunt deze nu aanvaarden of weigeren in uw DJ-ruimte.",
+        },
+        {"number": quote.pk, "date": quote.event_date.strftime("%d/%m/%Y")},
+    )
 
 
 def notify_quote_refused(quote):
@@ -63,6 +74,11 @@ def notify_quote_refused(quote):
             "en": "The requested DJ is unavailable for quote #{number}. The administration can suggest another DJ.",
             "nl": "De gekozen DJ is niet beschikbaar voor aanvraag nr. {number}. De administratie kan een andere DJ voorstellen.",
         }, {"number": quote.pk},
+    )
+    notify_administrators_after_commit(
+        {"fr": "Ultimate DJ - devis n°{number} refusé", "en": "Ultimate DJ - quote #{number} declined", "nl": "Ultimate DJ - offerte nr. {number} geweigerd"},
+        {"fr": "Le DJ a refusé le devis n°{number}. Une autre affectation peut être proposée.", "en": "The DJ declined quote #{number}. Another assignment can be proposed.", "nl": "De dj heeft offerte nr. {number} geweigerd. Er kan een andere toewijzing worden voorgesteld."},
+        {"number": quote.pk},
     )
 
 
@@ -82,6 +98,11 @@ def notify_quote_accepted(booking, contract, invoice):
             "nl": "Uw opdracht van {date} werd aanvaard. Contract {contract} en voorschotfactuur {invoice} zijn beschikbaar in uw klantenruimte.",
         }, context,
     )
+    notify_administrators_after_commit(
+        {"fr": "Ultimate DJ - devis accepté, réservation n°{booking}", "en": "Ultimate DJ - quote accepted, booking #{booking}", "nl": "Ultimate DJ - offerte aanvaard, reservatie nr. {booking}"},
+        {"fr": "La réservation n°{booking} a été créée pour le {date}. Contrat {contract} et facture {invoice} générés.", "en": "Booking #{booking} was created for {date}. Contract {contract} and invoice {invoice} were generated.", "nl": "Reservatie nr. {booking} werd aangemaakt voor {date}. Contract {contract} en factuur {invoice} werden aangemaakt."},
+        context,
+    )
 
 
 def notify_contract_signed(contract):
@@ -95,6 +116,11 @@ def notify_contract_signed(contract):
             "en": "Your signature of contract {contract} has been recorded for booking #{booking}.",
             "nl": "Uw handtekening van contract {contract} werd geregistreerd voor reservatie nr. {booking}.",
         }, context,
+    )
+    notify_administrators_after_commit(
+        {"fr": "Ultimate DJ - contrat {contract} signé", "en": "Ultimate DJ - contract {contract} signed", "nl": "Ultimate DJ - contract {contract} ondertekend"},
+        {"fr": "Le contrat {contract} de la réservation n°{booking} vient d'être signé.", "en": "Contract {contract} for booking #{booking} was just signed.", "nl": "Contract {contract} voor reservatie nr. {booking} werd zojuist ondertekend."},
+        context,
     )
 
 

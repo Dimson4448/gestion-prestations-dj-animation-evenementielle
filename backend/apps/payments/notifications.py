@@ -5,7 +5,7 @@ from django.db import transaction
 
 from apps.accounts.emailing import localized, preferred_language
 from apps.accounts.models import Notification
-from apps.accounts.notifications import create_notification_after_commit
+from apps.accounts.notifications import create_notification_after_commit, notify_administrators_after_commit
 
 from .models import Refund
 
@@ -31,6 +31,12 @@ def notify_payment_confirmed(payment):
     }, language).format(**context)
     _send_after_commit(subject, message, [user.email])
     create_notification_after_commit(user, subject, message, Notification.PAYMENT)
+    notify_administrators_after_commit(
+        {"fr": "Ultimate DJ - paiement confirmé {invoice}", "en": "Ultimate DJ - payment confirmed {invoice}", "nl": "Ultimate DJ - betaling bevestigd {invoice}"},
+        {"fr": "Un paiement de {amount} {currency} a été confirmé pour la facture {invoice}.", "en": "A payment of {amount} {currency} was confirmed for invoice {invoice}.", "nl": "Een betaling van {amount} {currency} werd bevestigd voor factuur {invoice}."},
+        context,
+        Notification.PAYMENT,
+    )
 
 
 def notify_refund_processed(refund):
@@ -59,3 +65,9 @@ def notify_refund_processed(refund):
         return
     _send_after_commit(subject, message, recipients)
     create_notification_after_commit(user, subject, message, Notification.PAYMENT)
+    notify_administrators_after_commit(
+        ({"fr": "Ultimate DJ - remboursement confirmé {invoice}", "en": "Ultimate DJ - refund confirmed {invoice}", "nl": "Ultimate DJ - terugbetaling bevestigd {invoice}"} if refund.status == Refund.SUCCEEDED else {"fr": "Ultimate DJ - remboursement à vérifier {invoice}", "en": "Ultimate DJ - refund requires attention {invoice}", "nl": "Ultimate DJ - terugbetaling controleren {invoice}"}),
+        ({"fr": "Un remboursement de {amount} {currency} a été confirmé pour la facture {invoice}.", "en": "A refund of {amount} {currency} was confirmed for invoice {invoice}.", "nl": "Een terugbetaling van {amount} {currency} werd bevestigd voor factuur {invoice}."} if refund.status == Refund.SUCCEEDED else {"fr": "Le remboursement de {amount} {currency} pour la facture {invoice} doit être vérifié.", "en": "The refund of {amount} {currency} for invoice {invoice} requires attention.", "nl": "De terugbetaling van {amount} {currency} voor factuur {invoice} moet worden gecontroleerd."}),
+        context,
+        Notification.PAYMENT,
+    )

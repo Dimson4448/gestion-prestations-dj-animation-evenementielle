@@ -359,6 +359,49 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - Rédaction de la fiche de scénarios de tests manuels couvrant les rôles, conflits de disponibilité, paiements, remboursements, API, multilinguisme et accessibilité de base.
 - Les tests automatiques et le build de production sont validés par GitHub Actions sur la branche `main`.
 - Régénération du dump SQL versionné depuis la base MariaDB réellement utilisée par Django (`ultimate_dj_django`, port 3307) : schéma complet, état des migrations et catalogue public, sans données privées de comptes, dossiers, messages ou paiements.
+- Mise à jour de l’adresse publique Ultimate DJ dans la configuration locale et dans le fallback frontend, afin qu’elle soit affichée de manière cohérente dans le footer et les pages légales.
+- Clarification des coordonnées dans le footer avec les libellés « E-mail » et « GSM », traduits également en anglais et en néerlandais.
+- Ajout d'un sélecteur de styles musicaux dans la demande de devis : les styles cochés alimentent directement le champ de préférences transmis au devis, au DJ et aux documents du dossier.
+- Adaptation de ce sélecteur au catalogue de 125 styles : une liste déroulante permet d'ajouter les styles sans allonger le formulaire, tandis que les choix restent visibles et supprimables sous forme de pastilles.
+- Correction du chargement paginé du catalogue musical : le sélecteur récupère désormais toutes les pages de l'API, et non plus seulement les vingt premiers styles.
+- Ajout d'un filtre alphabétique dans la sélection des styles musicaux afin de limiter instantanément la liste aux styles commençant par la lettre choisie.
+- Ajout d'une recherche textuelle directe pour les styles musicaux : la saisie filtre les propositions en temps réel et un clic ajoute le style au devis.
+- Simplification finale du sélecteur : suppression de la barre alphabétique, conservation d'un unique champ de recherche qui ouvre tous les styles au clic et filtre ceux commençant par la saisie.
+- Ajout, dans la demande de devis, d'un aperçu des DJs et de leurs créneaux publics disponibles à la date choisie ; toutes les pages de disponibilités sont désormais récupérées.
+- Assouplissement du traitement des disponibilités : un client peut désormais demander un devis à la date et à l'horaire souhaités, même si le DJ n'a pas déclaré de créneau couvrant intégralement la prestation.
+- Lors de l'acceptation, un créneau seulement partiellement compatible peut être réservé ; en l'absence de créneau déclaré, le DJ ou l'administration peut confirmer le devis après accord. Les contrôles stricts contre les réservations actives qui se chevauchent restent en place.
+
+### 2026-10-10 - Simulateur public de devis
+
+- Transformation de la page de devis pour les visiteurs en simulateur instantané : chaque modification de formule, type d'événement, durée ou distance met à jour l'estimation sans compte et sans création de donnée.
+- Les visiteurs peuvent renseigner librement les informations de leur événement et consulter les créneaux publiés, mais ne voient plus les actions réservées au compte client (enregistrement de lieu et soumission du devis).
+- Les clients connectés conservent le parcours complet d'enregistrement et de suivi de leur demande de devis.
+- Vérification par build Vite de production réussi.
+- Continuité du parcours de réservation : l'heure de début sélectionnée dans le détail d'une offre est désormais partagée avec le formulaire de devis, comme la date, le type d'événement, la ville et la formule. Seule l'adresse détaillée reste à compléter lorsqu'elle n'a pas été demandée auparavant.
+- Simplification de la création de lieu : les données reprises sont signalées explicitement dans le devis et une nouvelle adresse est enregistrée automatiquement lors de l'envoi. Le client ne doit plus effectuer l'action intermédiaire « Enregistrer ce lieu » avant de soumettre sa demande.
+- Sécurisation du traitement des demandes DJ : une demande est maintenant d'abord validée par l'administration, puis transmise au DJ choisi. Le DJ ne peut plus voir ni accepter une demande avant cette validation. Le choix du client est conservé ; l'administration ne peut proposer un autre DJ qu'en l'absence de choix initial ou après un refus du DJ demandé.
+- Ajout de l'option « Carte blanche au DJ » dans les préférences musicales : le client peut explicitement laisser le DJ libre de construire l'ambiance, sans devoir sélectionner artificiellement tous les styles.
+- Paiements Stripe : ajout d'une vérification sécurisée de la session Checkout au retour du client. Le webhook reste utilisé en production, mais un paiement local ne reste plus bloqué lorsque Stripe ne peut pas joindre `localhost`; l'acompte confirmé active alors la réservation, l'agenda DJ et les rendez-vous préparatoires.
+- Playlist : à la confirmation de l'acompte, les styles indiqués dans la demande de devis sont repris automatiquement dans la playlist. L'espace client affiche cette ambiance et ne sert plus qu'à proposer des morceaux précis au DJ.
+
+### 2026-10-10 - Alertes opérationnelles administrateur
+
+- Ajout d'un mécanisme central d'alerte des administrateurs : notification interne et e-mail, avec un lien vers l'administration uniquement.
+- Les alertes couvrent maintenant la création de comptes clients, les candidatures DJ, les demandes de devis, les décisions des DJs, les acceptations, signatures de contrats, paiements confirmés, remboursements et demandes de suppression de compte.
+- Les messages administratifs contiennent uniquement les références nécessaires au suivi (numéros et dates) et ne donnent aucun accès à l'espace personnel du client ou du DJ concerné.
+- Vérification Django réussie ainsi qu'un test ciblé de création de devis.
+- Paramétrage distinct de la boîte de réception des alertes administratives : elle utilise par défaut l'adresse e-mail officielle de l'activité, tout en laissant les notifications internes visibles à chaque compte administrateur.
+- Ajout de la messagerie interne des réservations dans l'espace Administrateur : l'administration, le client et le DJ peuvent échanger dans un fil commun rattaché au dossier, avec notification des autres parties.
+- Les coordonnées déjà autorisées du client sont maintenant directement actionnables pour le DJ et l'administration (lien téléphone et e-mail), sans accès à l'espace personnel du client.
+- Ajout d'un envoi d'e-mail depuis la messagerie Administrateur : l'administrateur choisit le client ou le DJ du dossier, rédige son message, l'envoie depuis l'adresse Ultimate DJ et conserve automatiquement une trace dans le fil interne de la réservation.
+- Vérifications Django et build Vite réussis après cette évolution.
+
+### 2026-10-10 - Comptes de démonstration pour le jury
+
+- Ajout d'une commande Django idempotente `seed_jury_demo_accounts` pour créer ou mettre à jour les comptes de présentation sans créer de compte administrateur supplémentaire.
+- Création de sept profils clients et de onze profils DJ aux noms fictifs naturels, avec des adresses Gmail aliasées vers la boîte officielle Ultimate DJ.
+- Les DJ couvrent Bruxelles, Anvers, Gand, Liège, Charleroi, Namur, Bruges, Louvain, Hasselt, Mons et Haaltert ; chaque profil reçoit des styles musicaux et deux créneaux de démonstration.
+- La commande a été exécutée avec succès et la vérification Django ne remonte aucune anomalie.
 
 ## État actuel et prochaines étapes
 

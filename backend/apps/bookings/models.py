@@ -315,7 +315,13 @@ class Contract(models.Model):
 
 class Playlist(models.Model):
     booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name="playlist", verbose_name="réservation")
-    main_style = models.ForeignKey(MusicStyle, on_delete=models.PROTECT, verbose_name="style principal")
+    main_style = models.ForeignKey(
+        MusicStyle,
+        on_delete=models.PROTECT,
+        verbose_name="style principal",
+        null=True,
+        blank=True,
+    )
     styles = models.ManyToManyField(MusicStyle, related_name="playlists", verbose_name="styles musicaux")
     notes = models.CharField("notes", max_length=255, blank=True)
     is_public = models.BooleanField("visible dans le catalogue public", default=True)

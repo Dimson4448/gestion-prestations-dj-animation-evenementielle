@@ -6,11 +6,25 @@ import { decoratePackages } from "../utils/catalogue";
 import { filterAllowedEventTypes } from "../utils/eventTypes";
 import { unwrapApiList } from "../utils/apiCollections";
 
+const getAllAvailabilitiesForDate = async (date) => {
+  let nextPage = `/availability/?date=${encodeURIComponent(date)}`;
+  const slots = [];
+
+  while (nextPage) {
+    const response = await apiClient.get(nextPage, publicRequestConfig);
+    slots.push(...unwrapApiList(response.data));
+    nextPage = response.data?.next || null;
+  }
+
+  return slots;
+};
+
 export default function useCatalogue(eventDate) {
   const [packages, setPackages] = useState([]);
   const [catalogueStatus, setCatalogueStatus] = useState("Chargement du catalogue Django…");
   const [catalogueReady, setCatalogueReady] = useState(false);
   const [availableDjs, setAvailableDjs] = useState([]);
+  const [availableSlots, setAvailableSlots] = useState([]);
   const [catalogueDjs, setCatalogueDjs] = useState([]);
   const [publicPlaylists, setPublicPlaylists] = useState([]);
   const [publicReviews, setPublicReviews] = useState([]);
@@ -51,16 +65,18 @@ export default function useCatalogue(eventDate) {
     if (!eventDate) return undefined;
     let active = true;
     setPublicAvailabilityStatus("Recherche des créneaux disponibles…");
-    apiClient.get("/availability/", { ...publicRequestConfig, params: { date: eventDate } }).then((response) => {
+    getAllAvailabilitiesForDate(eventDate).then((slots) => {
       if (!active) return;
-      const records = mapAvailableDjs(unwrapApiList(response.data));
+      const records = mapAvailableDjs(slots);
       setAvailableDjs(records);
+      setAvailableSlots(slots);
       setPublicAvailabilityStatus(records.length
         ? "Disponibilités synchronisées avec Django"
         : "Aucun DJ disponible à cette date");
     }).catch(() => {
       if (!active) return;
       setAvailableDjs([]);
+      setAvailableSlots([]);
       setPublicAvailabilityStatus("Disponibilités indisponibles · vérifiez la connexion au backend Django");
     });
     return () => { active = false; };
@@ -77,6 +93,7 @@ export default function useCatalogue(eventDate) {
 
   return {
     availableDjs,
+    availableSlots,
     catalogueDjs,
     catalogueReady,
     catalogueStatus,

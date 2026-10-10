@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
 
-from django.db import models, transaction
+from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import ClientProfile, DJProfile
 from apps.availability.models import DJAvailability
+from apps.catalog.models import MusicStyle
 from apps.payments.models import Invoice, Payment
 
-from .models import Booking, CancellationRequest, Contract, PreparatoryAppointment, Quote
+from .models import Booking, CancellationRequest, Contract, Playlist, PreparatoryAppointment, Quote
 from .notifications import notify_balance_invoice_created, notify_booking_cancelled, notify_cancellation_requested, notify_cancellation_reviewed, notify_quote_accepted, notify_contract_signed
 
 
@@ -33,6 +34,74 @@ class BookingCancellationError(Exception):
 
 class CancellationRequestError(Exception):
     """Erreur fonctionnelle empêchant une demande d'annulation client."""
+
+
+def booking_requires_administrative_review(booking):
+    """Une intervention humaine reste requise dès qu'un contrat ou paiement est engagé."""
+    contract = getattr(booking, "contract", None)
+    if contract and contract.status == Contract.SIGNED:
+        return True
+    if booking.invoices.filter(status__in=[Invoice.SENT, Invoice.PAID]).exists():
+        return True
+    return booking.payments.filter(status__in=[Payment.PENDING, Payment.PAID]).exists()
+
+
+def cancel_uncommitted_booking(booking, reason):
+    """Annule immédiatement un dossier sans contrat signé ni paiement à régulariser."""
+    reason = reason.strip()
+    if booking_requires_administrative_review(booking):
+        raise CancellationRequestError("Cette réservation comporte un contrat ou un paiement à traiter par l'administration.")
+    if booking.status not in {Booking.PREPARATORY_MEETING, Booking.CONFIRMED, Booking.PAID}:
+        raise CancellationRequestError("Cette réservation ne peut plus être annulée dans son état actuel.")
+    event_start = timezone.make_aware(datetime.combine(booking.event_date, booking.start_time))
+    if event_start <= timezone.now():
+        raise CancellationRequestError("Une prestation déjà commencée ne peut plus être annulée.")
+
+    booking.status = Booking.CANCELLED
+    booking.deposit_paid = False
+    booking.cancellation_reason = reason
+    booking.save(update_fields=["status", "deposit_paid", "cancellation_reason"])
+    if hasattr(booking, "contract") and booking.contract.status != Contract.CANCELLED:
+        booking.contract.status = Contract.CANCELLED
+        booking.contract.save(update_fields=["status"])
+    PreparatoryAppointment.objects.filter(booking=booking, status__in=[
+        PreparatoryAppointment.PROPOSED, PreparatoryAppointment.COUNTER_PROPOSED, PreparatoryAppointment.ACCEPTED,
+    ]).update(status=PreparatoryAppointment.CANCELLED)
+    Invoice.objects.filter(booking=booking, status=Invoice.DRAFT).update(status=Invoice.CANCELLED)
+    DJAvailability.objects.filter(
+        dj=booking.dj, available_date=booking.event_date,
+        status__in=[DJAvailability.RESERVED, DJAvailability.OCCUPIED], reason=f"Réservation #{booking.pk}",
+    ).update(status=DJAvailability.AVAILABLE, reason="")
+    return booking
+
+
+def _normalise_style(value):
+    return " ".join((value or "").casefold().split())
+
+
+def ensure_playlist_from_quote(booking):
+    """Crée la playlist d'un dossier à partir des choix musicaux de son devis."""
+    playlist = Playlist.objects.filter(booking=booking).first()
+    if playlist:
+        return playlist, False
+
+    preference_text = (booking.quote.music_preferences or "").strip()
+    selected_names = [part.strip() for part in preference_text.split(",") if part.strip()]
+    styles_by_name = {_normalise_style(style.name): style for style in MusicStyle.objects.all()}
+    selected_styles = []
+    for name in selected_names:
+        style = styles_by_name.get(_normalise_style(name))
+        if style and style not in selected_styles:
+            selected_styles.append(style)
+
+    playlist = Playlist.objects.create(
+        booking=booking,
+        main_style=selected_styles[0] if selected_styles else None,
+        notes=preference_text,
+    )
+    if selected_styles:
+        playlist.styles.set(selected_styles)
+    return playlist, True
 
 
 def _event_end(quote):
@@ -86,15 +155,20 @@ def accept_quote(quote_id, dj_id):
         DJAvailability.objects.select_for_update()
         .filter(
             dj=dj,
-            available_date__lte=quote.event_date,
+            available_date__lte=event_end.date(),
             status=DJAvailability.AVAILABLE,
         )
-        .filter(models.Q(end_date__gte=event_end.date()) | models.Q(end_date__isnull=True))
         .order_by("available_date", "start_time")
     )
-    availability = next((slot for slot in availability_candidates if datetime.combine(slot.available_date, slot.start_time) <= event_start and datetime.combine(slot.end_date or slot.available_date, slot.end_time) >= event_end), None)
-    if availability is None:
-        raise QuoteAcceptanceError("Le DJ ne possède pas de créneau disponible couvrant toute la prestation.")
+    availability = next(
+        (
+            slot
+            for slot in availability_candidates
+            if datetime.combine(slot.available_date, slot.start_time) < event_end
+            and datetime.combine(slot.end_date or slot.available_date, slot.end_time) > event_start
+        ),
+        None,
+    )
 
     if _has_active_booking_conflict(
         field="dj",
@@ -149,9 +223,10 @@ def accept_quote(quote_id, dj_id):
         due_at=timezone.now() + timedelta(days=7),
     )
 
-    availability.status = DJAvailability.RESERVED
-    availability.reason = f"Réservation #{booking.pk}"
-    availability.save(update_fields=["status", "reason"])
+    if availability is not None:
+        availability.status = DJAvailability.RESERVED
+        availability.reason = f"Réservation #{booking.pk}"
+        availability.save(update_fields=["status", "reason"])
     quote.requested_dj = dj
     quote.dj_decision = Quote.DJ_ACCEPTED
     quote.dj_decided_at = timezone.now()
@@ -180,7 +255,7 @@ def sign_contract(contract_id, client):
 
 
 @transaction.atomic
-def complete_booking(booking_id, actor):
+def complete_booking(booking_id, actor, force=False):
     """Marque une prestation réalisée et émet une unique facture de solde."""
     booking = (
         Booking.objects.select_for_update()
@@ -194,7 +269,7 @@ def complete_booking(booking_id, actor):
         raise BookingCompletionError("La réservation doit être confirmée et son acompte payé.")
 
     event_end = timezone.make_aware(datetime.combine(booking.end_date or booking.event_date, booking.end_time))
-    if event_end > timezone.now():
+    if event_end > timezone.now() and not (actor.is_staff and force):
         raise BookingCompletionError("La prestation ne peut pas être clôturée avant sa date de fin.")
     if Invoice.objects.select_for_update().filter(booking=booking, invoice_type=Invoice.BALANCE).exists():
         raise BookingCompletionError("Une facture de solde existe déjà pour cette réservation.")
@@ -296,7 +371,7 @@ def cancel_booking(booking_id, actor, reason):
 
 @transaction.atomic
 def request_booking_cancellation(booking_id, actor, reason):
-    """Enregistre une demande client sans annuler ni rembourser automatiquement."""
+    """Annule immédiatement un dossier simple, sinon enregistre la demande pour l'administration."""
     reason = reason.strip()
     if not reason:
         raise CancellationRequestError("Un motif d'annulation est obligatoire.")
@@ -310,6 +385,17 @@ def request_booking_cancellation(booking_id, actor, reason):
         raise CancellationRequestError("Une prestation déjà commencée ne peut plus être annulée.")
     if CancellationRequest.objects.select_for_update().filter(booking=booking, status=CancellationRequest.PENDING).exists():
         raise CancellationRequestError("Une demande d'annulation est déjà en attente pour cette réservation.")
+    if not booking_requires_administrative_review(booking):
+        cancel_uncommitted_booking(booking, reason)
+        cancellation_request = CancellationRequest.objects.create(
+            booking=booking,
+            reason=reason,
+            status=CancellationRequest.APPROVED,
+            review_message="Annulation confirmée automatiquement : aucun contrat signé ni paiement à régulariser.",
+            reviewed_at=timezone.now(),
+        )
+        notify_booking_cancelled(booking, reason)
+        return cancellation_request
     cancellation_request = CancellationRequest.objects.create(booking=booking, reason=reason)
     notify_cancellation_requested(cancellation_request)
     return cancellation_request

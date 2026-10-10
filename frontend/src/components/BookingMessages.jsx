@@ -1,4 +1,4 @@
-import { CalendarDays, MessageCircle, Send } from "lucide-react";
+import { CalendarDays, Mail, MessageCircle, Send } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -14,12 +14,14 @@ const getRequestErrorMessage = (error, fallback) => {
   return fallback;
 };
 
-export default function BookingMessages({ bookings = [] }) {
+export default function BookingMessages({ bookings = [], allowEmail = false }) {
   const { t, i18n } = useTranslation();
   const [bookingId, setBookingId] = useState("");
   const [messages, setMessages] = useState([]);
   const [body, setBody] = useState("");
   const [status, setStatus] = useState("");
+  const [emailRecipient, setEmailRecipient] = useState("client");
+  const [emailBody, setEmailBody] = useState("");
 
   useEffect(() => {
     if (!bookingId && bookings[0]) setBookingId(String(bookings[0].id));
@@ -41,6 +43,18 @@ export default function BookingMessages({ bookings = [] }) {
       setStatus(t("messages.sent"));
     } catch (error) {
       setStatus(error.response?.data?.body?.[0] || getRequestErrorMessage(error, t("messages.sendError")));
+    }
+  };
+
+  const sendEmail = async (event) => {
+    event.preventDefault();
+    try {
+      const response = await apiClient.post("/booking-messages/email/", { booking: Number(bookingId), recipient: emailRecipient, body: emailBody });
+      setMessages((current) => [...current, response.data]);
+      setEmailBody("");
+      setStatus("E-mail envoyé et ajouté à l'historique du dossier.");
+    } catch (error) {
+      setStatus(error.response?.data?.recipient?.[0] || getRequestErrorMessage(error, "L'e-mail n'a pas pu être envoyé."));
     }
   };
 
@@ -75,6 +89,7 @@ export default function BookingMessages({ bookings = [] }) {
     <div className="playlist-heading"><div><h2 id="booking-messages-title">{t("messages.title")}</h2><p>{t("messages.intro")}</p></div><MessageCircle /></div>
     <label>{t("messages.booking")}<select value={bookingId} onChange={(event) => setBookingId(event.target.value)}>{bookings.map((booking) => <option value={booking.id} key={booking.id}>{t("messages.bookingOption", { id: booking.id, date: booking.event_date })}</option>)}</select></label><div className="dj-action-buttons"><button className="document-button" type="button" onClick={downloadCalendar}><CalendarDays /> {t("messages.calendar")}</button><button className="document-button" type="button" onClick={downloadDocuments}>{t("messages.documents")}</button></div>
     <div className="messages-thread" aria-live="polite">{messages.map((message) => <article key={message.id}><strong>{message.sender_name}</strong><small>{t(`messages.role.${message.sender_role}`)} · {new Date(message.created_at).toLocaleString(i18n.language)}</small><p>{message.body}</p></article>)}{!messages.length && <p className="invoice-empty">{t("messages.empty")}</p>}</div>
-    <form onSubmit={send}><label>{t("messages.write")}<textarea rows="3" maxLength="2000" value={body} onChange={(event) => setBody(event.target.value)} required /></label><button className="document-button" type="submit"><Send /> {t("messages.send")}</button></form>{status && <p className="form-message success" role="status">{status}</p>}
+    <form onSubmit={send}><label>{t("messages.write")}<textarea rows="3" maxLength="2000" value={body} onChange={(event) => setBody(event.target.value)} required /></label><button className="document-button" type="submit"><Send /> {t("messages.send")}</button></form>
+    {allowEmail && <form className="booking-email-form" onSubmit={sendEmail}><strong>Envoyer un e-mail depuis Ultimate DJ</strong><label>Destinataire<select value={emailRecipient} onChange={(event) => setEmailRecipient(event.target.value)}><option value="client">Client</option><option value="dj">DJ</option></select></label><label>Message<textarea rows="3" maxLength="2000" value={emailBody} onChange={(event) => setEmailBody(event.target.value)} required /></label><button className="document-button" type="submit"><Mail /> Envoyer l'e-mail</button></form>}{status && <p className="form-message success" role="status">{status}</p>}
   </section>;
 }

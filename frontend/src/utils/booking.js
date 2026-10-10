@@ -64,7 +64,14 @@ export const canPlanAppointment = (booking, eventType, plannedBookingIds = new S
 export const canSubmitReview = (booking, allowEarlyReview = false) =>
   Boolean(
     ((completedBookingStatuses.has(booking?.status) && hasBookingEnded(booking))
-      || (allowEarlyReview && booking?.status === "confirmed" && booking?.deposit_paid))
+      || (allowEarlyReview && ["confirmed", "performed", "paid"].includes(booking?.status) && booking?.deposit_paid))
+  );
+
+export const canEditPlaylist = (booking) =>
+  Boolean(
+    booking?.deposit_paid
+      && booking.status === "confirmed"
+      && !hasBookingEnded(booking),
   );
 
 export const mapAvailableDjs = (slots) => {

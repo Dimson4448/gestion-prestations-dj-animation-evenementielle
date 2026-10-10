@@ -27,7 +27,7 @@ import ClientAccountOverview from "./components/ClientAccountOverview";
 import BookingMessages from "./components/BookingMessages";
 import NotificationPreferences from "./components/NotificationPreferences";
 import HomePage from "./pages/HomePage";
-import { calculateQuoteEstimate, canCreatePlaylist, canPlanAppointment, canRequestCancellation, canSubmitReview, formatEuro } from "./utils/booking";
+import { calculateQuoteEstimate, canCreatePlaylist, canEditPlaylist, canPlanAppointment, canRequestCancellation, canSubmitReview, formatEuro } from "./utils/booking";
 import { filterPackagesForEventType } from "./utils/catalogue";
 import { allowedEventTypeNames } from "./utils/eventTypes";
 import useCatalogue from "./hooks/useCatalogue";
@@ -77,6 +77,7 @@ export default function App() {
   const [eventDate, setEventDate] = useState(() => getTomorrowIsoDate());
   const {
     availableDjs,
+    availableSlots,
     catalogueDjs,
     catalogueReady,
     catalogueStatus,
@@ -330,9 +331,24 @@ export default function App() {
 
     setPage("compte");
     if (paymentResult === "success") {
-      setPaymentReturnStatus(
-        "Paiement transmis à Stripe. La confirmation définitive apparaîtra après validation sécurisée du webhook.",
-      );
+      const sessionId = parameters.get("session_id");
+      setPaymentReturnStatus("Vérification sécurisée du paiement auprès de Stripe…");
+      window.history.replaceState({ page: "compte" }, document.title, getPagePath("compte"));
+      if (!sessionId) {
+        setPaymentReturnStatus("Paiement transmis à Stripe. La confirmation définitive apparaîtra après validation sécurisée.");
+        return;
+      }
+      apiClient.post("/payments/checkout-return/", { session_id: sessionId })
+        .then(({ data }) => {
+          if (!data.confirmed && data.payment?.status !== "paid") {
+            setPaymentReturnStatus("Le paiement est encore en cours de confirmation chez Stripe. Actualisez cette page dans quelques instants.");
+            return;
+          }
+          setPaymentReturnStatus("Paiement confirmé. Votre réservation et les étapes de préparation sont maintenant disponibles.");
+          window.setTimeout(() => window.location.reload(), 700);
+        })
+        .catch((error) => setPaymentReturnStatus(error.response?.data?.detail || "La confirmation du paiement n'a pas pu être vérifiée. Réessayez dans quelques instants."));
+      return;
     } else if (paymentResult === "cancelled") {
       setPaymentReturnStatus("Paiement annulé : aucun acompte n’a été confirmé. Vous pourrez réessayer.");
     }
@@ -364,7 +380,7 @@ export default function App() {
   const playlistBookingIds = new Set(playlists.map((item) => item.booking));
   const eligiblePlaylistBookings = clientBookings.filter((item) => canCreatePlaylist(item, playlistBookingIds));
   const editablePlaylists = playlists.filter((playlist) => (
-    canRequestCancellation(clientBookings.find((booking) => booking.id === playlist.booking))
+    canEditPlaylist(clientBookings.find((booking) => booking.id === playlist.booking))
   ));
   const plannedAppointmentBookingIds = new Set(
     appointments.filter((item) => ["proposed", "counter_proposed", "accepted"].includes(item.status)).map((item) => item.booking),
@@ -436,14 +452,14 @@ export default function App() {
     setDistanceKm(venue.distance_km_from_base);
   };
 
-  const createVenue = async () => {
+  const saveVenue = async ({ announce = true } = {}) => {
     if (!isAuthenticated) {
       setVenueStatus("Connectez-vous dans Mon compte avant d’enregistrer un lieu.");
-      return;
+      return null;
     }
     if (!venueName.trim() || !venueStreet.trim() || !venuePostalCode.trim() || !location.trim()) {
       setVenueStatus("Complétez le nom, la rue, le code postal et la ville du lieu.");
-      return;
+      return null;
     }
 
     setVenuePending(true);
@@ -460,7 +476,8 @@ export default function App() {
       });
       setVenues((current) => [...current, response.data]);
       setSelectedVenueId(String(response.data.id));
-      setVenueStatus("Lieu enregistré. Il sera utilisé pour cette demande de devis.");
+      if (announce) setVenueStatus("Lieu enregistré. Il sera utilisé pour cette demande de devis.");
+      return response.data.id;
     } catch (error) {
       if (error.response?.status === 401) {
         clearAuthentication();
@@ -471,10 +488,13 @@ export default function App() {
         const firstError = details && Object.values(details).flat()[0];
         setVenueStatus(firstError || "Le lieu n’a pas pu être enregistré.");
       }
+      return null;
     } finally {
       setVenuePending(false);
     }
   };
+
+  const createVenue = () => saveVenue();
 
   const submitQuote = async (event) => {
     event.preventDefault();
@@ -487,11 +507,6 @@ export default function App() {
       setQuoteStatus("Le catalogue Django doit être disponible pour enregistrer un devis réel.");
       return;
     }
-    if (selectedVenueId === "new") {
-      setQuoteStatus("Enregistrez d’abord le nouveau lieu ou sélectionnez un lieu existant.");
-      return;
-    }
-
     const selectedEventType = eventTypeRecords.find((item) => item.name === eventType);
     if (!selectedEventType || !selectedPackage?.id) {
       setQuoteStatus("Le type d’événement ou la formule sélectionnée est indisponible.");
@@ -500,10 +515,15 @@ export default function App() {
 
     setQuotePending(true);
     try {
+      const venueId = selectedVenueId === "new" ? await saveVenue({ announce: false }) : selectedVenueId;
+      if (!venueId) {
+        setQuoteStatus("Complétez l’adresse du lieu pour pouvoir envoyer votre demande.");
+        return;
+      }
       const response = await apiClient.post("/quotes/", {
         event_type: selectedEventType.id,
         package: selectedPackage.id,
-        venue: Number(selectedVenueId),
+        venue: Number(venueId),
         event_date: eventDate,
         start_time: startTime,
         duration_hours: Number(durationHours).toFixed(1),
@@ -571,13 +591,17 @@ export default function App() {
     setLoginStatus("Vous êtes déconnecté.");
   };
 
-  const sendQuote = async (quoteId) => {
+  const sendQuote = async (quoteId, djId) => {
+    if (!djId) {
+      setAdminStatus("Sélectionnez un DJ avant de transmettre le devis.");
+      return;
+    }
     setAdminPendingId(quoteId);
     setAdminStatus("");
     try {
-      const response = await apiClient.patch(`/quotes/${quoteId}/`, { status: "sent" });
+      const response = await apiClient.patch(`/quotes/${quoteId}/`, { requested_dj: Number(djId), status: "sent" });
       setAdminQuotes((current) => current.map((item) => item.id === quoteId ? response.data : item));
-      setAdminStatus(`Le devis n°${quoteId} est maintenant envoyé et prêt à être accepté.`);
+      setAdminStatus(`Le devis n°${quoteId} a été validé et transmis au DJ. Sa réponse est maintenant attendue.`);
     } catch (error) {
       setAdminStatus(error.response?.data?.detail || "Le devis n’a pas pu être envoyé.");
     } finally {
@@ -610,11 +634,11 @@ export default function App() {
     }
   };
 
-  const completeAdminBooking = async (bookingId) => {
+  const completeAdminBooking = async (bookingId, force = false) => {
     setCompletionPendingId(bookingId);
     setAdminStatus("");
     try {
-      const response = await apiClient.post(`/bookings/${bookingId}/complete/`);
+      const response = await apiClient.post(`/bookings/${bookingId}/complete/`, force ? { force: true } : {});
       setAdminBookings((current) => current.filter((item) => item.id !== bookingId));
       setAdminStatus(`Réservation n°${bookingId} clôturée : la facture de solde ${response.data.balance_invoice.invoice_number} a été créée.`);
     } catch (error) {
@@ -735,6 +759,14 @@ export default function App() {
       const request = await createAccountDeletionRequest(accountDeletionReason);
       setAccountDeletionRequests((current) => [request, ...current]);
       setAccountDeletionReason("");
+      if (request.status === "approved") {
+        clearAuthentication();
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        setClientProfile(null);
+        setLoginStatus("Votre compte a été désactivé. Les dossiers sans contrat ni paiement ont été libérés.");
+        return;
+      }
       setAccountDeletionStatus("Votre demande de suppression a été enregistrée pour traitement administratif.");
     } catch (error) {
       const details = error.response?.data;
@@ -761,8 +793,8 @@ export default function App() {
 
   const reviewAccountDeletion = async (request, decision) => {
     const message = (adminDeletionMessages[request.id] || "").trim();
-    if (message.length < 10) {
-      setAdminStatus("Expliquez la décision au client en au moins 10 caractères.");
+    if (!message) {
+      setAdminStatus("Ajoutez une courte réponse pour le client.");
       return;
     }
     setAdminDeletionPendingId(request.id);
@@ -810,7 +842,9 @@ export default function App() {
       const response = await apiClient.post(`/bookings/${bookingId}/request-cancellation/`, { reason });
       setCancellationRequests((current) => [response.data, ...current]);
       setCancellationReasons((current) => ({ ...current, [bookingId]: "" }));
-      setCancellationStatus(`Votre demande pour la réservation n°${bookingId} a été transmise à l'administration.`);
+      setCancellationStatus(response.data.status === "approved"
+        ? `La réservation n°${bookingId} a été annulée et le créneau DJ a été libéré.`
+        : `Votre demande pour la réservation n°${bookingId} a été transmise à l'administration.`);
     } catch (error) {
       setCancellationStatus(error.response?.data?.detail || "La demande d'annulation n'a pas pu être envoyée.");
     } finally {
@@ -1230,20 +1264,21 @@ export default function App() {
         />}
 
         {page === "detail" && selectedPackage && <PackageDetailPage detail={{
-          eventDate, location, navigate, selectedDj, selectedPackage, setEventDate, setLocation, startQuote,
+          eventDate, location, navigate, selectedDj, selectedPackage, setEventDate, setLocation, setStartTime, startQuote, startTime,
         }} />}
         {page === "devis" && <QuoteRequestPage form={{
-          availableEventTypes, compatiblePackages, createVenue, createdQuote, distanceKm, durationHours,
-          eventDate, eventType, guestCount, location, musicPreferences, navigate, parking, quote,
+          availableEventTypes, availableSlots, compatiblePackages, createdQuote, distanceKm, durationHours,
+          eventDate, eventType, guestCount, location, musicPreferences, musicStyles, navigate, parking, quote,
+          isQuoteSimulator: currentUser?.role !== "client",
           quotePending, quoteStatus, quoteSubmitted, selectVenue, selectedPackage, selectedPackageId,
           selectedVenueId, setDistanceKm, setDurationHours, setEventDate, setEventType, setGuestCount,
           setLocation, setMusicPreferences, setParking, setSelectedPackageId, setStartTime, setVenueCountry,
           setVenueName, setVenuePostalCode, setVenueStreet, startTime, submitQuote, venueCountry, venueName,
-          venuePending, venuePostalCode, venues, venueStatus, venueStreet,
+          venuePostalCode, venues, venueStatus, venueStreet,
         }} />}
         {page === "legal" && <LegalPage type="legal" />}
         {page === "privacy" && <LegalPage type="privacy" />}
-        {page === "administration" && currentUser?.is_staff && <AdminWorkspacePage workspace={{
+        {page === "administration" && (currentUser?.is_staff ? <AdminWorkspacePage workspace={{
           acceptAdminQuote, adminBookings, adminCancellationMessages, adminCancellationPendingId,
           adminCancellationRequests, adminDeletionMessages, adminDeletionPendingId, adminDeletionRequests,
           adminAllQuotes, adminDjs, adminDjSelection, adminPayments, adminPendingId, adminQuotes, adminReviews, adminStatus,
@@ -1251,7 +1286,7 @@ export default function App() {
           loadAdminDashboard, packages, quoteStatusLabels, refundAmounts, refundCancellationPayment,
           refundPendingId, rejectCancellation, reviewAccountDeletion, sendQuote, setAdminCancellationMessages,
           setAdminDeletionMessages, setAdminDjSelection, setRefundAmounts,
-        }} />}
+        }} /> : <section className="section-wrap access-required"><p className="eyebrow dark">Administration</p><h1>Connexion administrateur requise</h1><p>Votre session n’est plus active ou ce compte ne dispose pas des droits d’administration.</p><button className="primary-button" type="button" onClick={() => navigate("compte")}>Se connecter</button></section>)}
         {page === "dj" && currentUser?.role === "dj" && <DJWorkspacePage workspace={{
           availabilityDate, availabilityEnd, availabilityEndDate, availabilityMessage, availabilityPendingId, availabilityReason, availabilityStart,
           availabilityStatus, completeDjBooking, createDjAvailability, deleteDjAvailability, djAppointments,
@@ -1270,10 +1305,10 @@ export default function App() {
             <div className={`account-grid ${isAuthenticated ? "authenticated" : ""}`}>
               {!isAuthenticated ? (
                 <>
-                  <form className="account-card" onSubmit={handleLogin}>
+                  <form className="account-card" onSubmit={handleLogin} autoComplete="on">
                     <CircleUserRound /><h2>Connexion</h2>
-                    <label>Identifiant<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
-                    <label>Mot de passe<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
+                    <label>Identifiant<input name="username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
+                    <label>Mot de passe<input name="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
                     {loginStatus && <p className="form-message" role="status">{loginStatus}</p>}
                     <button className="primary-button" type="submit" disabled={loginPending}>{loginPending ? "Connexion…" : "Se connecter"}</button>
                     <button className="secondary-button" type="button" onClick={() => setRegistrationOpen((open) => !open)}>{registrationOpen ? "Fermer l’inscription" : "Créer un compte client"}</button>
@@ -1366,7 +1401,7 @@ export default function App() {
                   />
                   <div className="cancellation-panel client-cancellation-panel">
                     <div className="playlist-heading"><div><h3>Mes demandes d'annulation</h3><p>Une demande n'annule pas automatiquement la prestation et ne déclenche aucun remboursement.</p></div><FileText /></div>
-                    {cancellationStatus && <p className={cancellationStatus.includes("transmise") ? "form-message success" : "form-message"} role="status">{cancellationStatus}</p>}
+                    {cancellationStatus && <p className={cancellationStatus.includes("transmise") || cancellationStatus.includes("annulée") ? "form-message success" : "form-message"} role="status">{cancellationStatus}</p>}
                     <div className="cancellation-list">
                       {clientBookings.filter((booking) => canRequestCancellation(booking)).map((booking) => {
                         const bookingRequests = cancellationRequests.filter((request) => request.booking === booking.id);
@@ -1419,40 +1454,14 @@ export default function App() {
                   <div className="playlist-panel" id="client-playlist">
                     <div className="playlist-heading"><div><h3>Ma playlist</h3><p>Proposez vos morceaux au DJ et indiquez vos priorités.</p></div><Music2 /></div>
                     {playlistStatus && <p className={playlistStatus.includes("créée") || playlistStatus.includes("ajoutée") ? "form-message success" : "invoice-empty"} role="status">{playlistStatus}</p>}
-                    {eligiblePlaylistBookings.length > 0 && (
-                      <form className="playlist-form" onSubmit={createClientPlaylist}>
-                        <h4>Créer une playlist</h4>
-                        <label>Réservation confirmée<select value={playlistBookingId} onChange={(event) => setPlaylistBookingId(event.target.value)} required><option value="">Sélectionner</option>{eligiblePlaylistBookings.map((booking) => <option value={booking.id} key={booking.id}>Réservation n°{booking.id} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</option>)}</select></label>
-                        <fieldset className="playlist-style-selector">
-                          <legend>Styles musicaux <small>Plusieurs choix possibles</small></legend>
-                          <div className="playlist-style-options">
-                            {musicStyles.map((style) => {
-                              const styleId = String(style.id);
-                              return (
-                                <label key={style.id}>
-                                  <input
-                                    type="checkbox"
-                                    checked={playlistStyleIds.includes(styleId)}
-                                    onChange={(event) => setPlaylistStyleIds((current) => (
-                                      event.target.checked
-                                        ? [...current, styleId]
-                                        : current.filter((id) => id !== styleId)
-                                    ))}
-                                  />
-                                  <span>{style.name}</span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </fieldset>
-                        <label>Notes<textarea rows="2" value={playlistNotes} onChange={(event) => setPlaylistNotes(event.target.value)} placeholder="Ambiance souhaitée, moments importants…" /></label>
-                        <button className="primary-button" type="submit" disabled={playlistPending}>{playlistPending ? "Création…" : "Créer la playlist"}</button>
-                      </form>
-                    )}
+                    {playlists.length > 0 && <div className="playlist-summary">
+                      <strong>Ambiance choisie dans votre demande de devis</strong>
+                      {playlists.map((playlist) => { const styleNames = (playlist.styles || []).map((styleId) => musicStyles.find((item) => item.id === styleId)?.name).filter(Boolean); return <p key={playlist.id}>Réservation n°{playlist.booking} : {styleNames.join(", ") || playlist.notes || "Carte blanche au DJ"}</p>; })}
+                    </div>}
                     {editablePlaylists.length > 0 && (
                       <form className="playlist-form" onSubmit={addPlaylistSong}>
-                        <h4>Ajouter une chanson</h4>
-                        <label>Playlist<select value={songPlaylistId} onChange={(event) => setSongPlaylistId(event.target.value)} required>{editablePlaylists.map((playlist) => { const styleNames = (playlist.styles || [playlist.main_style]).map((styleId) => musicStyles.find((item) => item.id === styleId)?.name).filter(Boolean); return <option value={playlist.id} key={playlist.id}>Réservation n°{playlist.booking} · {styleNames.join(", ") || "Playlist"}</option>; })}</select></label>
+                        <h4>Proposer un morceau au DJ</h4>
+                        {editablePlaylists.length > 1 && <label>Réservation<select value={songPlaylistId} onChange={(event) => setSongPlaylistId(event.target.value)} required>{editablePlaylists.map((playlist) => <option value={playlist.id} key={playlist.id}>Réservation n°{playlist.booking}</option>)}</select></label>}
                         <div className="playlist-song-fields"><label>Titre<input value={songTitle} onChange={(event) => setSongTitle(event.target.value)} required /></label><label>Artiste<input value={songArtist} onChange={(event) => setSongArtist(event.target.value)} required /></label></div>
                         <label>Préférence<select value={songPreference} onChange={(event) => setSongPreference(event.target.value)}><option value="must_play">À jouer absolument</option><option value="play_if_possible">À jouer si possible</option><option value="do_not_play">À ne pas jouer</option></select></label>
                         <button className="primary-button" type="submit" disabled={playlistPending}>{playlistPending ? "Ajout…" : "Ajouter la chanson"}</button>
@@ -1464,7 +1473,7 @@ export default function App() {
                         {!playlistSongs.length && <p className="invoice-empty">Aucune chanson ajoutée.</p>}
                       </div>
                     </>}
-                    {playlists.length > 0 && !editablePlaylists.length && <p className="invoice-empty">La playlist reste consultable, mais elle ne peut plus être modifiée après la prestation.</p>}
+                    {playlists.length > 0 && !editablePlaylists.length && <p className="invoice-empty">La playlist reste consultable, mais elle est verrouillée après la clôture de la prestation.</p>}
                   </div>
                   <ClientReviews
                     allowEarlyReview={allowEarlyReviews}

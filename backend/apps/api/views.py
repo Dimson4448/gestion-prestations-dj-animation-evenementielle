@@ -31,7 +31,7 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, Ou
 from apps.accounts.emailing import localized, preferred_language
 from apps.accounts.models import AccountDeletionRequest, DJApplication, DJProfile, Notification, NotificationPreference
 from apps.accounts.emailing import send_user_email
-from apps.accounts.notifications import create_notification_after_commit
+from apps.accounts.notifications import create_notification_after_commit, notify_administrators_after_commit
 from apps.availability.models import DJAvailability
 from apps.bookings.models import (
     Booking,
@@ -44,18 +44,19 @@ from apps.bookings.models import (
     Review,
     Venue,
 )
-from apps.bookings.services import BookingCancellationError, BookingCompletionError, CancellationRequestError, ContractSigningError, QuoteAcceptanceError, accept_quote, cancel_booking, complete_booking, reject_booking_cancellation, request_booking_cancellation, sign_contract
-from apps.bookings.notifications import notify_appointment_changed, notify_quote_created, notify_quote_refused
+from apps.bookings.services import BookingCancellationError, BookingCompletionError, CancellationRequestError, ContractSigningError, QuoteAcceptanceError, accept_quote, booking_requires_administrative_review, cancel_booking, cancel_uncommitted_booking, complete_booking, ensure_playlist_from_quote, reject_booking_cancellation, request_booking_cancellation, sign_contract
+from apps.bookings.notifications import notify_appointment_changed, notify_quote_created, notify_quote_refused, notify_quote_sent_to_dj
 from apps.bookings.documents import build_contract_pdf, build_invoice_pdf
 from apps.catalog.models import Equipment, EventType, MusicStyle, Package, ServiceOption
 from apps.payments.models import Invoice, Payment
-from apps.payments.services import StripeCheckoutError, StripeConfigurationError, StripeRefundError, create_invoice_checkout, create_payment_refund
+from apps.payments.services import StripeCheckoutError, StripeConfigurationError, StripeRefundError, create_invoice_checkout, create_payment_refund, synchronize_checkout_payment
 
 from .permissions import AdministrationOuProprietaire, DJOuAdministration, LecturePubliqueEcritureAdmin, UtilisateurAuthentifie
 from .locations import LocationSearchUnavailable, search_cities
 from .throttles import AccountActionRateThrottle, LocationSearchRateThrottle, LoginRateThrottle, ReviewRateThrottle
 from .serializers import (
     BookingSerializer,
+    AdminBookingEmailSerializer,
     AccountDeletionRequestSerializer,
     AccountDeletionReviewSerializer,
     BookingCancellationSerializer,
@@ -113,6 +114,10 @@ class AccountTokenObtainPairSerializer(TokenObtainPairSerializer):
         password = attrs.get("password")
         user = get_user_model().objects.filter(**{f"{self.username_field}__iexact": username}).first()
         if user and not user.is_active and user.check_password(password):
+            if AccountDeletionRequest.objects.filter(client__user=user, status=AccountDeletionRequest.APPROVED).exists():
+                raise AuthenticationFailed(
+                    "Ce compte a été désactivé à la demande du client. Il ne peut plus être utilisé pour se connecter."
+                )
             raise AuthenticationFailed(
                 "Ce compte n’est pas encore activé. Ouvrez le lien d’activation ou demandez un nouveau lien."
             )
@@ -279,8 +284,37 @@ def account_deletion_requests(request):
         locked_client = type(client).objects.select_for_update().get(pk=client.pk)
         if AccountDeletionRequest.objects.filter(client=locked_client, status=AccountDeletionRequest.PENDING).exists():
             raise ValidationError({"detail": "Une demande de suppression est déjà en attente."})
-        serializer.save(client=locked_client)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+        active_bookings = list(
+            Booking.objects.select_for_update().select_related("dj", "contract").filter(client=locked_client).exclude(status=Booking.CANCELLED)
+        )
+        requires_review = any(
+            booking.status not in {Booking.PREPARATORY_MEETING, Booking.CONFIRMED, Booking.PAID}
+            or booking_requires_administrative_review(booking)
+            for booking in active_bookings
+        )
+        if requires_review:
+            deletion_request = serializer.save(client=locked_client)
+        else:
+            for booking in active_bookings:
+                cancel_uncommitted_booking(booking, "Compte client supprimé à la demande du client.")
+            Quote.objects.filter(client=locked_client, status__in=[Quote.DRAFT, Quote.SENT], booking__isnull=True).update(status=Quote.EXPIRED)
+            deletion_request = serializer.save(
+                client=locked_client,
+                status=AccountDeletionRequest.APPROVED,
+                review_message="Compte désactivé automatiquement : aucun contrat signé ni paiement à régulariser.",
+                reviewed_at=timezone.now(),
+            )
+            client_user = locked_client.user
+            client_user.is_active = False
+            client_user.save(update_fields=["is_active"])
+            for token in OutstandingToken.objects.filter(user=client_user):
+                BlacklistedToken.objects.get_or_create(token=token)
+    notify_administrators_after_commit(
+        ({"fr": "Ultimate DJ - demande de suppression de compte", "en": "Ultimate DJ - account deletion request", "nl": "Ultimate DJ - verzoek om accountverwijdering"} if requires_review else {"fr": "Ultimate DJ - compte client désactivé", "en": "Ultimate DJ - client account deactivated", "nl": "Ultimate DJ - klantaccount gedeactiveerd"}),
+        ({"fr": "Une demande de suppression de compte est en attente de traitement dans l'administration.", "en": "An account deletion request is awaiting processing in the administration area.", "nl": "Een verzoek om accountverwijdering wacht op behandeling in de beheerdersruimte."} if requires_review else {"fr": "Un client a supprimé son compte sans engagement financier ; les dossiers non contractuels ont été libérés.", "en": "A client deleted their account without financial commitment; non-contractual records were released.", "nl": "Een klant heeft het account zonder financiële verbintenis verwijderd; niet-contractuele dossiers zijn vrijgegeven."}),
+        notification_type=Notification.BOOKING,
+    )
+    return Response(AccountDeletionRequestSerializer(deletion_request).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(request=None, responses={200: AccountDeletionRequestSerializer}, summary="Annuler une demande de suppression")
@@ -390,6 +424,11 @@ def register_client(request):
     serializer.is_valid(raise_exception=True)
     user = serializer.save()
     send_verification_email(user)
+    notify_administrators_after_commit(
+        {"fr": "Ultimate DJ - nouveau compte client", "en": "Ultimate DJ - new client account", "nl": "Ultimate DJ - nieuw klantenaccount"},
+        {"fr": "Un nouveau compte client vient d'être créé et attend la confirmation de son e-mail.", "en": "A new client account was created and awaits email confirmation.", "nl": "Een nieuw klantenaccount werd aangemaakt en wacht op e-mailbevestiging."},
+        notification_type=Notification.BOOKING,
+    )
     return Response(
         {"detail": verification_delivery_message()},
         status=status.HTTP_201_CREATED,
@@ -405,6 +444,11 @@ def register_dj_application(request):
     serializer.is_valid(raise_exception=True)
     application = serializer.save()
     send_verification_email(application.user)
+    notify_administrators_after_commit(
+        {"fr": "Ultimate DJ - nouvelle candidature DJ", "en": "Ultimate DJ - new DJ application", "nl": "Ultimate DJ - nieuwe dj-kandidatuur"},
+        {"fr": "Une nouvelle candidature DJ vient d'être créée et attend la confirmation de son e-mail.", "en": "A new DJ application was created and awaits email confirmation.", "nl": "Een nieuwe dj-kandidatuur werd aangemaakt en wacht op e-mailbevestiging."},
+        notification_type=Notification.BOOKING,
+    )
     return Response(
         {
             **DJApplicationStatusSerializer(application).data,
@@ -651,7 +695,7 @@ class QuoteViewSet(ProtectedModelViewSet):
             return queryset
         dj = getattr(self.request.user, "dj_profile", None)
         if dj:
-            return queryset.filter(requested_dj=dj)
+            return queryset.filter(requested_dj=dj, status=Quote.SENT)
         client = client_connecte(self.request.user)
         if client:
             return queryset.filter(client=client)
@@ -666,8 +710,25 @@ class QuoteViewSet(ProtectedModelViewSet):
         if not self.request.user.is_staff:
             client = client_connecte(self.request.user)
         requested_dj = serializer.validated_data.get("requested_dj")
-        quote = serializer.save(client=client, status=Quote.SENT if requested_dj else Quote.DRAFT, **amounts)
+        quote = serializer.save(client=client, status=Quote.DRAFT, **amounts)
         notify_quote_created(quote)
+
+    def perform_update(self, serializer):
+        quote = serializer.instance
+        previous_status = quote.status
+        requested_dj = serializer.validated_data.get("requested_dj", quote.requested_dj)
+        next_status = serializer.validated_data.get("status", quote.status)
+        if (
+            quote.requested_dj_id
+            and quote.dj_decision == Quote.DJ_PENDING
+            and (requested_dj is None or requested_dj.pk != quote.requested_dj_id)
+        ):
+            raise ValidationError({"requested_dj": "Le DJ demandé par le client ne peut être remplacé qu'après son refus."})
+        if next_status == Quote.SENT and requested_dj is None:
+            raise ValidationError({"requested_dj": "Sélectionnez un DJ avant de transmettre le devis."})
+        updated_quote = serializer.save()
+        if previous_status == Quote.DRAFT and updated_quote.status == Quote.SENT:
+            notify_quote_sent_to_dj(updated_quote)
 
     @extend_schema(request=QuoteDJDecisionSerializer, responses={200: OpenApiTypes.OBJECT}, summary="Accepter ou refuser une demande en tant que DJ")
     @action(detail=True, methods=["post"], url_path="dj-decision")
@@ -676,7 +737,7 @@ class QuoteViewSet(ProtectedModelViewSet):
         dj = getattr(request.user, "dj_profile", None)
         if dj is None or quote.requested_dj_id != dj.id:
             raise PermissionDenied("Cette demande n'est pas destinée à ce DJ.")
-        if quote.dj_decision != Quote.DJ_PENDING or quote.status not in {Quote.DRAFT, Quote.SENT}:
+        if quote.dj_decision != Quote.DJ_PENDING or quote.status != Quote.SENT:
             return Response({"detail": "Cette demande a déjà été traitée."}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = QuoteDJDecisionSerializer(data=request.data)
@@ -712,6 +773,8 @@ class QuoteViewSet(ProtectedModelViewSet):
         quote = self.get_object()
         serializer = QuoteAcceptanceSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        if quote.requested_dj_id and quote.requested_dj_id != serializer.validated_data["dj"].pk:
+            raise ValidationError({"dj": "Le DJ demandé par le client doit être traité en priorité."})
         try:
             booking, contract, invoice = accept_quote(quote.pk, serializer.validated_data["dj"].pk)
         except QuoteAcceptanceError as exc:
@@ -755,8 +818,11 @@ class BookingViewSet(AdminManagedProtectedViewSet):
                 {"detail": "Seul le DJ affecté ou l'administration peut clôturer cette prestation."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        force = request.data.get("force") is True
+        if force and not request.user.is_staff:
+            raise PermissionDenied("Seule l'administration peut forcer une clôture anticipée.")
         try:
-            booking, invoice = complete_booking(booking.pk, request.user)
+            booking, invoice = complete_booking(booking.pk, request.user, force=force)
         except BookingCompletionError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(
@@ -967,6 +1033,21 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = Payment.objects.select_related("booking", "booking__client", "booking__dj", "invoice").prefetch_related("refunds").all()
         return filtrer_par_reservation(queryset, self.request.user)
 
+    @action(detail=False, methods=["post"], url_path="checkout-return")
+    def checkout_return(self, request):
+        session_id = str(request.data.get("session_id", "")).strip()
+        if not session_id:
+            raise ValidationError({"session_id": "L'identifiant de session Stripe est requis."})
+        if not self.get_queryset().filter(stripe_session_id=session_id).exists():
+            raise PermissionDenied("Cette session de paiement ne vous appartient pas.")
+        try:
+            payment, confirmed = synchronize_checkout_payment(session_id)
+        except Payment.DoesNotExist:
+            raise ValidationError({"session_id": "La session Stripe est inconnue."})
+        except (StripeCheckoutError, StripeConfigurationError, ValueError) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"confirmed": confirmed, "payment": PaymentSerializer(payment, context={"request": request}).data})
+
     @extend_schema(
         request=RefundRequestSerializer,
         responses={201: RefundSerializer},
@@ -998,6 +1079,19 @@ class PlaylistViewSet(ProtectedModelViewSet):
     def get_queryset(self):
         queryset = Playlist.objects.select_related("booking", "booking__client", "booking__dj", "main_style").prefetch_related("styles", "songs").all()
         return filtrer_par_reservation(queryset, self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="initialize")
+    def initialize(self, request):
+        booking_id = request.data.get("booking")
+        if not booking_id:
+            raise ValidationError({"booking": "La réservation est requise."})
+        booking = get_object_or_404(Booking.objects.select_related("quote"), pk=booking_id)
+        if not user_can_access_booking(request.user, booking):
+            raise PermissionDenied("Cette réservation ne vous appartient pas.")
+        if not booking.deposit_paid or booking.status not in {Booking.CONFIRMED, Booking.PERFORMED, Booking.PAID}:
+            raise ValidationError({"booking": "La playlist est disponible après confirmation de l'acompte."})
+        playlist, _ = ensure_playlist_from_quote(booking)
+        return Response(self.get_serializer(playlist).data)
 
     @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny], url_path="public")
     def public(self, request):
@@ -1180,6 +1274,32 @@ class BookingMessageViewSet(viewsets.ModelViewSet):
                 Notification.BOOKING,
                 "/administration" if recipient.is_staff else ("/dj" if hasattr(recipient, "dj_profile") else "/compte"),
             )
+
+    @action(detail=False, methods=["post"], url_path="email")
+    def send_email(self, request):
+        if not request.user.is_staff:
+            raise PermissionDenied("Seul un administrateur peut envoyer un e-mail depuis l'application.")
+        serializer = AdminBookingEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking = serializer.validated_data["booking"]
+        recipient_role = serializer.validated_data["recipient"]
+        recipient = booking.client.user if recipient_role == "client" else booking.dj.user
+        body = serializer.validated_data["body"]
+        email_scheduled = send_user_email(
+            recipient,
+            {"fr": "Ultimate DJ - message concernant votre réservation n°{booking}", "en": "Ultimate DJ - message about your booking #{booking}", "nl": "Ultimate DJ - bericht over uw reservatie nr. {booking}"},
+            {"fr": "Message de l'administration :\n\n{body}", "en": "Message from the administration:\n\n{body}", "nl": "Bericht van de administratie:\n\n{body}"},
+            {"booking": booking.pk, "body": body},
+            notification_type=Notification.BOOKING,
+        )
+        if not email_scheduled:
+            raise ValidationError({"recipient": "Cet utilisateur ne peut pas recevoir d'e-mail pour le moment."})
+        message = BookingMessage.objects.create(
+            booking=booking,
+            sender=request.user,
+            body=f"[E-mail envoyé au {recipient_role}] {body}",
+        )
+        return Response(BookingMessageSerializer(message, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(responses={(200, "text/calendar"): OpenApiTypes.BINARY}, summary="Exporter une réservation au format calendrier ICS")

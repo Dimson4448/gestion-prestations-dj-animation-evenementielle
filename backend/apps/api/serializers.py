@@ -98,6 +98,15 @@ class BookingMessageSerializer(serializers.ModelSerializer):
         return value
 
 
+class AdminBookingEmailSerializer(serializers.Serializer):
+    booking = serializers.PrimaryKeyRelatedField(queryset=Booking.objects.all())
+    recipient = serializers.ChoiceField(choices=[("client", "Client"), ("dj", "DJ")])
+    body = serializers.CharField(max_length=2000, min_length=2)
+
+    def validate_body(self, value):
+        return " ".join(value.split())
+
+
 class ClientProfileUpdateSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
@@ -172,7 +181,7 @@ class AccountDeletionRequestSerializer(serializers.ModelSerializer):
 
 class AccountDeletionReviewSerializer(serializers.Serializer):
     decision = serializers.ChoiceField(choices=[AccountDeletionRequest.APPROVED, AccountDeletionRequest.REJECTED])
-    review_message = serializers.CharField(min_length=10)
+    review_message = serializers.CharField()
 
 
 class LogoutSerializer(serializers.Serializer):
@@ -701,24 +710,6 @@ class QuoteSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         requested_dj = attrs.get("requested_dj") or getattr(self.instance, "requested_dj", None)
         if requested_dj and not requested_dj.is_available:
             raise serializers.ValidationError({"requested_dj": "Ce DJ n'est plus disponible."})
-        event_date = attrs.get("event_date") or getattr(self.instance, "event_date", None)
-        start_time = attrs.get("start_time") or getattr(self.instance, "start_time", None)
-        duration = attrs.get("duration_hours") or getattr(self.instance, "duration_hours", None)
-        if requested_dj and event_date and start_time and duration:
-            event_start = datetime.combine(event_date, start_time)
-            event_end = event_start + timedelta(seconds=int(duration * 3600))
-            slots = DJAvailability.objects.filter(
-                dj=requested_dj,
-                available_date__lte=event_date,
-                status=DJAvailability.AVAILABLE,
-            )
-            covers_event = any(
-                datetime.combine(slot.available_date, slot.start_time) <= event_start
-                and datetime.combine(slot.end_date or slot.available_date, slot.end_time) >= event_end
-                for slot in slots
-            )
-            if not covers_event:
-                raise serializers.ValidationError({"requested_dj": "Le créneau de ce DJ ne couvre pas toute la prestation."})
         if "status" in self.initial_data:
             raise serializers.ValidationError({"status": "Le statut du devis est géré par l'administration."})
         return attrs
@@ -819,6 +810,8 @@ class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSe
             raise serializers.ValidationError({"booking": "Ce type d'événement ne nécessite pas de rendez-vous préparatoire."})
         if not booking.deposit_paid or booking.status not in {Booking.CONFIRMED, Booking.PERFORMED, Booking.PAID}:
             raise serializers.ValidationError({"booking": "La réservation doit être confirmée par le paiement de l'acompte."})
+        if client and booking.status != Booking.CONFIRMED:
+            raise serializers.ValidationError({"booking": "La playlist est verrouillée après la clôture de la prestation."})
 
         target_status = attrs.get("status", getattr(self.instance, "status", PreparatoryAppointment.PROPOSED))
         if self.instance and target_status == PreparatoryAppointment.DONE and scheduled_at > timezone.now():
@@ -981,6 +974,7 @@ class RefundSerializer(serializers.ModelSerializer):
 class PlaylistSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
     route_basename = "playlist"
 
+    main_style = serializers.PrimaryKeyRelatedField(queryset=MusicStyle.objects.all(), required=False, allow_null=True)
     styles = serializers.PrimaryKeyRelatedField(many=True, queryset=MusicStyle.objects.all(), required=False)
 
     class Meta:
@@ -1057,6 +1051,8 @@ class PlaylistSongSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
         if client and "status" in self.initial_data:
             raise serializers.ValidationError({"status": "Le statut d'une chanson est géré par le DJ ou l'administration."})
         if client:
+            if booking.status != Booking.CONFIRMED:
+                raise serializers.ValidationError({"playlist": "La playlist est verrouillée après la clôture de la prestation."})
             event_start = timezone.make_aware(datetime.combine(booking.event_date, booking.start_time))
             if event_start <= timezone.now():
                 raise serializers.ValidationError({"playlist": "La playlist ne peut plus être modifiée après le début de la prestation."})
@@ -1090,7 +1086,11 @@ class ReviewSerializer(LiensHypermediaMixin, serializers.ModelSerializer):
             return attrs
         if self.instance and "booking" in attrs and attrs["booking"].pk != self.instance.booking_id:
             raise serializers.ValidationError({"booking": "La réservation d'un avis ne peut pas être modifiée."})
-        early_review_allowed = settings.DEBUG and booking.deposit_paid and booking.status == Booking.CONFIRMED
+        early_review_allowed = (
+            settings.DEBUG
+            and booking.deposit_paid
+            and booking.status in {Booking.CONFIRMED, Booking.PERFORMED, Booking.PAID}
+        )
         if booking.status not in {Booking.PERFORMED, Booking.PAID} and not early_review_allowed:
             raise serializers.ValidationError({"booking": "Un avis peut être déposé uniquement après la prestation."})
         if not booking.has_ended() and not early_review_allowed:
