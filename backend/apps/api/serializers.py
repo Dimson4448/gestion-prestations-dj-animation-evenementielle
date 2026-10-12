@@ -810,9 +810,6 @@ class PreparatoryAppointmentSerializer(LiensHypermediaMixin, serializers.ModelSe
             raise serializers.ValidationError({"booking": "Ce type d'événement ne nécessite pas de rendez-vous préparatoire."})
         if not booking.deposit_paid or booking.status not in {Booking.CONFIRMED, Booking.PERFORMED, Booking.PAID}:
             raise serializers.ValidationError({"booking": "La réservation doit être confirmée par le paiement de l'acompte."})
-        if client and booking.status != Booking.CONFIRMED:
-            raise serializers.ValidationError({"booking": "La playlist est verrouillée après la clôture de la prestation."})
-
         target_status = attrs.get("status", getattr(self.instance, "status", PreparatoryAppointment.PROPOSED))
         if self.instance and target_status == PreparatoryAppointment.DONE and scheduled_at > timezone.now():
             raise serializers.ValidationError({"status": "Le rendez-vous ne peut pas être réalisé avant l'heure prévue."})

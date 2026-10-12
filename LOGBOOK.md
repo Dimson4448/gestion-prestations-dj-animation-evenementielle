@@ -424,6 +424,12 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - Retrait des jetons de session et de rafraîchissement du dump versionné : ils ne sont pas requis pour restaurer la base et ne doivent pas être publiés.
 - Préparation de la release académique et vérification finale du dépôt avant commit et envoi sur `main`.
 
+### 2026-10-12 - Correctif de validation continue
+
+- Correction de la validation des rendez-vous préparatoires : la règle de verrouillage propre aux playlists ne s'appliquait pas à ce parcours et provoquait une erreur serveur.
+- Mise à jour du test de suppression de compte afin qu'il couvre le cas nécessitant une validation administrative avant annulation.
+- Validation sous SQLite, comme dans GitHub Actions : les trois scénarios concernés sont validés.
+
 ## État actuel et prochaines étapes
 
 - Le backend Django, le frontend React, MariaDB, Stripe en mode test et les principaux parcours métier sont intégrés.

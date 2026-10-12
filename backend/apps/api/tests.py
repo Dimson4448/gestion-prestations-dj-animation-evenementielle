@@ -485,6 +485,9 @@ class ApiUltimateDJTests(APITestCase):
         self.assertEqual(new_login.status_code, status.HTTP_200_OK)
 
     def test_client_enregistre_et_annule_une_demande_suppression(self):
+        contract = self.create_contract_for_client()
+        contract.status = Contract.SIGNED
+        contract.save(update_fields=["status"])
         self.client.force_authenticate(user=self.client_user)
         created = self.client.post(
             "/api/v1/auth/deletion-requests/",
