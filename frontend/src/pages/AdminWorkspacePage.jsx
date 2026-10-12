@@ -6,6 +6,7 @@ import { formatEuro, hasBookingEnded } from "../utils/booking";
 import { toLocalIsoDate } from "../utils/dates";
 import LocalizedContent from "../components/LocalizedContent";
 import AdminDashboardOverview from "../components/AdminDashboardOverview";
+import AdminCaseTimeline from "../components/AdminCaseTimeline";
 import BookingMessages from "../components/BookingMessages";
 import { apiClient } from "../api";
 
@@ -17,6 +18,7 @@ export default function AdminWorkspacePage({ workspace }) {
   const [exportPending, setExportPending] = useState("");
   const [reviewModerationStatus, setReviewModerationStatus] = useState("");
   const [reviewModerationPendingId, setReviewModerationPendingId] = useState(null);
+  const [filters, setFilters] = useState({ status: "", dj: "", client: "", from: "", to: "" });
   const selectSection = useCallback((section) => setSelectedSection(section), []);
   const {
     acceptAdminQuote, adminBookings, adminCancellationMessages, adminCancellationPendingId,
@@ -28,9 +30,20 @@ export default function AdminWorkspacePage({ workspace }) {
     setAdminDeletionMessages, setAdminDjSelection, setRefundAmounts,
   } = workspace;
   const todayIso = toLocalIsoDate(new Date());
-  const activeAdminQuotes = adminQuotes.filter((quote) => quote.event_date >= todayIso);
-  const historicalAdminQuotes = adminQuotes.filter((quote) => quote.event_date < todayIso);
-  const bookingsToComplete = adminBookings.filter((item) => item.status === "confirmed" && item.deposit_paid);
+  const matchesFilters = (record, isBooking = false) => {
+    const recordDj = isBooking ? record.dj : record.requested_dj;
+    const clientText = isBooking ? record.client_name : `${record.client_details?.first_name || ""} ${record.client_details?.last_name || ""} ${record.client_details?.email || ""}`;
+    return (!filters.status || record.status === filters.status)
+      && (!filters.dj || String(recordDj) === filters.dj)
+      && (!filters.client || clientText.toLocaleLowerCase().includes(filters.client.toLocaleLowerCase()))
+      && (!filters.from || record.event_date >= filters.from)
+      && (!filters.to || record.event_date <= filters.to);
+  };
+  const filteredQuotes = adminQuotes.filter((quote) => matchesFilters(quote));
+  const filteredBookings = adminBookings.filter((booking) => matchesFilters(booking, true));
+  const activeAdminQuotes = filteredQuotes.filter((quote) => quote.event_date >= todayIso);
+  const historicalAdminQuotes = filteredQuotes.filter((quote) => quote.event_date < todayIso);
+  const bookingsToComplete = filteredBookings.filter((item) => item.status === "confirmed" && item.deposit_paid);
   const reportedReviews = adminReviews.filter((review) => review.reported_at && review.status === "pending");
   const downloadExport = async (resource) => {
     setExportPending(resource);
@@ -65,9 +78,19 @@ export default function AdminWorkspacePage({ workspace }) {
   };
   return <LocalizedContent>
           <section className={`section-wrap admin-page admin-view-${selectedSection}`}>
-            <AdminDashboardOverview allQuotes={adminAllQuotes} bookings={adminBookings} cancellationRequests={adminCancellationRequests} deletionRequests={adminDeletionRequests} djs={adminDjs} i18n={i18n} onRefresh={loadAdminDashboard} onSectionChange={selectSection} payments={adminPayments} quotes={activeAdminQuotes} reviews={adminReviews} />
+            <AdminDashboardOverview allQuotes={adminAllQuotes} bookings={filteredBookings} cancellationRequests={adminCancellationRequests} deletionRequests={adminDeletionRequests} djs={adminDjs} i18n={i18n} onRefresh={loadAdminDashboard} onSectionChange={selectSection} payments={adminPayments} quotes={activeAdminQuotes} reviews={adminReviews} />
+            <section className="admin-filters" aria-label="Filtres des dossiers">
+              <div><h2>Filtrer les dossiers</h2><p>Affinez la liste par statut, DJ, client ou période.</p></div>
+              <label>Statut<select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}><option value="">Tous les statuts</option>{["draft", "sent", "accepted", "confirmed", "performed", "paid", "cancelled"].map((status) => <option key={status} value={status}>{quoteStatusLabels[status] || status}</option>)}</select></label>
+              <label>DJ<select value={filters.dj} onChange={(event) => setFilters((current) => ({ ...current, dj: event.target.value }))}><option value="">Tous les DJs</option>{adminDjs.map((dj) => <option key={dj.id} value={dj.id}>{dj.stage_name}</option>)}</select></label>
+              <label>Client<input value={filters.client} onChange={(event) => setFilters((current) => ({ ...current, client: event.target.value }))} placeholder="Nom ou e-mail" /></label>
+              <label>Du<input type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))} /></label>
+              <label>Au<input type="date" value={filters.to} onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))} /></label>
+              <button className="document-button" type="button" onClick={() => setFilters({ status: "", dj: "", client: "", from: "", to: "" })}>Réinitialiser</button>
+            </section>
+            <section className="admin-case-history"><div className="playlist-heading"><div><h2>Traçabilité des dossiers</h2><p>Chaque étape importante est visible pour faciliter le suivi du dossier.</p></div><Clock3 /></div><div className="admin-quote-grid">{filteredBookings.map((booking) => <article className="admin-quote-card" key={booking.id}><div className="quote-row-heading"><h2>Réservation n°{booking.id}</h2><span className={`quote-status ${booking.status}`}>{quoteStatusLabels[booking.status] || booking.status}</span></div><p>{booking.client_name} · {new Date(`${booking.event_date}T00:00:00`).toLocaleDateString(i18n.language)}</p><AdminCaseTimeline booking={booking} quote={adminAllQuotes.find((quote) => quote.id === booking.quote)} payments={adminPayments} /></article>)}{!filteredBookings.length && <p className="invoice-empty">Aucun dossier ne correspond à ces filtres. Modifiez-les ou réinitialisez la recherche.</p>}</div></section>
             <div className="admin-booking-panel completion-panel">
-              <div className="playlist-heading"><div><h2>Clôturer les prestations</h2><p>La clôture crée automatiquement la facture de solde. Pour une démonstration, l’administrateur peut exceptionnellement clôturer avant la date prévue.</p></div><Check /></div>
+              <div className="playlist-heading"><div><h2>Clôturer les prestations</h2><p>La clôture crée automatiquement la facture de solde. L’administrateur peut exceptionnellement clôturer avant la date prévue.</p></div><Check /></div>
               <div className="admin-quote-grid">
                 {bookingsToComplete.map((booking) => (
                   <article className="admin-quote-card" key={booking.id}>

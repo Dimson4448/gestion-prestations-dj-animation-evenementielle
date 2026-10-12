@@ -1,0 +1,157 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.0 Chrome/140.0.7339.249 Electron/38.7.2 Safari/537.36" version="29.3.0">
+  <diagram id="usecase-presentation" name="Diagramme de présentation">
+    <mxGraphModel dx="1426" dy="841" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;align=center;fontSize=26;fontStyle=1;fontColor=#0C1328;" value="Diagramme des cas d&#39;utilisation - Ultimate DJ" vertex="1">
+          <mxGeometry height="38" width="1060" x="430" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="system" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#0C1328;strokeWidth=2;fontSize=18;fontStyle=1;align=left;verticalAlign=top;spacingTop=10;spacingLeft=12;" value="Ultimate DJ" vertex="1">
+          <mxGeometry height="860" width="1680" x="120" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="public" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9FB5D1;dashed=1;fontSize=17;fontStyle=1;align=left;verticalAlign=top;spacingTop=8;spacingLeft=12;fontColor=#0C1328;" value="Accès public" vertex="1">
+          <mxGeometry height="240" width="520" x="200" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="clientPackage" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9FB5D1;dashed=1;fontSize=17;fontStyle=1;align=left;verticalAlign=top;spacingTop=8;spacingLeft=12;fontColor=#0C1328;" value="Parcours client" vertex="1">
+          <mxGeometry height="430" width="620" x="200" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="djPackage" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9FB5D1;dashed=1;fontSize=17;fontStyle=1;align=left;verticalAlign=top;spacingTop=8;spacingLeft=12;fontColor=#0C1328;" value="Parcours DJ" vertex="1">
+          <mxGeometry height="310" width="520" x="1060" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="adminPackage" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9FB5D1;dashed=1;fontSize=17;fontStyle=1;align=left;verticalAlign=top;spacingTop=8;spacingLeft=12;fontColor=#0C1328;" value="Administration" vertex="1">
+          <mxGeometry height="340" width="520" x="1060" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="visitor" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;fontSize=16;fontColor=#0C1328;" value="Visiteur" vertex="1">
+          <mxGeometry height="105" width="70" x="35" y="195" as="geometry" />
+        </mxCell>
+        <mxCell id="customer" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;fontSize=16;fontColor=#0C1328;" value="Client" vertex="1">
+          <mxGeometry height="105" width="70" x="35" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="diskJockey" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;fontSize=16;fontColor=#0C1328;" value="DJ" vertex="1">
+          <mxGeometry height="105" width="70" x="1815" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="administrator" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;fontSize=16;fontColor=#0C1328;" value="Administrateur" vertex="1">
+          <mxGeometry height="105" width="110" x="1800" y="605" as="geometry" />
+        </mxCell>
+        <mxCell id="public1" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F4FCFE;strokeColor=#00C8F5;fontSize=15;fontColor=#0C1328;" value="Consulter les offres et profils DJ" vertex="1">
+          <mxGeometry height="50" width="330" x="300" y="175" as="geometry" />
+        </mxCell>
+        <mxCell id="public2" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F4FCFE;strokeColor=#00C8F5;fontSize=15;fontColor=#0C1328;" value="Créer un compte client" vertex="1">
+          <mxGeometry height="50" width="330" x="300" y="245" as="geometry" />
+        </mxCell>
+        <mxCell id="public3" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F4FCFE;strokeColor=#00C8F5;fontSize=15;fontColor=#0C1328;" value="Déposer une candidature DJ" vertex="1">
+          <mxGeometry height="50" width="330" x="300" y="315" as="geometry" />
+        </mxCell>
+        <mxCell id="customer1" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F4FCFE;strokeColor=#00C8F5;fontSize=15;fontColor=#0C1328;" value="S&#39;authentifier" vertex="1">
+          <mxGeometry height="48" width="350" x="300" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="customer2" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F4FCFE;strokeColor=#00C8F5;fontSize=15;fontColor=#0C1328;" value="Demander un devis" vertex="1">
+          <mxGeometry height="48" width="350" x="300" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="customer3" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F4FCFE;strokeColor=#00C8F5;fontSize=15;fontColor=#0C1328;" value="Signer le contrat" vertex="1">
+          <mxGeometry height="48" width="350" x="300" y="570" as="geometry" />
+        </mxCell>
+        <mxCell id="customer4" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F4FCFE;strokeColor=#00C8F5;fontSize=15;fontColor=#0C1328;" value="Payer l&#39;acompte" vertex="1">
+          <mxGeometry height="48" width="350" x="300" y="630" as="geometry" />
+        </mxCell>
+        <mxCell id="customer5" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F4FCFE;strokeColor=#00C8F5;fontSize=15;fontColor=#0C1328;" value="Payer le solde" vertex="1">
+          <mxGeometry height="48" width="350" x="300" y="690" as="geometry" />
+        </mxCell>
+        <mxCell id="customer6" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F4FCFE;strokeColor=#00C8F5;fontSize=15;fontColor=#0C1328;" value="Préparer la prestation" vertex="1">
+          <mxGeometry height="48" width="350" x="300" y="750" as="geometry" />
+        </mxCell>
+        <mxCell id="dj1" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFF5FA;strokeColor=#FF2E91;fontSize=15;fontColor=#0C1328;" value="S&#39;authentifier" vertex="1">
+          <mxGeometry height="48" width="330" x="1150" y="175" as="geometry" />
+        </mxCell>
+        <mxCell id="dj2" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFF5FA;strokeColor=#FF2E91;fontSize=15;fontColor=#0C1328;" value="Gérer les disponibilités" vertex="1">
+          <mxGeometry height="48" width="330" x="1150" y="245" as="geometry" />
+        </mxCell>
+        <mxCell id="dj3" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFF5FA;strokeColor=#FF2E91;fontSize=15;fontColor=#0C1328;" value="Répondre à un devis" vertex="1">
+          <mxGeometry height="48" width="330" x="1150" y="315" as="geometry" />
+        </mxCell>
+        <mxCell id="dj4" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFF5FA;strokeColor=#FF2E91;fontSize=15;fontColor=#0C1328;" value="Préparer la prestation" vertex="1">
+          <mxGeometry height="48" width="330" x="1150" y="385" as="geometry" />
+        </mxCell>
+        <mxCell id="admin1" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFCF2;strokeColor=#F7B942;fontSize=15;fontColor=#0C1328;" value="S&#39;authentifier" vertex="1">
+          <mxGeometry height="48" width="330" x="1150" y="535" as="geometry" />
+        </mxCell>
+        <mxCell id="admin2" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFCF2;strokeColor=#F7B942;fontSize=15;fontColor=#0C1328;" value="Gérer les offres" vertex="1">
+          <mxGeometry height="48" width="330" x="1150" y="605" as="geometry" />
+        </mxCell>
+        <mxCell id="admin3" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFCF2;strokeColor=#F7B942;fontSize=15;fontColor=#0C1328;" value="Affecter un DJ" vertex="1">
+          <mxGeometry height="48" width="330" x="1150" y="675" as="geometry" />
+        </mxCell>
+        <mxCell id="admin4" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFCF2;strokeColor=#F7B942;fontSize=15;fontColor=#0C1328;" value="Suivre les dossiers" vertex="1">
+          <mxGeometry height="48" width="330" x="1150" y="745" as="geometry" />
+        </mxCell>
+        <mxCell id="pay" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F4F2FF;strokeColor=#635BFF;fontSize=15;fontColor=#0C1328;" value="Traiter le paiement via Stripe" vertex="1">
+          <mxGeometry height="50" width="400" x="720" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="stripe" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4F2FF;strokeColor=#635BFF;strokeWidth=2;fontSize=15;align=center;verticalAlign=middle;fontColor=#0C1328;" value="« système externe »&lt;br&gt;Système de paiement (Stripe)" vertex="1">
+          <mxGeometry height="65" width="350" x="745" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_public1" edge="1" parent="1" source="visitor" style="endArrow=none;html=1;" target="public1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_public2" edge="1" parent="1" source="visitor" style="endArrow=none;html=1;" target="public2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_public3" edge="1" parent="1" source="visitor" style="endArrow=none;html=1;" target="public3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_customer1" edge="1" parent="1" source="customer" style="endArrow=none;html=1;" target="customer1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_customer2" edge="1" parent="1" source="customer" style="endArrow=none;html=1;" target="customer2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_customer3" edge="1" parent="1" source="customer" style="endArrow=none;html=1;" target="customer3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_customer4" edge="1" parent="1" source="customer" style="endArrow=none;html=1;" target="customer4" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_customer5" edge="1" parent="1" source="customer" style="endArrow=none;html=1;" target="customer5" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_customer6" edge="1" parent="1" source="customer" style="endArrow=none;html=1;" target="customer6" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_dj1" edge="1" parent="1" source="diskJockey" style="endArrow=none;html=1;" target="dj1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_dj2" edge="1" parent="1" source="diskJockey" style="endArrow=none;html=1;" target="dj2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_dj3" edge="1" parent="1" source="diskJockey" style="endArrow=none;html=1;" target="dj3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_dj4" edge="1" parent="1" source="diskJockey" style="endArrow=none;html=1;" target="dj4" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_admin1" edge="1" parent="1" source="administrator" style="endArrow=none;html=1;" target="admin1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_admin2" edge="1" parent="1" source="administrator" style="endArrow=none;html=1;" target="admin2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_admin3" edge="1" parent="1" source="administrator" style="endArrow=none;html=1;" target="admin3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_admin4" edge="1" parent="1" source="administrator" style="endArrow=none;html=1;" target="admin4" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_deposit" edge="1" parent="1" source="customer4" style="dashed=1;endArrow=open;html=0;fontSize=14;fontColor=#4E6585;labelBackgroundColor=#FFFFFF;" target="pay" value="&lt;&lt;include&gt;&gt;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_balance" edge="1" parent="1" source="customer5" style="dashed=1;endArrow=open;html=0;fontSize=14;fontColor=#4E6585;labelBackgroundColor=#FFFFFF;" target="pay" value="&lt;&lt;include&gt;&gt;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_stripe" edge="1" parent="1" source="stripe" style="endArrow=none;html=1;" target="pay" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

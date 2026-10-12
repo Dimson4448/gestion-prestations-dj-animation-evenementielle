@@ -26,3 +26,10 @@ frontend/.vite/
 
 # Fichier local d'import unique vers le gestionnaire de mots de passe Edge.
 demo-edge-passwords.csv
+
+# Artefacts locaux de préparation et de validation
+.codex-finalizer/
+artifact.md
+debug.log
+tmp/
+documents/diagrammes/.$*

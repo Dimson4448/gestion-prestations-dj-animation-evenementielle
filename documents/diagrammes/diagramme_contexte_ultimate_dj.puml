@@ -1,0 +1,23 @@
+@startuml
+title Diagramme de contexte - Ultimate DJ
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+actor Visiteur
+actor Client
+actor DJ
+actor Administrateur
+
+rectangle "Ultimate DJ\nApplication de gestion des prestations DJ\net d'animation événementielle" as UltimateDJ #EAFBFF
+rectangle "« système externe »\nSystème de paiement (Stripe)" as Stripe #F4F2FF
+rectangle "« système externe »\nService d'e-mail" as Email #F4FCFE
+
+Visiteur --> UltimateDJ : Consultation et inscriptions
+Client <--> UltimateDJ : Demandes, documents, paiements\net préparation
+DJ <--> UltimateDJ : Disponibilités, décisions\net préparation
+Administrateur <--> UltimateDJ : Paramétrage et gestion\ndes dossiers
+UltimateDJ --> Stripe : Demande de paiement\nou de remboursement
+Stripe --> UltimateDJ : Confirmation de paiement\n(webhook)
+UltimateDJ --> Email : Notifications transactionnelles
+@enduml

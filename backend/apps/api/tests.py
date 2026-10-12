@@ -32,6 +32,8 @@ class ApiUltimateDJTests(APITestCase):
     @override_settings(
         BUSINESS_LEGAL_NAME="Ultimate DJ",
         BUSINESS_ADDRESS="Rue de la Musique 12, 1000 Bruxelles",
+        BUSINESS_COMPANY_NUMBER="0123.456.789",
+        BUSINESS_VAT_NUMBER="BE0123456789",
         BUSINESS_EMAIL="contact@example.test",
         BUSINESS_PHONE="+32 470 00 00 00",
     )
@@ -39,6 +41,8 @@ class ApiUltimateDJTests(APITestCase):
         response = self.client.get("/api/v1/public/business-info/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["company_number"], "0123.456.789")
+        self.assertEqual(response.data["vat_number"], "BE0123456789")
         self.assertEqual(response.data["email"], "contact@example.test")
         self.assertEqual(response.data["phone"], "+32 470 00 00 00")
 
@@ -1341,6 +1345,7 @@ class ApiUltimateDJTests(APITestCase):
     def test_administrateur_peut_mettre_a_jour_le_statut_du_devis(self):
         self.client.force_authenticate(user=self.client_user)
         created = self.client.post("/api/v1/quotes/", self.quote_payload(), format="json")
+        dj, _ = self.create_available_dj()
         admin = get_user_model().objects.create_superuser(
             username="admin_devis",
             email="admin-devis@example.com",
@@ -1350,7 +1355,7 @@ class ApiUltimateDJTests(APITestCase):
 
         response = self.client.patch(
             f"/api/v1/quotes/{created.data['id']}/",
-            {"status": Quote.SENT},
+            {"status": Quote.SENT, "requested_dj": dj.pk},
             format="json",
         )
 

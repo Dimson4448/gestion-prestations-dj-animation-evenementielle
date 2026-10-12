@@ -104,7 +104,7 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 
 - Création d'un dump SQL MySQL/MariaDB complet pour la base `ultimate_dj`.
 - Le dump contient structure, clés primaires, clés étrangères, index, contraintes et données réalistes de test.
-- Import du dump dans phpMyAdmin confirmé comme fonctionnel.
+- Import du dump dans HeidiSQL confirmé comme fonctionnel.
 
 ### 2026-07-04 - Documentation API et Open Data
 
@@ -358,7 +358,7 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - Nettoyage du dépôt GitHub : fusion de la branche utile dans `main` et suppression des branches devenues obsolètes ; une seule branche principale est conservée.
 - Rédaction de la fiche de scénarios de tests manuels couvrant les rôles, conflits de disponibilité, paiements, remboursements, API, multilinguisme et accessibilité de base.
 - Les tests automatiques et le build de production sont validés par GitHub Actions sur la branche `main`.
-- Régénération du dump SQL versionné depuis la base MariaDB réellement utilisée par Django (`ultimate_dj_django`, port 3307) : schéma complet, état des migrations et catalogue public, sans données privées de comptes, dossiers, messages ou paiements.
+- Régénération, à cette étape, d'une première version du dump SQL depuis la base MariaDB utilisée par Django (`ultimate_dj_django`, port 3307) : schéma, migrations et catalogue public. Cette version a ensuite été remplacée par le dump complet du 11 octobre 2026.
 - Mise à jour de l’adresse publique Ultimate DJ dans la configuration locale et dans le fallback frontend, afin qu’elle soit affichée de manière cohérente dans le footer et les pages légales.
 - Clarification des coordonnées dans le footer avec les libellés « E-mail » et « GSM », traduits également en anglais et en néerlandais.
 - Ajout d'un sélecteur de styles musicaux dans la demande de devis : les styles cochés alimentent directement le champ de préférences transmis au devis, au DJ et aux documents du dossier.
@@ -396,17 +396,39 @@ Une journée sans modification du projet ne nécessite pas de nouvelle entrée.
 - Ajout d'un envoi d'e-mail depuis la messagerie Administrateur : l'administrateur choisit le client ou le DJ du dossier, rédige son message, l'envoie depuis l'adresse Ultimate DJ et conserve automatiquement une trace dans le fil interne de la réservation.
 - Vérifications Django et build Vite réussis après cette évolution.
 
-### 2026-10-10 - Comptes de démonstration pour le jury
+### 2026-10-10 - Comptes de travail pour les parcours complets
 
-- Ajout d'une commande Django idempotente `seed_jury_demo_accounts` pour créer ou mettre à jour les comptes de présentation sans créer de compte administrateur supplémentaire.
+- Ajout d'une commande Django idempotente `seed_jury_demo_accounts` pour créer ou mettre à jour les comptes de travail sans créer de compte administrateur supplémentaire.
 - Création de sept profils clients et de onze profils DJ aux noms fictifs naturels, avec des adresses Gmail aliasées vers la boîte officielle Ultimate DJ.
-- Les DJ couvrent Bruxelles, Anvers, Gand, Liège, Charleroi, Namur, Bruges, Louvain, Hasselt, Mons et Haaltert ; chaque profil reçoit des styles musicaux et deux créneaux de démonstration.
+- Les DJ couvrent Bruxelles, Anvers, Gand, Liège, Charleroi, Namur, Bruges, Louvain, Hasselt, Mons et Haaltert ; chaque profil reçoit des styles musicaux et deux créneaux disponibles.
 - La commande a été exécutée avec succès et la vérification Django ne remonte aucune anomalie.
+
+### 2026-10-11 - Consolidation finale des parcours et de la documentation
+
+- Ajout de la clôture d'une prestation avant sa date dans l'environnement local afin de vérifier l'ensemble du cycle de facturation sans attendre l'événement.
+- Après la clôture d'un dossier, le client ne peut plus créer de playlist ni proposer de nouveaux morceaux pour cette réservation.
+- Prévention des doublons de paiement : un même montant déjà réglé avec succès ne peut pas être payé une seconde fois pour le même dossier.
+- Assouplissement contrôlé du dépôt d'avis en environnement local : un client dont l'acompte est confirmé peut finaliser son avis avant la date de prestation ; le parcours normal après prestation reste documenté.
+- Adaptation de la suppression de compte : un compte sans contrat signé ni paiement à régulariser est désactivé immédiatement, ses réservations annulées et les créneaux libérés ; les documents nécessaires à la traçabilité restent conservés.
+- Mise à jour des pages de mentions légales et de politique de confidentialité en français, anglais et néerlandais : rôles, conservation, paiements, contenus, droits des utilisateurs et sécurité sont cohérents avec le fonctionnement réel de l'application.
+- Mise à jour du README : restauration de la base, utilisation de HeidiSQL, vérification rapide après installation et séparation de la documentation de migration historique.
+- Création d'un guide technique distinct pour la migration d'anciennes données, afin d'alléger la documentation principale.
+- Régénération du dump MariaDB depuis la base active `ultimate_dj_django` : il contient désormais le schéma complet, les migrations appliquées et les données de travail nécessaires aux parcours complets.
+- Vérifications réalisées : contrôle Django, build React de production, contrôle de format Git et test ciblé de mise à jour d'un devis.
+
+### 2026-10-12 - Préparation de la remise versionnée
+
+- Ajout au rapport final de cinq captures représentatives des parcours visiteur, client, DJ et administrateur, avec légendes dans le manuel d'utilisation.
+- Mise à jour de la table des matières du rapport dans Word après l'intégration des captures.
+- Contrôle du dump MariaDB : les migrations sont cohérentes avec l'application et les données nécessaires aux démonstrations sont conservées.
+- Retrait des jetons de session et de rafraîchissement du dump versionné : ils ne sont pas requis pour restaurer la base et ne doivent pas être publiés.
+- Préparation de la release académique et vérification finale du dépôt avant commit et envoi sur `main`.
 
 ## État actuel et prochaines étapes
 
 - Le backend Django, le frontend React, MariaDB, Stripe en mode test et les principaux parcours métier sont intégrés.
 - Les quatre prestations prévues par le cahier des charges sont respectées.
 - Les espaces client, DJ et administration disposent de contrôles d'accès distincts.
-- Les prochaines étapes portent sur les tests manuels de bout en bout avec les comptes de démonstration, la préparation des diagrammes et de la présentation orale, puis la préparation d'un déploiement HTTPS et de Stripe en production.
-- Le dump MariaDB doit continuer à être actualisé lorsqu'une migration ou une modification de données de référence le nécessite.
+- Les parcours client, DJ et administration peuvent être vérifiés de bout en bout avec les comptes de travail disponibles dans la base locale.
+- Les prochaines étapes portent sur les derniers contrôles manuels, la consolidation des livrables et la préparation d'un déploiement HTTPS avec Stripe en production.
+- Le dump MariaDB doit être actualisé après chaque migration ou évolution importante des données de référence.

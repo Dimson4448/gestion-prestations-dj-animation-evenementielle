@@ -1,0 +1,173 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.0 Chrome/140.0.7339.249 Electron/38.7.2 Safari/537.36" version="29.3.0">
+  <diagram id="presentation" name="SchÃ©ma relationnel">
+    <mxGraphModel dx="1426" dy="841" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2300" pageHeight="1250" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;align=center;fontSize=24;fontStyle=1;" value="Sch&amp;#233;ma relationnel &amp;#8212; vue de pr&amp;#233;sentation" vertex="1">
+          <mxGeometry height="35" width="1600" x="400" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="client" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#00A6D6;strokeWidth=2;" value="&lt;b&gt;Profil client&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : profils clients&lt;/font&gt;&lt;hr&gt;FK : utilisateur&lt;br&gt;coordonn&amp;#233;es" vertex="1">
+          <mxGeometry height="105" width="250" x="70" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="dj" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#FF2F92;strokeWidth=2;" value="&lt;b&gt;Profil DJ&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : profils DJ&lt;/font&gt;&lt;hr&gt;FK : utilisateur&lt;br&gt;nom de sc&amp;#232;ne" vertex="1">
+          <mxGeometry height="105" width="250" x="70" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="formula" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#F7B942;strokeWidth=2;" value="&lt;b&gt;Formule&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : formules&lt;/font&gt;&lt;hr&gt;nom, dur&amp;#233;e, prix" vertex="1">
+          <mxGeometry height="105" width="250" x="380" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="type" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#F7B942;strokeWidth=2;" value="&lt;b&gt;Type d&amp;#8217;&amp;#233;v&amp;#233;nement&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : types d&amp;#8217;&amp;#233;v&amp;#233;nement&lt;/font&gt;&lt;hr&gt;nom, rendez-vous requis" vertex="1">
+          <mxGeometry height="105" width="250" x="710" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="quote" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#7B61FF;strokeWidth=2;" value="&lt;b&gt;Devis&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : devis&lt;/font&gt;&lt;hr&gt;FK : client, DJ, formule, type, lieu&lt;br&gt;montant, statut" vertex="1">
+          <mxGeometry height="105" width="250" x="390" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="quoteopt" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#7B61FF;strokeWidth=2;" value="&lt;b&gt;Option de devis&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : options de devis&lt;/font&gt;&lt;hr&gt;FK : devis, option de service&lt;br&gt;quantit&amp;#233;" vertex="1">
+          <mxGeometry height="105" width="250" x="380" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="booking" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#7B61FF;strokeWidth=2;" value="&lt;b&gt;R&amp;#233;servation&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : r&amp;#233;servations&lt;/font&gt;&lt;hr&gt;FK : devis [unique], client, DJ&lt;br&gt;type, formule, lieu, statut" vertex="1">
+          <mxGeometry height="105" width="250" x="700" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="invoice" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#20A16A;strokeWidth=2;" value="&lt;b&gt;Facture&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : factures&lt;/font&gt;&lt;hr&gt;FK : r&amp;#233;servation&lt;br&gt;num&amp;#233;ro, montant, statut" vertex="1">
+          <mxGeometry height="105" width="250" x="1020" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="payment" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#20A16A;strokeWidth=2;" value="&lt;b&gt;Paiement&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : paiements&lt;/font&gt;&lt;hr&gt;FK : r&amp;#233;servation, facture&lt;br&gt;montant, statut Stripe" vertex="1">
+          <mxGeometry height="105" width="250" x="1320" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="refund" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#20A16A;strokeWidth=2;" value="&lt;b&gt;Remboursement&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : remboursements&lt;/font&gt;&lt;hr&gt;FK : paiement&lt;br&gt;montant, motif, statut" vertex="1">
+          <mxGeometry height="105" width="250" x="1670" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="contract" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#7B61FF;strokeWidth=2;" value="&lt;b&gt;Contrat&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : contrats&lt;/font&gt;&lt;hr&gt;FK : r&amp;#233;servation [unique]&lt;br&gt;signature, statut" vertex="1">
+          <mxGeometry height="105" width="250" x="700" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="appointment" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#7B61FF;strokeWidth=2;" value="&lt;b&gt;Rendez-vous&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : rendez-vous pr&amp;#233;paratoires&lt;/font&gt;&lt;hr&gt;FK : r&amp;#233;servation&lt;br&gt;date, mode, statut" vertex="1">
+          <mxGeometry height="105" width="250" x="1000" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="playlist" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#7B61FF;strokeWidth=2;" value="&lt;b&gt;Playlist&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : playlists&lt;/font&gt;&lt;hr&gt;FK : r&amp;#233;servation [unique]&lt;br&gt;style, notes" vertex="1">
+          <mxGeometry height="105" width="250" x="1300" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="review" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#7B61FF;strokeWidth=2;" value="&lt;b&gt;Avis client&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : avis clients&lt;/font&gt;&lt;hr&gt;FK : r&amp;#233;servation, client, DJ&lt;br&gt;note, statut" vertex="1">
+          <mxGeometry height="105" width="250" x="320" y="700" as="geometry" />
+        </mxCell>
+        <mxCell id="user" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#00A6D6;strokeWidth=2;" value="&lt;b&gt;Utilisateur&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : utilisateurs&lt;/font&gt;&lt;hr&gt;id, identifiant, e-mail" vertex="1">
+          <mxGeometry height="105" width="250" x="70" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="message" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#7B61FF;strokeWidth=2;" value="&lt;b&gt;Message du dossier&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : messages du dossier&lt;/font&gt;&lt;hr&gt;FK : r&amp;#233;servation, exp&amp;#233;diteur&lt;br&gt;contenu, lu le" vertex="1">
+          <mxGeometry height="105" width="250" x="450" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="material" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=7;spacingLeft=9;fontSize=11;fillColor=#FFFFFF;strokeColor=#7B61FF;strokeWidth=2;" value="&lt;b&gt;Mat&amp;#233;riel de r&amp;#233;servation&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#52647E&quot;&gt;Table : mat&amp;#233;riels de r&amp;#233;servation&lt;/font&gt;&lt;hr&gt;FK : r&amp;#233;servation, mat&amp;#233;riel&lt;br&gt;quantit&amp;#233;" vertex="1">
+          <mxGeometry height="105" width="250" x="800" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="client" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="quote" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="dj" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="quote" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="formula" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="quote" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="type" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="quote" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="quote" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="quoteopt" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="quote" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="booking" value="1 &amp;#8212; 0..1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="client" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="booking" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" x="-0.0006" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="210" y="60" />
+              <mxPoint x="930" y="30" />
+              <mxPoint x="1020" y="190" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="dj" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="booking" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="590" y="610" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="booking" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="invoice" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="invoice" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="payment" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="payment" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="refund" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="booking" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="contract" value="1 &amp;#8212; 0..1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="booking" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="appointment" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="booking" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="playlist" value="1 &amp;#8212; 0..1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" edge="1" parent="1" source="booking" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="review" value="1 &amp;#8212; 0..1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="670" y="630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e16" edge="1" parent="1" source="user" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="message" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" edge="1" parent="1" source="client" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="review" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="30" y="520" />
+              <mxPoint x="40" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e18" edge="1" parent="1" source="dj" style="edgeStyle=none;html=1;endArrow=none;startArrow=none;strokeColor=#52647E;fontSize=13;fontColor=#27364F;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="review" value="1 &amp;#8212; 0..*">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="enonce_relations" name="Énoncé des relations">
+    <mxGraphModel dx="1426" dy="841" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3100" pageHeight="1500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="statement_title" parent="1" style="text;html=1;align=center;fontSize=25;fontStyle=1;fontColor=#000000;" value="Énoncé des relations entre les tables" vertex="1">
+          <mxGeometry height="40" width="1700" x="650" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="statement_subtitle" parent="1" style="text;html=1;align=center;fontSize=15;fontStyle=1;fontColor=#000000;" value="Ultimate DJ" vertex="1">
+          <mxGeometry height="25" width="1700" x="650" y="74" as="geometry" />
+        </mxCell>
+        <mxCell id="statement_intro" parent="1" style="text;html=1;align=left;fontSize=14;fontColor=#000000;whiteSpace=wrap;" value="Ce document complète le schéma relationnel de la base de données d&#x27;Ultimate DJ. Les cardinalités sont indiquées selon les notations `1-1`, `1-0..1`, `1-0..*` et `0..*-0..*`." vertex="1">
+          <mxGeometry height="45" width="2820" x="90" y="125" as="geometry" />
+        </mxCell>
+        <mxCell id="statement_section_1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=12;spacingLeft=15;spacingRight=15;spacingBottom=10;fontSize=14;fillColor=#FFFFFF;strokeColor=#00A6D6;strokeWidth=2;" value="&lt;b&gt;Comptes et profils&lt;/b&gt;&lt;br&gt;&amp;#8226; Un utilisateur possède au plus un profil client ; un profil client appartient à un seul utilisateur [1-0..1].&lt;br&gt;&amp;#8226; Un utilisateur possède au plus un profil DJ ; un profil DJ appartient à un seul utilisateur [1-0..1].&lt;br&gt;&amp;#8226; Un utilisateur possède au plus une candidature DJ ; une candidature DJ appartient à un seul utilisateur [1-0..1].&lt;br&gt;&amp;#8226; Un utilisateur ayant le rôle administrateur peut traiter zéro, une ou plusieurs candidatures DJ ; une candidature DJ est traitée par zéro ou un administrateur [1-0..*].&lt;br&gt;&amp;#8226; Un client formule zéro, une ou plusieurs demandes de suppression de compte ; une demande de suppression concerne un seul client [1-0..*].&lt;br&gt;&amp;#8226; Un administrateur peut traiter plusieurs demandes de suppression ; une demande est traitée par zéro ou un administrateur [1-0..*].&lt;br&gt;&amp;#8226; Un utilisateur reçoit zéro, une ou plusieurs notifications ; une notification appartient à un seul utilisateur [1-0..*].&lt;br&gt;&amp;#8226; Un utilisateur possède au plus une préférence de notification ; une préférence de notification appartient à un seul utilisateur [1-0..1].&lt;br&gt;&amp;#8226; Un DJ possède zéro, un ou plusieurs créneaux de disponibilité ; un créneau appartient à un seul DJ [1-0..*]." vertex="1">
+          <mxGeometry height="455" width="1340" x="90" y="195" as="geometry" />
+        </mxCell>
+        <mxCell id="statement_section_2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=12;spacingLeft=15;spacingRight=15;spacingBottom=10;fontSize=14;fillColor=#FFFFFF;strokeColor=#F7B942;strokeWidth=2;" value="&lt;b&gt;Catalogue&lt;/b&gt;&lt;br&gt;&amp;#8226; Une formule est compatible avec zéro, un ou plusieurs types d&amp;#x27;événement ; un type d&amp;#x27;événement peut être compatible avec zéro, une ou plusieurs formules [0..*-0..*]. Django crée une table d&amp;#x27;association automatique pour cette relation.&lt;br&gt;&amp;#8226; Un DJ pratique zéro, un ou plusieurs styles musicaux ; un style musical peut être associé à zéro, un ou plusieurs DJs [0..*-0..*]. Django crée une table d&amp;#x27;association automatique pour cette relation.&lt;br&gt;&amp;#8226; Une option de service peut être ajoutée à zéro, un ou plusieurs devis ; un devis peut contenir zéro, une ou plusieurs options de service [0..*-0..*]. Cette relation est matérialisée par la table Options de devis.&lt;br&gt;&amp;#8226; Un matériel peut être utilisé dans zéro, une ou plusieurs réservations ; une réservation peut nécessiter zéro, un ou plusieurs matériels [0..*-0..*]. Cette relation est matérialisée par la table Matériels de réservation." vertex="1">
+          <mxGeometry height="275" width="1340" x="90" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="statement_section_3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=12;spacingLeft=15;spacingRight=15;spacingBottom=10;fontSize=14;fillColor=#FFFFFF;strokeColor=#7B61FF;strokeWidth=2;" value="&lt;b&gt;Devis et réservation&lt;/b&gt;&lt;br&gt;&amp;#8226; Un client enregistre zéro, un ou plusieurs lieux ; un lieu appartient à un seul client [1-0..*].&lt;br&gt;&amp;#8226; Un client demande zéro, un ou plusieurs devis ; un devis appartient à un seul client [1-0..*].&lt;br&gt;&amp;#8226; Un DJ peut être demandé dans zéro, un ou plusieurs devis ; un devis désigne zéro ou un DJ demandé [0..1-0..*].&lt;br&gt;&amp;#8226; Un type d&amp;#x27;événement apparaît dans zéro, un ou plusieurs devis ; un devis concerne un seul type d&amp;#x27;événement [1-0..*].&lt;br&gt;&amp;#8226; Une formule apparaît dans zéro, un ou plusieurs devis ; un devis concerne une seule formule [1-0..*].&lt;br&gt;&amp;#8226; Un lieu peut être utilisé dans zéro, un ou plusieurs devis ; un devis concerne un seul lieu [1-0..*].&lt;br&gt;&amp;#8226; Un devis contient zéro, une ou plusieurs options de devis ; une option de devis appartient à un seul devis [1-0..*].&lt;br&gt;&amp;#8226; Un devis donne lieu à zéro ou une réservation ; une réservation provient d&amp;#x27;un seul devis [1-0..1].&lt;br&gt;&amp;#8226; Un client possède zéro, une ou plusieurs réservations ; une réservation concerne un seul client [1-0..*].&lt;br&gt;&amp;#8226; Un DJ réalise zéro, une ou plusieurs réservations ; une réservation est affectée à un seul DJ [1-0..*].&lt;br&gt;&amp;#8226; Un type d&amp;#x27;événement apparaît dans zéro, une ou plusieurs réservations ; une réservation concerne un seul type d&amp;#x27;événement [1-0..*].&lt;br&gt;&amp;#8226; Une formule apparaît dans zéro, une ou plusieurs réservations ; une réservation concerne une seule formule [1-0..*].&lt;br&gt;&amp;#8226; Un lieu peut être utilisé dans zéro, une ou plusieurs réservations ; une réservation concerne un seul lieu [1-0..*]." vertex="1">
+          <mxGeometry height="460" width="1340" x="90" y="985" as="geometry" />
+        </mxCell>
+        <mxCell id="statement_section_4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=12;spacingLeft=15;spacingRight=15;spacingBottom=10;fontSize=14;fillColor=#FFFFFF;strokeColor=#7B61FF;strokeWidth=2;" value="&lt;b&gt;Préparation et suivi du dossier&lt;/b&gt;&lt;br&gt;&amp;#8226; Une réservation peut posséder zéro ou un contrat ; un contrat concerne une seule réservation [1-0..1].&lt;br&gt;&amp;#8226; Une réservation possède zéro, un ou plusieurs rendez-vous préparatoires ; un rendez-vous préparatoire concerne une seule réservation [1-0..*].&lt;br&gt;&amp;#8226; Une réservation possède au plus une playlist ; une playlist concerne une seule réservation [1-0..1].&lt;br&gt;&amp;#8226; Une playlist contient zéro, un ou plusieurs morceaux ; un morceau appartient à une seule playlist [1-0..*].&lt;br&gt;&amp;#8226; Une playlist peut utiliser zéro, un ou plusieurs styles musicaux ; un style musical peut être associé à zéro, une ou plusieurs playlists [0..*-0..*]. Django crée une table d&amp;#x27;association automatique pour cette relation.&lt;br&gt;&amp;#8226; Une réservation contient zéro, un ou plusieurs messages ; un message appartient à une seule réservation [1-0..*].&lt;br&gt;&amp;#8226; Un utilisateur envoie zéro, un ou plusieurs messages de dossier ; un message possède un seul expéditeur [1-0..*].&lt;br&gt;&amp;#8226; Une réservation peut faire l&amp;#x27;objet de zéro, une ou plusieurs demandes d&amp;#x27;annulation ; une demande d&amp;#x27;annulation concerne une seule réservation [1-0..*].&lt;br&gt;&amp;#8226; Un administrateur peut traiter plusieurs demandes d&amp;#x27;annulation ; une demande est traitée par zéro ou un administrateur [1-0..*].&lt;br&gt;&amp;#8226; Une réservation peut recevoir zéro, un ou plusieurs avis ; un avis concerne une seule réservation [1-0..*].&lt;br&gt;&amp;#8226; Un client peut publier zéro, un ou plusieurs avis ; un avis est publié par un seul client [1-0..*].&lt;br&gt;&amp;#8226; Un DJ peut recevoir zéro, un ou plusieurs avis ; un avis concerne un seul DJ [1-0..*]." vertex="1">
+          <mxGeometry height="490" width="1340" x="1570" y="195" as="geometry" />
+        </mxCell>
+        <mxCell id="statement_section_5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=12;spacingLeft=15;spacingRight=15;spacingBottom=10;fontSize=14;fillColor=#FFFFFF;strokeColor=#20A16A;strokeWidth=2;" value="&lt;b&gt;Facturation et paiements&lt;/b&gt;&lt;br&gt;&amp;#8226; Une réservation possède zéro, une ou plusieurs factures ; une facture concerne une seule réservation [1-0..*].&lt;br&gt;&amp;#8226; Une réservation peut recevoir zéro, un ou plusieurs paiements ; un paiement concerne une seule réservation [1-0..*].&lt;br&gt;&amp;#8226; Une facture peut être réglée par zéro, un ou plusieurs paiements ; un paiement règle une seule facture [1-0..*].&lt;br&gt;&amp;#8226; Un paiement peut donner lieu à zéro, un ou plusieurs remboursements ; un remboursement concerne un seul paiement [1-0..*]." vertex="1">
+          <mxGeometry height="210" width="1340" x="1570" y="715" as="geometry" />
+        </mxCell>
+        <mxCell id="statement_section_6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingTop=12;spacingLeft=15;spacingRight=15;spacingBottom=10;fontSize=14;fillColor=#FFFFFF;strokeColor=#F7B942;strokeWidth=2;" value="&lt;b&gt;Contraintes importantes&lt;/b&gt;&lt;br&gt;&amp;#8226; Les relations plusieurs-à-plusieurs entre DJ et styles musicaux, playlists et styles musicaux, ainsi qu&amp;#x27;entre formules et types d&amp;#x27;événement sont gérées par des tables d&amp;#x27;association créées automatiquement par Django. Elles contiennent les deux clés étrangères nécessaires à chaque relation.&lt;br&gt;&amp;#8226; Un devis n&amp;#x27;est associé qu&amp;#x27;à une seule réservation grâce à la contrainte d&amp;#x27;unicité sur la référence du devis dans la table Réservations (bookings).&lt;br&gt;&amp;#8226; Un contrat et une playlist ne peuvent être associés qu&amp;#x27;à une seule réservation grâce à leurs références uniques vers la table Réservations (bookings).&lt;br&gt;&amp;#8226; Une même option ne peut être ajoutée qu&amp;#x27;une seule fois dans un même devis ; une même pièce de matériel ne peut être ajoutée qu&amp;#x27;une seule fois dans une même réservation.&lt;br&gt;&amp;#8226; Les références Stripe de session et d&amp;#x27;intention de paiement sont uniques lorsqu&amp;#x27;elles sont renseignées." vertex="1">
+          <mxGeometry height="410" width="1340" x="1570" y="955" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

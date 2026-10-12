@@ -67,6 +67,11 @@ const quoteStatusLabels = {
   accepted: "Accepté",
   refused: "Refusé",
   expired: "Expiré",
+  preparatory_meeting: "Préparation",
+  confirmed: "Confirmée",
+  performed: "Clôturée",
+  paid: "Solde payé",
+  cancelled: "Annulée",
 };
 
 export default function App() {
@@ -764,7 +769,7 @@ export default function App() {
         setIsAuthenticated(false);
         setCurrentUser(null);
         setClientProfile(null);
-        setLoginStatus("Votre compte a été désactivé. Les dossiers sans contrat ni paiement ont été libérés.");
+        setLoginStatus(t("accountDeletion.deactivated"));
         return;
       }
       setAccountDeletionStatus("Votre demande de suppression a été enregistrée pour traitement administratif.");
@@ -843,7 +848,7 @@ export default function App() {
       setCancellationRequests((current) => [response.data, ...current]);
       setCancellationReasons((current) => ({ ...current, [bookingId]: "" }));
       setCancellationStatus(response.data.status === "approved"
-        ? `La réservation n°${bookingId} a été annulée et le créneau DJ a été libéré.`
+        ? t("accountDeletion.bookingCancelled", { id: bookingId })
         : `Votre demande pour la réservation n°${bookingId} a été transmise à l'administration.`);
     } catch (error) {
       setCancellationStatus(error.response?.data?.detail || "La demande d'annulation n'a pas pu être envoyée.");

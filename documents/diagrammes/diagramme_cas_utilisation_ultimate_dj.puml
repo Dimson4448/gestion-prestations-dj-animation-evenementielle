@@ -1,0 +1,120 @@
+@startuml
+title Diagramme des cas d'utilisation - Ultimate DJ
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+skinparam rectangle {
+  RoundCorner 12
+  BorderColor #0C1328
+  BackgroundColor #FFFFFF
+}
+skinparam usecase {
+  BorderColor #0C1328
+  BackgroundColor #F5F8FC
+  ArrowColor #4E6585
+}
+skinparam actor {
+  BorderColor #0C1328
+  BackgroundColor #FFFFFF
+}
+
+actor Visiteur
+actor Client
+actor DJ
+actor Administrateur
+actor "Système de paiement\n(Stripe)" as Stripe
+
+rectangle "Ultimate DJ" {
+  package "Accès public" {
+    usecase "Consulter les offres\net les profils DJ" as UC_Public
+    usecase "Créer un compte client" as UC_RegisterClient
+    usecase "Déposer une candidature DJ" as UC_ApplyDJ
+  }
+
+  package "Parcours client" {
+    usecase "Se connecter" as UC_Login
+    usecase "Gérer son compte\net demander sa suppression" as UC_Account
+    usecase "Créer une demande\nde devis" as UC_QuoteRequest
+    usecase "Consulter le devis\net le dossier" as UC_FollowCase
+    usecase "Signer le contrat" as UC_Sign
+    usecase "Payer l'acompte" as UC_Deposit
+    usecase "Payer le solde" as UC_Balance
+    usecase "Proposer ou répondre\nà un rendez-vous préparatoire" as UC_AppointmentClient
+    usecase "Proposer des morceaux\net consulter la playlist" as UC_PlaylistClient
+    usecase "Échanger des messages\ndans le dossier" as UC_MessageClient
+    usecase "Demander l'annulation\nd'une prestation" as UC_CancelClient
+    usecase "Publier un avis" as UC_ReviewClient
+  }
+
+  package "Parcours DJ" {
+    usecase "Gérer son profil\net ses disponibilités" as UC_Availability
+    usecase "Accepter ou refuser\nun devis attribué" as UC_QuoteDecision
+    usecase "Répondre au rendez-vous\npréparatoire" as UC_AppointmentDJ
+    usecase "Accepter ou refuser\nles morceaux proposés" as UC_SongDecision
+    usecase "Échanger des messages\ndans le dossier" as UC_MessageDJ
+    usecase "Répondre à un avis" as UC_ReviewDJ
+  }
+
+  package "Administration" {
+    usecase "Gérer le catalogue\net les profils DJ" as UC_Catalog
+    usecase "Affecter un DJ\net envoyer le devis" as UC_AssignDJ
+    usecase "Suivre, filtrer et exporter\nles dossiers" as UC_AdminFollow
+    usecase "Clôturer une prestation" as UC_Close
+    usecase "Traiter les annulations\net remboursements" as UC_Refund
+    usecase "Modérer les avis" as UC_Moderate
+    usecase "Traiter les demandes\nde suppression de compte" as UC_DeleteAccount
+  }
+
+  usecase "Créer une session\nde paiement" as UC_Checkout
+  usecase "Recevoir la confirmation\nde paiement" as UC_Webhook
+}
+
+Visiteur -- UC_Public
+Visiteur -- UC_RegisterClient
+Visiteur -- UC_ApplyDJ
+
+Client -- UC_Login
+Client -- UC_Account
+Client -- UC_QuoteRequest
+Client -- UC_FollowCase
+Client -- UC_Sign
+Client -- UC_Deposit
+Client -- UC_Balance
+Client -- UC_AppointmentClient
+Client -- UC_PlaylistClient
+Client -- UC_MessageClient
+Client -- UC_CancelClient
+Client -- UC_ReviewClient
+
+DJ -- UC_Login
+DJ -- UC_Availability
+DJ -- UC_QuoteDecision
+DJ -- UC_AppointmentDJ
+DJ -- UC_SongDecision
+DJ -- UC_MessageDJ
+DJ -- UC_ReviewDJ
+
+Administrateur -- UC_Login
+Administrateur -- UC_Catalog
+Administrateur -- UC_AssignDJ
+Administrateur -- UC_AdminFollow
+Administrateur -- UC_Close
+Administrateur -- UC_Refund
+Administrateur -- UC_Moderate
+Administrateur -- UC_DeleteAccount
+
+Stripe -- UC_Checkout
+Stripe -- UC_Webhook
+
+UC_Deposit ..> UC_Checkout : <<include>>
+UC_Balance ..> UC_Checkout : <<include>>
+UC_Checkout ..> UC_Webhook : <<include>>
+UC_CancelClient ..> UC_Refund : <<extend>>
+UC_ReviewClient ..> UC_Moderate : <<extend>>
+
+legend bottom
+  Les relations <<include>> indiquent une étape systématique.
+  Les relations <<extend>> indiquent un traitement conditionnel.
+endlegend
+@enduml

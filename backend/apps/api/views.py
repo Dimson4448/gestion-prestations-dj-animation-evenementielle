@@ -187,6 +187,8 @@ def public_business_info(request):
     return Response({
         "legal_name": settings.BUSINESS_LEGAL_NAME,
         "address": settings.BUSINESS_ADDRESS,
+        "company_number": settings.BUSINESS_COMPANY_NUMBER,
+        "vat_number": settings.BUSINESS_VAT_NUMBER,
         "email": settings.BUSINESS_EMAIL,
         "phone": settings.BUSINESS_PHONE,
     })

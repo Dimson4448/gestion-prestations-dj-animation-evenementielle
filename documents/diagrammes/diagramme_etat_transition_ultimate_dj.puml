@@ -1,0 +1,30 @@
+@startuml
+title Diagramme d'état-transition — Cycle de vie d'un dossier de prestation
+
+[*] --> DevisBrouillon
+state "Devis brouillon\nstatut du devis : brouillon" as DevisBrouillon
+state "En attente de décision DJ\nstatut du devis : envoyé" as AttenteDecisionDJ
+state "Contrat et acompte en attente\ndevis accepté, réservation créée" as ContratAcompte
+state "Réservation confirmée\nstatut : confirmée" as ReservationConfirmee
+state "Préparation de la prestation\nrendez-vous et playlist" as Preparation
+state "Prestation clôturée\nstatut : réalisée, solde en attente" as PrestationCloturee
+state "Dossier payé\nstatut : soldé, avis possible" as DossierPaye
+state "Devis expiré ou abandonné" as DevisExpire
+state "Réservation annulée\ncréneau DJ libéré" as ReservationAnnulee
+
+DevisBrouillon --> AttenteDecisionDJ : Administration affecte un DJ\net transmet le devis
+AttenteDecisionDJ --> DevisBrouillon : DJ refuse / nouvelle affectation
+AttenteDecisionDJ --> ContratAcompte : DJ accepte
+DevisBrouillon --> DevisExpire : expiration ou abandon
+
+ContratAcompte --> ReservationConfirmee : Client signe le contrat\net paie l'acompte via Stripe
+ReservationConfirmee --> Preparation : Préparer le rendez-vous\net la playlist
+Preparation --> PrestationCloturee : DJ ou administration\nclôture la prestation
+PrestationCloturee --> DossierPaye : Client paie le solde via Stripe
+DossierPaye --> [*]
+
+ContratAcompte --> ReservationAnnulee : annulation validée
+ReservationConfirmee --> ReservationAnnulee : annulation validée
+Preparation --> ReservationAnnulee : annulation validée
+ReservationAnnulee --> [*]
+@enduml
